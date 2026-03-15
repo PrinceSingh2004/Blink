@@ -33,5 +33,5 @@ This project is designed for social interaction and real-time engagement.
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/username/blink-project.git
-cd blink-project/backend
+git clone https://github.com/PrinceSingh2004/Blink-Infinite-Scroll.git
+cd Infinite_Scroll\Backend
