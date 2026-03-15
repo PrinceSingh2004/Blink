@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blink | Upload Video</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/profile.css">
+<style>
+  .camera-controls-btn {
+    transition: transform 0.2s, background 0.2s;
+  }
+  .camera-controls-btn:hover {
+    transform: scale(1.1);
+  }
+  .camera-controls-btn:active {
+    transform: scale(0.95);
+  }
+  #recordBtn {
+    background: #ff2d55 !important;
+    border: 6px solid rgba(255,255,255,0.3) !important;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,45,85,0.7); }
+    70% { box-shadow: 0 0 0 20px rgba(255,45,85,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,45,85,0); }
+  }
+</style>
+</head>
+
+<body>
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" role="navigation">
+    <a href="index.html" class="logo-container">
+      <div class="logo-icon">B</div><span class="logo-text">Blink</span>
+    </a>
+    <ul class="nav-links">
+      <li class="nav-item"><a href="index.html"><span class="nav-icon">🏠</span><span class="nav-text">Home</span></a></li>
+      <li class="nav-item"><a href="upload.html" class="active"><span class="nav-icon">➕</span><span class="nav-text">Upload</span></a></li>
+      <li class="nav-item"><a href="messages.html"><span class="nav-icon">💬</span><span class="nav-text">Messages</span></a></li>
+      <li class="nav-item"><a href="live.html"><span class="nav-icon">🔴</span><span class="nav-text">Live</span></a></li>
+      <li class="nav-item"><a href="profile.html"><span class="nav-icon">👤</span><span class="nav-text">Profile</span></a></li>
+    </ul>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="sidebarAvatar"></div>
+      <div class="sidebar-info">
+        <div class="sidebar-name" id="sidebarName">Loading…</div>
+        <div class="sidebar-handle" id="sidebarHandle"></div>
+      </div>
+      <button class="sidebar-logout" id="logoutBtn" title="Sign Out">⏻</button>
+    </div>
+  </nav>
+
+  <main class="main-content page-scrollable">
+    <div class="upload-wrap">
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:36px">
+        <a href="index.html" class="btn btn-secondary btn-sm">← Back</a>
+        <h1 class="page-title" style="margin:0">Upload Video 🎬</h1>
+      </div>
+
+      <form id="uploadForm">
+
+        <!-- Drop Zone -->
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="videoFileInput" accept="video/*" aria-label="Select video file">
+          <div class="upload-zone-icon">🎬</div>
+          <h3>Drop your video here</h3>
+          <p>or <span style="color:var(--blue);font-weight:600">click to browse</span></p>
+          <div style="margin-top:20px; display:flex; justify-content:center; gap:10px;">
+             <button type="button" id="startCameraBtn" class="btn btn-secondary btn-sm" style="background:rgba(255,255,255,0.1)">📷 Record with Camera</button>
+          </div>
+          <p style="margin-top:15px;font-size:12px;color:var(--text-muted)">MP4, WebM, MOV · Max 200MB</p>
+        </div>
+
+        <!-- Camera Recording View -->
+        <div id="cameraWrap" style="display:none; margin-bottom:24px; position:relative; border-radius:var(--radius-lg); overflow:hidden; background:#000; aspect-ratio:9/16; max-height:600px; width:100%; margin:0 auto; border: 2px solid var(--glass-border)">
+            <video id="cameraPreview" autoplay muted playsinline style="width:100%; height:100%; object-fit:cover; z-index:1"></video>
+            
+            <button type="button" id="stopCameraBtn" class="camera-controls-btn" style="position:absolute; top:20px; right:20px; background:rgba(0,0,0,0.7); border-radius:50%; width:40px; height:40px; padding:0; z-index:100; border:2px solid rgba(255,255,255,0.3); display:flex; align-items:center; justify-content:center; color:white; cursor:pointer; font-size:18px">✕</button>
+
+            <div class="camera-controls" style="position:absolute; bottom:40px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:20px; z-index:100">
+                <div id="recordTimer" style="background:rgba(255,45,85,1); padding:6px 20px; border-radius:100px; font-weight:800; font-size:16px; color:white; display:none; box-shadow:0 4px 15px rgba(255,45,85,0.5); letter-spacing:1px">00:00</div>
+                <button type="button" id="recordBtn" class="camera-controls-btn" style="background:#ff2d55; border-radius:50%; width:80px; height:80px; padding:0; display:flex; align-items:center; justify-content:center; border:8px solid rgba(255,255,255,0.4); cursor:pointer; box-shadow:0 0 30px rgba(255,45,85,0.6)">
+                    <div id="recordIcon" style="width:28px; height:28px; background:#fff; border-radius:50%; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)"></div>
+                </button>
+            </div>
+
+        </div>
+
+
+        <!-- Video Preview -->
+        <div class="video-preview-wrap" id="previewWrap" style="display:none">
+          <video id="videoPreview" controls style="width:100%;height:100%;object-fit:contain;background:#000"></video>
+        </div>
+
+        <div id="fileNameLabel" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;display:none;text-align:center"></div>
+
+
+        <div style="display:flex;gap:12px;margin-bottom:24px">
+          <button type="button" id="changeVideoBtn" class="btn btn-secondary btn-sm" style="display:none">🔄 Change Video</button>
+        </div>
+
+        <!-- Caption -->
+        <div class="form-group">
+          <label class="form-label" for="captionInput">Caption</label>
+          <textarea id="captionInput" class="form-input" placeholder="Write a caption… #hashtags #mood" rows="3" maxlength="300"></textarea>
+        </div>
+
+        <!-- Mood Category -->
+        <div class="form-group">
+          <label class="form-label" for="moodSelect">Mood Category</label>
+          <select id="moodSelect" class="form-input">
+            <option value="General">🌟 General</option>
+            <option value="Happy">😊 Happy</option>
+            <option value="Motivation">🚀 Motivation</option>
+            <option value="Gaming">🎮 Gaming</option>
+            <option value="Learning">📚 Learning</option>
+            <option value="Music">🎵 Music</option>
+          </select>
+        </div>
+
+        <!-- Progress -->
+        <div class="upload-progress" id="uploadProgress" style="display:none">
+          <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+          <div class="progress-text" id="progressText">Uploading…</div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg" id="submitUploadBtn" style="width:100%;margin-top:8px">
+          🚀 Publish Video
+        </button>
+
+        <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-top:12px">
+          By uploading, you agree to Blink's terms. Audio is preserved at full quality.
+        </p>
+      </form>
+
+    </div>
+  </main>
+</div>
+
+<div id="toastContainer"></div>
+<script src="../js/auth.js"></script>
+<script src="../js/upload.js"></script>
+<script>
+// Show changeVideoBtn after file selected
+document.getElementById('previewWrap')?.addEventListener('DOMSubtreeModified', () => {
+    document.getElementById('changeVideoBtn').style.display = '';
+    document.getElementById('fileNameLabel').style.display = '';
+});
+</script>
+</body>
+</html>

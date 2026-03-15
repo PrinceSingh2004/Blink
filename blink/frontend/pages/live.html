@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blink | Live</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  .live-container {
+    height: 100vh;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .live-video-wrap {
+    flex: 1;
+    position: relative;
+    background: #111;
+  }
+  #livePreview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .live-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+  }
+  .live-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .live-badge {
+    background: #ff2d55;
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-weight: 900;
+    font-size: 14px;
+    text-transform: uppercase;
+    display: none;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.5; } }
+  .viewer-count {
+    background: rgba(0,0,0,0.5);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    backdrop-filter: blur(5px);
+  }
+  .live-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 0 10px 60px;
+    pointer-events: auto;
+  }
+  .live-comments {
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* Smooth fade at top */
+    mask-image: linear-gradient(to bottom, transparent 0%, black 15%);
+    padding-top: 20px;
+    scrollbar-width: none;
+  }
+  .live-comments::-webkit-scrollbar { display: none; }
+  
+  .comment-bubble {
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 8px 16px;
+    border-radius: 12px;
+    width: fit-content;
+    max-width: 85%;
+    font-size: 13px;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.1);
+    animation: slideInUp 0.3s ease-out;
+    line-height: 1.4;
+  }
+  @keyframes slideInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .comment-user {
+    color: var(--pink);
+    font-weight: 800;
+    margin-right: 6px;
+  }
+  .live-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  #stopLiveBtn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #ff2d55;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-weight: 800;
+    cursor: pointer;
+    display: none;
+    z-index: 9999;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    border: 2px solid rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.2s ease;
+  }
+  #stopLiveBtn:hover {
+    background: #ff4d6d;
+    transform: scale(1.05);
+  }
+  #stopLiveBtn:active {
+    transform: scale(0.95);
+  }
+
+  #goLiveBtn {
+    background: var(--pink);
+    color: white;
+    border: none;
+    padding: 14px 24px;
+    border-radius: 50px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(255,45,85,0.4);
+    flex: 1;
+    z-index: 100;
+  }
+  #exitLiveBtn {
+    background: rgba(255,255,255,0.2);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    color: white;
+    z-index: 100;
+  }
+
+
+</style>
+</head>
+<body>
+<div class="app-layout">
+  
+  <!-- SIDEBAR (Standard) -->
+  <nav class="sidebar">
+    <a href="index.html" class="logo-container">
+      <div class="logo-icon">B</div><span class="logo-text">Blink</span>
+    </a>
+    <div class="sidebar-search">
+      <span class="input-icon">🔍</span>
+      <input type="search" class="form-input" id="globalSearchInput" placeholder="Search creators..." aria-label="Search creators">
+    </div>
+    <ul class="nav-links">
+      <li class="nav-item"><a href="index.html"><span class="nav-icon">🏠</span><span class="nav-text">Home</span></a></li>
+      <li class="nav-item"><a href="upload.html"><span class="nav-icon">➕</span><span class="nav-text">Upload</span></a></li>
+      <li class="nav-item"><a href="messages.html"><span class="nav-icon">💬</span><span class="nav-text">Messages</span></a></li>
+      <li class="nav-item"><a href="live.html" class="active"><span class="nav-icon">🔴</span><span class="nav-text">Live</span></a></li>
+      <li class="nav-item"><a href="profile.html"><span class="nav-icon">👤</span><span class="nav-text">Profile</span></a></li>
+    </ul>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="sidebarAvatar"></div>
+      <div class="sidebar-info">
+        <div class="sidebar-name" id="sidebarName">Loading…</div>
+        <div class="sidebar-handle" id="sidebarHandle"></div>
+      </div>
+      <button class="sidebar-logout" id="logoutBtn">⏻</button>
+    </div>
+  </nav>
+
+  <main class="main-content" style="padding:0">
+    <div class="live-container">
+      <div class="live-video-wrap">
+        <video id="livePreview" autoplay muted playsinline></video>
+        <button id="stopLiveBtn">END LIVE STREAM</button>
+        
+        <div class="live-overlay">
+          <div class="live-header">
+            <div style="display:flex; gap:10px; align-items:center">
+              <div id="liveBadge" class="live-badge">LIVE</div>
+              <div id="watchingInfo" style="display:none; color:white; font-size:12px; font-weight:700; background:rgba(0,0,0,0.4); padding:4px 10px; border-radius:4px;">Watching: @<span id="watchingUsername"></span></div>
+              <div class="viewer-count">👁️ <span id="viewCount">0</span> users</div>
+            </div>
+          </div>
+
+
+          <div class="live-footer">
+            <!-- Discovery Mode (shown when not broadcasting) -->
+            <div id="liveDiscovery" style="display:flex; flex-direction:column; gap:20px; padding:20px; background:var(--bg-panel); border-radius:var(--radius-xl); border:1px solid var(--glass-border); margin-bottom:20px;">
+              <h2 style="font-size:22px; font-weight:900; margin-bottom:10px;">🔥 Live Now</h2>
+              <div id="liveStreamsGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:15px; max-height:300px; overflow-y:auto;">
+                 <!-- Streamers will be populated here -->
+                 <div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--text-muted)">Looking for active streamers...</div>
+              </div>
+              <div style="border-top:1px solid var(--glass-border); padding-top:20px;">
+                <p style="font-size:14px; color:var(--text-secondary); margin-bottom:12px;">Want to share your moment?</p>
+                <button id="goLiveBtn" class="btn btn-primary" style="width:100%">🚀 START YOUR LIVE STREAM</button>
+              </div>
+            </div>
+
+            <!-- Chat Mode (shown when broadcasting or watching) -->
+            <div id="liveChatArea" style="display:none; flex-direction:column; gap:15px; pointer-events:auto;">
+                <div class="live-comments" id="liveComments"></div>
+                
+                <div class="reactions-bar" style="display:flex; gap:10px; padding:0 10px;">
+                  <button class="reaction-btn" style="background:none; border:none; font-size:24px; cursor:pointer;" onclick="window.Blink.sendReaction('❤️')">❤️</button>
+                  <button class="reaction-btn" style="background:none; border:none; font-size:24px; cursor:pointer;" onclick="window.Blink.sendReaction('🔥')">🔥</button>
+                  <button class="reaction-btn" style="background:none; border:none; font-size:24px; cursor:pointer;" onclick="window.Blink.sendReaction('🎉')">🎉</button>
+                  <button class="reaction-btn" style="background:none; border:none; font-size:24px; cursor:pointer;" onclick="window.Blink.sendReaction('👍')">👍</button>
+                </div>
+
+                <div class="live-actions" style="display:flex; gap:10px;">
+                   <input type="text" id="liveMsgInput" class="form-input" style="flex:1; border-radius:50px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2)" placeholder="Say something...">
+                   <button id="sendLiveMsgBtn" class="btn btn-primary btn-sm" style="border-radius:50%; width:44px; height:44px; padding:0">➤</button>
+                   <button id="exitLiveBtn" class="btn btn-secondary btn-sm" onclick="location.reload()">✕</button>
+                </div>
+            </div>
+          </div>
+          
+          <!-- Floating Reactions Container -->
+          <div id="floatingReactions" style="position:absolute; bottom:150px; right:20px; width:100px; height:400px; pointer-events:none; z-index:20; overflow:hidden;"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<div id="toastContainer"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/live.js"></script>
+</body>
+</html>

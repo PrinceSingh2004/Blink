@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blink | Edit Profile</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/profile.css">
+</head>
+<body>
+<div class="app-layout" id="editProfilePage">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" role="navigation">
+    <a href="index.html" class="logo-container">
+      <div class="logo-icon">B</div><span class="logo-text">Blink</span>
+    </a>
+    <ul class="nav-links">
+      <li class="nav-item"><a href="index.html"><span class="nav-icon">🏠</span><span class="nav-text">Home</span></a></li>
+      <li class="nav-item"><a href="upload.html"><span class="nav-icon">➕</span><span class="nav-text">Upload</span></a></li>
+      <li class="nav-item"><a href="messages.html"><span class="nav-icon">💬</span><span class="nav-text">Messages</span></a></li>
+      <li class="nav-item"><a href="live.html"><span class="nav-icon">🔴</span><span class="nav-text">Live</span></a></li>
+      <li class="nav-item"><a href="profile.html" class="active"><span class="nav-icon">👤</span><span class="nav-text">Profile</span></a></li>
+    </ul>
+    <a href="upload.html" class="upload-btn" style="text-decoration:none">＋ Upload</a>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="sidebarAvatar"></div>
+      <div class="sidebar-info">
+        <div class="sidebar-name" id="sidebarName">Loading…</div>
+        <div class="sidebar-handle" id="sidebarHandle"></div>
+      </div>
+      <button class="sidebar-logout" id="logoutBtn" title="Sign Out">⏻</button>
+    </div>
+  </nav>
+
+  <main class="main-content page-scrollable">
+    <div class="edit-profile-wrap">
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:36px">
+        <button onclick="history.back()" class="btn btn-secondary btn-sm">← Back</button>
+        <h1 class="page-title" style="margin:0">Edit Profile</h1>
+      </div>
+
+      <!-- Avatar Upload -->
+      <div class="avatar-upload-area">
+        <div class="avatar-preview">
+          <img id="avatarPreview" alt="Avatar" style="display:none">
+          <span id="avatarInitial">?</span>
+        </div>
+        <div class="avatar-upload-info">
+          <h4>Profile Photo</h4>
+          <p>JPG, PNG or WebP. Max 10MB.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+              📷 Choose Photo
+              <input type="file" id="avatarInput" accept="image/*" style="display:none">
+            </label>
+            <button class="btn btn-primary btn-sm" id="uploadAvatarBtn">Upload</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Info Form -->
+      <form id="updateProfileForm">
+        <h3 style="font-size:17px;font-weight:700;margin-bottom:20px;color:var(--text-secondary)">Account Info</h3>
+        <div class="form-group">
+          <label class="form-label" for="editUsername">Username</label>
+          <div class="input-wrap">
+            <span class="input-icon">@</span>
+            <input type="text" id="editUsername" class="form-input" placeholder="username" minlength="3" maxlength="30">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="editBio">Bio</label>
+          <textarea id="editBio" class="form-input" placeholder="Tell the world about yourself…" maxlength="200" rows="3"></textarea>
+        </div>
+        <button type="submit" id="updateProfileBtn" class="btn btn-primary">Save Changes</button>
+      </form>
+
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:40px 0">
+
+      <!-- Change Password -->
+      <form id="changePasswordForm">
+        <h3 style="font-size:17px;font-weight:700;margin-bottom:20px;color:var(--text-secondary)">Change Password</h3>
+        <div class="form-group">
+          <label class="form-label" for="currentPasswordInput">Current Password</label>
+          <input type="password" id="currentPasswordInput" class="form-input" placeholder="Enter current password" autocomplete="current-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="newPasswordInput">New Password</label>
+          <input type="password" id="newPasswordInput" class="form-input" placeholder="Enter new password" autocomplete="new-password" minlength="6">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="confirmPasswordInput">Confirm New Password</label>
+          <input type="password" id="confirmPasswordInput" class="form-input" placeholder="Repeat new password" autocomplete="new-password">
+        </div>
+        <button type="submit" id="changePwBtn" class="btn btn-secondary">Update Password</button>
+      </form>
+
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:40px 0">
+
+      <!-- Danger Zone -->
+      <div class="danger-zone" style="background:rgba(255,45,110,0.05);border:1px solid rgba(255,45,110,0.2);padding:24px;border-radius:var(--radius-lg)">
+        <h3 style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--pink)">Danger Zone</h3>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px">Deleting your account is permanent and cannot be undone. All your videos, profile data, and messages will be removed.</p>
+        <button class="btn btn-primary" id="deleteAccountBtn" style="background:var(--pink)">Delete My Account</button>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div id="toastContainer"></div>
+<script src="../js/auth.js"></script>
+<script src="../js/profile.js"></script>
+</body>
+</html>

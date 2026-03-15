@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blink | Messages</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/profile.css">
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" role="navigation">
+    <a href="index.html" class="logo-container">
+      <div class="logo-icon">B</div><span class="logo-text">Blink</span>
+    </a>
+    <div class="sidebar-search">
+      <span class="input-icon">🔍</span>
+      <input type="search" class="form-input" id="globalSearchInput" placeholder="Search creators..." aria-label="Search creators">
+    </div>
+    <ul class="nav-links">
+      <li class="nav-item"><a href="index.html"><span class="nav-icon">🏠</span><span class="nav-text">Home</span></a></li>
+      <li class="nav-item"><a href="upload.html"><span class="nav-icon">➕</span><span class="nav-text">Upload</span></a></li>
+      <li class="nav-item"><a href="messages.html" class="active"><span class="nav-icon">💬</span><span class="nav-text">Messages</span></a></li>
+      <li class="nav-item"><a href="live.html"><span class="nav-icon">🔴</span><span class="nav-text">Live</span></a></li>
+      <li class="nav-item"><a href="profile.html"><span class="nav-icon">👤</span><span class="nav-text">Profile</span></a></li>
+    </ul>
+    <a href="upload.html" class="upload-btn" style="text-decoration:none">＋ Upload</a>
+    <div class="sidebar-user">
+      <div class="sidebar-avatar" id="sidebarAvatar"></div>
+      <div class="sidebar-info">
+        <div class="sidebar-name" id="sidebarName">Loading…</div>
+        <div class="sidebar-handle" id="sidebarHandle"></div>
+      </div>
+      <button class="sidebar-logout" id="logoutBtn" title="Sign Out">⏻</button>
+    </div>
+  </nav>
+
+  <!-- MESSAGES -->
+  <main class="main-content">
+    <div class="messages-layout">
+
+      <!-- Conversations Sidebar -->
+      <div class="conv-sidebar">
+        <div class="conv-header">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <h2>Messages</h2>
+            <button class="btn btn-primary btn-sm" id="newMsgBtn" title="New message">✏️</button>
+          </div>
+          <div class="conv-search">
+            <span class="conv-search-icon">🔍</span>
+            <input type="search" class="conv-search-input" id="convSearch" placeholder="Search conversations…" aria-label="Search conversations">
+          </div>
+        </div>
+        <div class="conv-list" id="convList" role="list">
+          <div style="display:flex;justify-content:center;padding:40px"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- Chat Area -->
+      <div class="chat-area">
+
+        <!-- No conversation selected -->
+        <div class="chat-no-conv" id="noChatSelected">
+          <div class="icon">💬</div>
+          <h3>Your Messages</h3>
+          <p style="color:var(--text-muted);font-size:14px">Select a conversation or start a new one</p>
+          <button class="btn btn-primary" id="newMsgBtn2" onclick="document.getElementById('newMsgBtn').click()">✏️ New Message</button>
+        </div>
+
+        <!-- Chat Window (hidden until conversation selected) -->
+        <div id="chatMain" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+
+          <!-- Header -->
+          <div class="chat-header" id="chatHeader">
+            <div class="chat-header-avatar" id="chatHeaderAvatar">?</div>
+            <div>
+              <div class="chat-header-name" id="chatHeaderName">Select a chat</div>
+              <div class="chat-header-status" style="font-size:12px;color:var(--green);">● Active now</div>
+            </div>
+            <div class="chat-header-actions">
+              <button class="chat-icon-btn" title="View profile" onclick="window.open(`profile.html?id=${window.__activeChatId}`,'_self')">👤</button>
+            </div>
+          </div>
+
+          <!-- Messages -->
+          <div class="messages-area" id="messagesArea" role="log" aria-live="polite"></div>
+
+          <!-- Input -->
+          <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Write a message…" autocomplete="off" maxlength="1000">
+            <button class="chat-send-btn" id="sendMsgBtn" aria-label="Send message">➤</button>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toastContainer"></div>
+<script src="../js/auth.js"></script>
+<script src="../js/message.js"></script>
+<script>
+// Track active chat user id for profile link
+window.__activeChatId = null;
+const origOpenChat = window.openChat;
+</script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blink | Feed</title>
+<meta name="description" content="Your personalized video feed on Blink.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/feed.css">
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" role="navigation" aria-label="Main navigation">
+    <a href="index.html" class="logo-container">
+      <div class="logo-icon">B</div>
+      <span class="logo-text">Blink</span>
+    </a>
+    <div class="sidebar-search">
+      <span class="input-icon">🔍</span>
+      <input type="search" class="form-input" id="globalSearchInput" placeholder="Search creators..." aria-label="Search creators">
+    </div>
+    <ul class="nav-links">
+      <li class="nav-item"><a href="index.html" class="active"><span class="nav-icon">🏠</span><span class="nav-text">Home</span></a></li>
+      <li class="nav-item"><a href="upload.html"><span class="nav-icon">➕</span><span class="nav-text">Upload</span></a></li>
+      <li class="nav-item"><a href="messages.html"><span class="nav-icon">💬</span><span class="nav-text">Messages</span></a></li>
+      <li class="nav-item"><a href="live.html"><span class="nav-icon">🔴</span><span class="nav-text">Live</span></a></li>
+      <li class="nav-item"><a href="profile.html"><span class="nav-icon">👤</span><span class="nav-text">Profile</span></a></li>
+    </ul>
+    <a href="upload.html" class="upload-btn" style="text-decoration:none">＋ Upload</a>
+    <div class="sidebar-user" onclick="window.location.href='profile.html'">
+      <div class="sidebar-avatar" id="sidebarAvatar"></div>
+      <div class="sidebar-info">
+        <div class="sidebar-name" id="sidebarName">Loading…</div>
+        <div class="sidebar-handle" id="sidebarHandle"></div>
+      </div>
+      <button class="sidebar-logout" id="logoutBtn" title="Sign Out" aria-label="Sign Out">⏻</button>
+    </div>
+  </nav>
+
+  <!-- MAIN FEED -->
+  <main class="main-content" role="main">
+
+    <!-- Mood Selector -->
+    <div class="mood-selector" id="moodSelector" role="tablist" aria-label="Mood filter">
+      <div class="mood-pill active" data-mood="General" role="tab">For You</div>
+      <div class="mood-pill" data-mood="Happy" role="tab">Happy 😊</div>
+      <div class="mood-pill" data-mood="Motivation" role="tab">Motivation 🚀</div>
+      <div class="mood-pill" data-mood="Gaming" role="tab">Gaming 🎮</div>
+      <div class="mood-pill" data-mood="Learning" role="tab">Learning 📚</div>
+      <div class="mood-pill" data-mood="Music" role="tab">Music 🎵</div>
+    </div>
+
+    <!-- Feed -->
+    <div class="feed-container" id="feedContainer" role="feed" aria-label="Video feed"></div>
+
+  </main>
+</div>
+
+<!-- Comment Modal -->
+<div class="modal-backdrop comment-modal" id="commentModal" role="dialog" aria-modal="true" aria-label="Comments">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title">💬 Comments</h2>
+      <button class="modal-close" id="closeCommentModal" aria-label="Close">✕</button>
+    </div>
+    <div id="commentList"></div>
+    <div class="comment-input-row">
+      <input type="text" id="commentInput" class="form-input" placeholder="Write a comment…" maxlength="500" autocomplete="off">
+      <button class="comment-send-btn" id="commentSendBtn" aria-label="Post comment">➤</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/infinite-scroll.js"></script>
+<script src="../js/feed.js"></script>
+</body>
+</html>

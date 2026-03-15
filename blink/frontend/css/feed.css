@@ -1,0 +1,122 @@
+/* feed.css – Video Feed Page */
+
+/* Mood selector */
+.mood-selector{
+    position:absolute;top:20px;left:50%;transform:translateX(-50%);
+    display:flex;gap:8px;z-index:20;white-space:nowrap;
+}
+.mood-pill{
+    background:rgba(7,7,10,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,.12);color:var(--text-secondary);
+    padding:8px 18px;border-radius:var(--radius-full);font-size:14px;font-weight:600;
+    cursor:pointer;transition:all var(--mid);user-select:none;
+}
+.mood-pill:hover{border-color:rgba(255,255,255,.25);color:var(--text-primary);}
+.mood-pill.active{background:var(--grad-brand);border-color:transparent;color:white;box-shadow:0 4px 20px var(--pink-glow);}
+
+/* Feed container */
+.feed-container{
+    width:100%;max-width:450px;height:100vh;
+    overflow-y:scroll;scroll-snap-type:y mandatory;
+    scrollbar-width:none;margin:0 auto;
+}
+.feed-container::-webkit-scrollbar{display:none;}
+
+/* Video post card */
+.video-post{
+    position:relative;width:100%;height:100vh;
+    scroll-snap-align:start;background:#000;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+}
+.video-post::after{
+    content:'';position:absolute;inset:0;pointer-events:none;z-index:4;
+    background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.3) 40%,transparent 65%);
+}
+/* Video element fills the card and sits at the base layer */
+.video-player{
+    position:absolute;inset:0;width:100%;height:100%;
+    object-fit:cover;z-index:1;
+    background:#000;
+}
+
+
+/* Shimmer: sits above video (z:2) but below gradient (z:4) */
+.video-shimmer{
+    position:absolute;inset:0;background:linear-gradient(160deg,#0f0f14,#1a0926,#0f1a26);
+    display:flex;flex-direction:column;justify-content:flex-end;padding:32px;gap:14px;z-index:2;pointer-events:none;
+    transition:opacity .3s ease;
+}
+.video-shimmer.hidden{opacity:0;pointer-events:none;}
+.shimmer-bar{
+    height:14px;border-radius:50px;
+    background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.1) 50%,rgba(255,255,255,.04) 75%);
+    background-size:200% 100%;animation:shimmer 1.6s ease-in-out infinite;width:80%;
+}
+.shimmer-bar.short{width:50%;}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+
+/* Tap overlay and info sit at z:5+ so they're above gradient */
+.video-info{position:absolute;bottom:88px;left:20px;right:90px;z-index:10;}
+.tap-overlay{position:absolute;inset:0;z-index:5;cursor:pointer;}
+.play-indicator{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:72px;z-index:6;pointer-events:none;animation:popIn .2s var(--ease);}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.4)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.creator-handle:hover .creator-name{text-decoration:underline;}
+.verified-badge{background:var(--blue);color:#000;width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0;}
+.video-caption{font-size:14px;line-height:1.5;margin-bottom:6px;color:rgba(255,255,255,.92);}
+.video-hashtags{font-size:13px;color:var(--blue);margin-top:4px;font-weight:500;}
+.video-music{font-size:13px;display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.7);margin-top:10px;}
+.music-disc{width:32px;height:32px;background:var(--grad-brand);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;animation:spinDisc 4s linear infinite;box-shadow:0 0 12px var(--pink-glow);flex-shrink:0;}
+@keyframes spinDisc{to{transform:rotate(360deg);}}
+.mood-tag{font-size:11px;font-weight:600;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);padding:3px 10px;border-radius:var(--radius-full);margin-left:4px;}
+
+/* Action buttons */
+.video-actions{position:absolute;bottom:80px;right:14px;display:flex;flex-direction:column;gap:20px;align-items:center;z-index:10;}
+.action-btn{background:transparent;border:none;color:white;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;transition:transform var(--fast);filter:drop-shadow(0 2px 6px rgba(0,0,0,.7));}
+.action-btn:hover{transform:scale(1.12);}
+.action-btn:active{transform:scale(.95);}
+.action-icon{width:48px;height:48px;background:rgba(255,255,255,.12);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;transition:all var(--fast);}
+.action-btn:hover .action-icon{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);}
+.action-btn.like.active .action-icon{background:rgba(255,45,110,.25);border-color:var(--pink);box-shadow:0 0 20px var(--pink-glow);}
+.action-text{font-size:12px;font-weight:700;letter-spacing:.3px;}
+.creator-avatar-wrap{position:relative;margin-bottom:8px;}
+.creator-avatar{width:52px;height:52px;border-radius:50%;border:2.5px solid white;overflow:hidden;box-shadow:0 0 0 0 var(--pink-glow);transition:box-shadow var(--mid);cursor:pointer;}
+.creator-avatar:hover{box-shadow:0 0 0 4px var(--pink-glow);}
+.creator-avatar img{width:100%;height:100%;object-fit:cover;}
+.follow-quick-btn{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:22px;height:22px;background:var(--pink);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:bold;border:2px solid var(--bg-dark);cursor:pointer;transition:background var(--fast),transform var(--fast);}
+.follow-quick-btn:hover{background:var(--blue);transform:translateX(-50%) scale(1.15);}
+.follow-quick-btn.following{background:var(--bg-elevated);font-size:12px;}
+
+/* Blink moment badge */
+.blink-badge{position:absolute;top:22px;left:16px;background:var(--grad-brand);color:white;padding:6px 14px;border-radius:var(--radius-full);font-size:11px;font-weight:700;z-index:10;display:flex;align-items:center;gap:6px;letter-spacing:.5px;box-shadow:0 4px 20px var(--pink-glow);animation:badgePulse 2.5s ease-in-out infinite;}
+@keyframes badgePulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.85;transform:scale(1.03);}}
+
+/* Tap overlay */
+.tap-overlay{position:absolute;inset:0;z-index:5;cursor:pointer;}
+.play-indicator{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:72px;z-index:6;pointer-events:none;animation:popIn .2s var(--ease);}
+@keyframes popIn{from{opacity:0;transform:translate(-50%,-50%) scale(.4)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.scroll-sentinel{height:1px;width:100%;flex-shrink:0;}
+
+/* Comment modal */
+.comment-modal .modal{max-height:70vh;}
+.comment-input-row{display:flex;gap:12px;margin-top:20px;border-top:1px solid var(--glass-border);padding-top:20px;}
+.comment-input-row .form-input{flex:1;border-radius:var(--radius-full);padding:12px 20px;}
+.comment-send-btn{width:44px;height:44px;background:var(--grad-brand);border:none;border-radius:50%;color:white;font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-shadow:0 4px 16px var(--pink-glow);transition:transform var(--fast);}
+.comment-send-btn:hover{transform:scale(1.1);}
+.comment-item{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.05);}
+.comment-item:last-child{border-bottom:none;}
+.comment-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--grad-brand);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;}
+.comment-username{font-size:13px;font-weight:700;margin-bottom:4px;}
+.comment-text{font-size:14px;line-height:1.5;color:rgba(255,255,255,.88);}
+.comment-time{font-size:11px;color:var(--text-muted);margin-top:4px;}
+.comment-empty{text-align:center;padding:40px 0;color:var(--text-secondary);}
+
+/* Feed empty/error */
+.feed-empty{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;height:100vh;color:var(--text-secondary);}
+.feed-empty .icon{font-size:48px;}
+.feed-empty h3{font-size:20px;font-weight:700;color:var(--text-primary);}
+
+@media(max-width:960px){
+    .mood-selector{overflow-x:auto;width:100%;padding:0 16px;justify-content:flex-start;left:0;transform:none;}
+    .feed-container{max-width:100%;}
+}

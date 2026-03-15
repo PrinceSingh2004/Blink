@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blink | Sign In</title>
+<meta name="description" content="Sign in to your Blink account – the short video platform.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/auth.css">
+</head>
+<body>
+<div class="auth-page">
+
+  <!-- LEFT VISUAL -->
+  <div class="auth-visual">
+    <div class="auth-cards">
+      <div class="auth-card"></div>
+      <div class="auth-card"></div>
+      <div class="auth-card"></div>
+    </div>
+    <div class="auth-brand">
+      <div class="auth-logo-icon">B</div>
+      <div class="auth-brand-name">Blink</div>
+      <p class="auth-brand-tagline">The next-gen short video platform. Create. Share. Go Viral.</p>
+    </div>
+    <div class="auth-features">
+      <div class="auth-feature"><span class="auth-feature-icon">🎬</span><span class="auth-feature-text">Upload vertical short videos</span></div>
+      <div class="auth-feature"><span class="auth-feature-icon">⚡</span><span class="auth-feature-text">Blink Moments – 24h viral clips</span></div>
+      <div class="auth-feature"><span class="auth-feature-icon">🌟</span><span class="auth-feature-text">Follow creators you love</span></div>
+      <div class="auth-feature"><span class="auth-feature-icon">💬</span><span class="auth-feature-text">Real-time messaging</span></div>
+    </div>
+  </div>
+
+  <!-- RIGHT FORM -->
+  <div class="auth-form-section">
+    <div class="auth-form-header">
+      <h1 class="auth-form-title">Welcome back 👋</h1>
+      <p class="auth-form-subtitle">Sign in to continue to Blink</p>
+    </div>
+
+    <div id="loginAlert" class="auth-alert"></div>
+
+    <form class="auth-form" id="loginForm" autocomplete="on" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="identifier">Email or Username</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" name="identifier" id="identifier" class="form-input" placeholder="Enter email or username" autocomplete="username" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="passwordInput">Password</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" name="password" id="passwordInput" class="form-input" placeholder="Enter your password" autocomplete="current-password" required>
+          <button type="button" class="pw-toggle" id="pwToggle" aria-label="Show password">👁️</button>
+        </div>
+      </div>
+
+      <button type="submit" class="auth-submit-btn" id="loginBtn">
+        <span class="btn-label">Sign In →</span>
+        <span class="btn-spinner"></span>
+      </button>
+    </form>
+
+    <div class="auth-divider">or</div>
+    <div class="auth-switch">Don't have an account? <a href="register.html">Create one free</a></div>
+  </div>
+
+</div>
+<div id="toastContainer"></div>
+<script src="../js/auth.js"></script>
+</body>
+</html>
