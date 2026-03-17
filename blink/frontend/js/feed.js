@@ -46,35 +46,35 @@ function buildCard(v) {
     const isOwnPost  = currentUser && currentUser.id === v.user_id;
 
     post.innerHTML = `
-        ${v.is_blink_moment ? `<div class="blink-badge">⚡ Blink Moment <span style="opacity:.7;font-size:10px">24h left</span></div>` : ''}
+        ${v.is_blink_moment ? `<div class="blink-badge"><i class="bi bi-lightning-charge-fill"></i> Blink Moment <span style="opacity:.7;font-size:10px">24h left</span></div>` : ''}
         <video class="video-player" data-src="${v.video_url}" loop playsinline preload="none"></video>
         <div class="video-shimmer"><div class="shimmer-bar"></div><div class="shimmer-bar short"></div></div>
         <div class="video-info">
             <div class="creator-handle" onclick="window.location.href='/pages/profile.html?id=${v.user_id}'">
                 <span class="creator-name">@${username}</span>
-                <span class="verified-badge">✓</span>
+                <span class="verified-badge"><i class="bi bi-patch-check-fill"></i></span>
                 ${v.mood_category ? `<span class="mood-tag">${v.mood_category}</span>` : ''}
             </div>
             <p class="video-caption">${v.caption || ''}</p>
-            <div class="video-music"><div class="music-disc">🎵</div><span>Original Sound · ${username}</span></div>
+            <div class="video-music"><div class="music-disc"><i class="bi bi-music-note-beamed"></i></div><span>Original Sound · ${username}</span></div>
         </div>
         <div class="video-actions">
             <div class="creator-avatar-wrap">
                 <div class="creator-avatar" onclick="window.location.href='/pages/profile.html?id=${v.user_id}'">
                     <img src="${avatarSrc}" alt="@${username}" loading="lazy" onerror="this.parentElement.textContent='${username[0].toUpperCase()}'">
                 </div>
-                ${!isOwnPost ? `<button class="follow-quick-btn" data-uid="${v.user_id}" title="Follow @${username}">+</button>` : ''}
+                ${!isOwnPost ? `<button class="follow-quick-btn" data-uid="${v.user_id}" title="Follow @${username}"><i class="bi bi-plus-lg"></i></button>` : ''}
             </div>
             <button class="action-btn like ${v.liked_by_me ? 'active' : ''}" data-id="${v.id}" data-count="${v.likes_count || 0}">
-                <div class="action-icon">❤️</div><span class="action-text">${fmt(v.likes_count)}</span>
+                <div class="action-icon"><i class="bi bi-heart-fill"></i></div><span class="action-text">${fmt(v.likes_count)}</span>
             </button>
             <button class="action-btn comment" data-id="${v.id}" data-user="${username}" data-caption="${(v.caption || '').replace(/"/g,'&quot;')}">
-                <div class="action-icon">💬</div><span class="action-text">${fmt(v.comments_count)}</span>
+                <div class="action-icon"><i class="bi bi-chat-left-text-fill"></i></div><span class="action-text">${fmt(v.comments_count)}</span>
             </button>
             <button class="action-btn share" data-id="${v.id}">
-                <div class="action-icon">📤</div><span class="action-text">Share</span>
+                <div class="action-icon"><i class="bi bi-share-fill"></i></div><span class="action-text">Share</span>
             </button>
-            ${isOwnPost ? `<button class="action-btn delete" data-id="${v.id}"><div class="action-icon">🗑️</div><span class="action-text">Delete</span></button>` : ''}
+            ${isOwnPost ? `<button class="action-btn delete" data-id="${v.id}"><div class="action-icon"><i class="bi bi-trash3-fill"></i></div><span class="action-text">Delete</span></button>` : ''}
         </div>
         <div class="tap-overlay"></div>
     `;
@@ -106,7 +106,7 @@ function buildCard(v) {
         const url = `${window.location.origin}/pages/index.html`;
         try {
             if (navigator.share) await navigator.share({ title: 'Blink Video', url });
-            else { await navigator.clipboard.writeText(url); showToast('🔗 Link copied!'); }
+            else { await navigator.clipboard.writeText(url); showToast('Link copied!'); }
             fetch(`/api/videos/${v.id}/share`, { method: 'POST' }).catch(() => {});
         } catch {}
     });
@@ -127,8 +127,8 @@ function buildCard(v) {
             } else {
                 await apiRequest(`/follow/${uid}`, { method: 'POST' });
                 followBtn.classList.add('following');
-                followBtn.textContent = '✓';
-                showToast(`✅ Following @${username}`);
+                followBtn.innerHTML = '<i class=\"bi bi-check-lg\"></i>';
+                showToast(`Following @${username}`);
             }
         } catch (err) { showToast(err.message, 'error'); }
     });
@@ -139,7 +139,7 @@ function buildCard(v) {
         try {
             await apiRequest(`/videos/${v.id}`, { method: 'DELETE' });
             post.remove();
-            showToast('🗑️ Video deleted');
+            showToast('Video deleted');
         } catch (err) { showToast(err.message, 'error'); }
     });
 
@@ -151,7 +151,7 @@ function buildCard(v) {
         if (vid.paused) { vid.play(); } else { vid.pause(); }
         const icon = document.createElement('div');
         icon.className   = 'play-indicator';
-        icon.textContent = vid.paused ? '▶' : '⏸';
+        icon.innerHTML = vid.paused ? '<i class=\"bi bi-play-fill\"></i>' : '<i class=\"bi bi-pause-fill\"></i>';
         post.appendChild(icon);
         setTimeout(() => icon.remove(), 600);
     });
@@ -324,4 +324,3 @@ commentModal?.addEventListener('click', e => { if (e.target === commentModal) co
 })();
 
 }); // end DOMContentLoaded
-

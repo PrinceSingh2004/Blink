@@ -57,10 +57,10 @@ initDb.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``, (err) => 
         console.error("Error creating database:", err);
     } else {
         console.log(`Database '${dbConfig.database}' ensured successfully.`);
-        
+
         // Now use a temp connection specifically to create tables
         const connection = mysql.createConnection(dbConfig);
-        
+
         const createUsersTable = `
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -75,7 +75,7 @@ initDb.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``, (err) => 
         connection.query(createUsersTable, (err, results) => {
             if (err) console.error("Error creating users table:", err);
             else console.log("Users table initialized.");
-            
+
             // Create videos table
             const createVideosTable = `
                 CREATE TABLE IF NOT EXISTS videos (
@@ -97,24 +97,24 @@ initDb.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``, (err) => 
 });
 
 // ── Redirect ALL page requests to the new Blink app (port 4000) ──
-const NEW_APP = 'http://localhost:4000';
+const NEW_APP = 'http://localhost:3000';
 app.get('/', (req, res) => res.redirect(NEW_APP + '/pages/login.html'));
 ['/login.html', '/home.html', '/Create_Account.html', '/profile.html',
- '/chat.html', '/index.html', '/register.html', '/messages.html', '/upload.html'].forEach(p => {
-    app.get(p, (req, res) => res.redirect(NEW_APP + '/pages/login.html'));
-});
+    '/chat.html', '/index.html', '/register.html', '/messages.html', '/upload.html'].forEach(p => {
+        app.get(p, (req, res) => res.redirect(NEW_APP + '/pages/login.html'));
+    });
 
 // Handle Signup Registration
 app.post("/signup", async (req, res) => {
     const { contact, fullname, username, password, birthday } = req.body;
-    
+
     if (!contact || !fullname || !username || !password || !birthday) {
         return res.status(400).send("All fields are required.");
     }
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        
+
         const query = "INSERT INTO users (contact, fullname, username, password, birthday) VALUES (?, ?, ?, ?, ?)";
         db.query(query, [contact, fullname, username, hashedPassword, birthday], (err, result) => {
             if (err) {
@@ -215,7 +215,7 @@ app.post("/upload", upload.single("videoFile"), (req, res) => {
 
     // Store relative path to access from frontend
     const filepath = `/Fronted/Video/${req.file.filename}`;
-    
+
     const query = "INSERT INTO videos (filename, filepath) VALUES (?, ?)";
     db.query(query, [req.file.originalname, filepath], (err, result) => {
         if (err) {

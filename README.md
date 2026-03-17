@@ -34,4 +34,4 @@ This project is designed for social interaction and real-time engagement.
 
 ```bash
 git clone https://github.com/PrinceSingh2004/Blink-Infinite-Scroll.git
-cd Infinite_Scroll\Backend
+cd Infinite_Scroll\blink\backend

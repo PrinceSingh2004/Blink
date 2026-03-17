@@ -49,6 +49,19 @@ if (document.getElementById('profilePage')) {
             document.getElementById('statFollowing').textContent   = fmt(u.following_count);
             document.getElementById('statLikes').textContent       = fmt(u.total_likes);
 
+
+            const statusEl = document.getElementById('profileOnlineStatus');
+            if (statusEl) {
+                statusEl.setAttribute('data-online-user-id', u.id);
+                // Check status via socket if it's already connected
+                if (window.Blink.socket) {
+                    window.Blink.socket.emit('check_status', u.id);
+                } else {
+                    // Try again in a bit if socket is still connecting
+                    setTimeout(() => window.Blink.socket?.emit('check_status', u.id), 1000);
+                }
+            }
+
             if (u.is_live) {
                 document.getElementById('profileLiveBadge')?.classList.add('active');
             }

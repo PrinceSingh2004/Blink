@@ -4,6 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Blink | Profile</title>
 <meta name="description" content="User profile on Blink.">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="../css/profile.css">
 </head>
@@ -16,24 +17,23 @@
       <div class="logo-icon">B</div><span class="logo-text">Blink</span>
     </a>
     <div class="sidebar-search">
-      <span class="input-icon">🔍</span>
+      <i class="bi bi-search input-icon"></i>
       <input type="search" class="form-input" id="globalSearchInput" placeholder="Search creators..." aria-label="Search creators">
     </div>
     <ul class="nav-links">
-      <li class="nav-item"><a href="index.html"><span class="nav-icon">🏠</span><span class="nav-text">Home</span></a></li>
-      <li class="nav-item"><a href="upload.html"><span class="nav-icon">➕</span><span class="nav-text">Upload</span></a></li>
-      <li class="nav-item"><a href="messages.html"><span class="nav-icon">💬</span><span class="nav-text">Messages</span></a></li>
-      <li class="nav-item"><a href="live.html"><span class="nav-icon">🔴</span><span class="nav-text">Live</span></a></li>
-      <li class="nav-item"><a href="profile.html" class="active"><span class="nav-icon">👤</span><span class="nav-text">Profile</span></a></li>
+      <li class="nav-item"><a href="index.html"><i class="bi bi-house-fill nav-icon"></i><span class="nav-text">Home</span></a></li>
+      <li class="nav-item"><a href="upload.html"><i class="bi bi-upload nav-icon"></i><span class="nav-text">Upload</span></a></li>
+      <li class="nav-item"><a href="messages.html"><i class="bi bi-chat-dots-fill nav-icon"></i><span class="nav-text">Messages</span></a></li>
+      <li class="nav-item"><a href="live.html"><i class="bi bi-broadcast nav-icon"></i><span class="nav-text">Live</span></a></li>
+      <li class="nav-item"><a href="profile.html" class="active"><i class="bi bi-person-circle nav-icon"></i><span class="nav-text">Profile</span></a></li>
     </ul>
-    <a href="upload.html" class="upload-btn" style="text-decoration:none">＋ Upload</a>
     <div class="sidebar-user" onclick="window.location.href='profile.html'">
       <div class="sidebar-avatar" id="sidebarAvatar"></div>
       <div class="sidebar-info">
-        <div class="sidebar-name" id="sidebarName">Loading…</div>
+        <div class="sidebar-name" id="sidebarName">Loading...</div>
         <div class="sidebar-handle" id="sidebarHandle"></div>
       </div>
-      <button class="sidebar-logout" id="logoutBtn" title="Sign Out">⏻</button>
+      <button class="sidebar-logout" id="logoutBtn" title="Sign Out"><i class="bi bi-box-arrow-right"></i></button>
     </div>
   </nav>
 
@@ -46,10 +46,10 @@
         <div class="profile-cover-gradient"></div>
         <div class="profile-cover-overlay"></div>
         <div class="profile-header-actions">
-          <button class="btn btn-primary btn-sm hidden" id="editProfileBtn">✏️ Edit Profile</button>
-          <button class="btn btn-secondary btn-sm hidden" id="goLiveProfileBtn" onclick="window.location.href='live.html'">🔴 Go Live</button>
-          <button class="btn btn-primary btn-sm hidden" id="followBtn">Follow</button>
-          <button class="btn btn-secondary btn-sm" id="shareBtn" onclick="(async()=>{try{await navigator.clipboard.writeText(window.location.href);window.Blink.showToast('🔗 Profile link copied!')}catch{}})()">📤 Share</button>
+          <button class="btn btn-primary btn-sm hidden" id="editProfileBtn"><i class="bi bi-pencil-square icon-inline"></i>Edit Profile</button>
+          <button class="btn btn-secondary btn-sm hidden" id="goLiveProfileBtn" onclick="window.location.href='live.html'"><i class="bi bi-broadcast icon-inline"></i>Go Live</button>
+          <button class="btn btn-primary btn-sm hidden" id="followBtn"><i class="bi bi-person-plus-fill icon-inline"></i>Follow</button>
+          <button class="btn btn-secondary btn-sm" id="shareBtn" onclick="(async()=>{try{await navigator.clipboard.writeText(window.location.href);window.Blink.showToast('Link copied!')}catch{}})()"><i class="bi bi-share-fill icon-inline"></i>Share</button>
         </div>
       </div>
 
@@ -60,12 +60,14 @@
             <img id="profileAvatar" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:none">
             <span id="profileAvatarInitial">?</span>
           </div>
-          <div class="profile-verified-badge">✓</div>
+          <div class="profile-verified-badge"><i class="bi bi-patch-check-fill"></i></div>
         </div>
 
+
         <h1 class="profile-name">
-          <span id="profileUsername">Loading…</span>
-          <span id="profileLiveBadge" class="live-badge" onclick="window.location.href='live.html'">LIVE</span>
+          <span id="profileUsername">Loading...</span>
+          <span id="profileOnlineStatus" class="status-text" style="font-size:12px; margin-left:10px; font-weight:500;"></span>
+          <span id="profileLiveBadge" class="live-badge" onclick="window.location.href='live.html'"><i class="bi bi-record-circle-fill"></i> LIVE</span>
         </h1>
         <div class="profile-handle" id="profileHandle"></div>
         <p class="profile-bio" id="profileBio"></p>
@@ -73,7 +75,7 @@
         <!-- Stats -->
         <div class="profile-stats">
           <div class="stat-item" onclick="">
-            <div class="stat-val" id="statVideos">—</div>
+            <div class="stat-val" id="statVideos">?</div>
             <div class="stat-lbl">Videos</div>
           </div>
           <div class="stat-item">
@@ -90,38 +92,37 @@
           </div>
         </div>
 
-        </div>
-
-        <!-- Mini Live Discovery (Followed users who are live) -->
-        <div id="profileLiveDiscovery" style="margin-bottom:28px; display:none;">
-          <h3 style="font-size:13px; font-weight:800; color:var(--text-muted); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">Who's Live Now 🔥</h3>
-          <div id="profileLiveGrid" style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scrollbar-width: none;">
-            <!-- Live users will be injected here -->
-          </div>
-        </div>
-
-        <!-- Tabs -->
-        <div class="profile-tabs" role="tablist">
-          <div class="profile-tab active" data-tab="videos" role="tab" tabindex="0">Videos</div>
-          <div class="profile-tab" data-tab="liked"  role="tab" tabindex="0">Liked</div>
-          <div class="profile-tab" data-tab="saved"  role="tab" tabindex="0">Saved</div>
-        </div>
-
-        <div id="panel-videos" class="tab-panel">
-          <div class="video-grid" id="videoGrid">
-            <div style="grid-column:1/-1;padding:40px;text-align:center"><div class="spinner"></div></div>
-          </div>
-        </div>
-
-        <div id="panel-liked" class="tab-panel" style="display:none">
-          <div class="tab-empty"><div class="icon">❤️</div><h3>No liked videos</h3><p>Videos you like appear here</p></div>
-        </div>
-
-        <div id="panel-saved" class="tab-panel" style="display:none">
-          <div class="tab-empty"><div class="icon">🔖</div><h3>Nothing saved</h3><p>Videos you save appear here</p></div>
-        </div>
-
       </div>
+
+      <!-- Mini Live Discovery (Followed users who are live) -->
+      <div id="profileLiveDiscovery" style="margin-bottom:28px; display:none;">
+        <h3 style="font-size:13px; font-weight:800; color:var(--text-muted); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">Who's Live Now <i class="bi bi-flame-fill"></i></h3>
+        <div id="profileLiveGrid" style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scrollbar-width: none;">
+          <!-- Live users will be injected here -->
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="profile-tabs" role="tablist">
+        <div class="profile-tab active" data-tab="videos" role="tab" tabindex="0">Videos</div>
+        <div class="profile-tab" data-tab="liked"  role="tab" tabindex="0">Liked</div>
+        <div class="profile-tab" data-tab="saved"  role="tab" tabindex="0">Saved</div>
+      </div>
+
+      <div id="panel-videos" class="tab-panel">
+        <div class="video-grid" id="videoGrid">
+          <div style="grid-column:1/-1;padding:40px;text-align:center"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div id="panel-liked" class="tab-panel" style="display:none">
+        <div class="tab-empty"><div class="icon"><i class="bi bi-heart-fill"></i></div><h3>No liked videos</h3><p>Videos you like appear here</p></div>
+      </div>
+
+      <div id="panel-saved" class="tab-panel" style="display:none">
+        <div class="tab-empty"><div class="icon"><i class="bi bi-bookmark-fill"></i></div><h3>Nothing saved</h3><p>Videos you save appear here</p></div>
+      </div>
+
     </div>
   </main>
 </div>

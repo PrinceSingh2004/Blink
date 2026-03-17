@@ -92,6 +92,36 @@ async function populateSidebar() {
         t.querySelector('button').addEventListener('click', () => { clearTimeout(timer); t.remove(); });
     };
 
+    // Update sidebar UI state
+    initSidebar();
+}
+
+// ── Sidebar state management ──────────────────────────────────
+function initSidebar() {
+    const pathname = window.location.pathname;
+    const page = pathname.split('/').pop() || 'index.html';
+    
+    // Set active link highlight based on current page
+    const navLinks = document.querySelectorAll('.nav-links a');
+    navLinks.forEach(link => {
+        const href = link.getAttribute('href');
+        if (!href) return;
+        
+        const linkPage = href.split('/').pop();
+        let isActive = false;
+
+        if (linkPage === page) {
+            isActive = true;
+        } else if ((page === 'index.html' || pathname === '/' || pathname.endsWith('/pages/')) && linkPage === 'index.html') {
+             isActive = true;
+        }
+
+        if (isActive) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
 }
 
 // ── Login Form ────────────────────────────────────────────────
@@ -288,9 +318,73 @@ async function initGlobalSearch() {
     document.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.classList.remove('active'); });
 }
 
-// Expose globally
-window.Blink = { getToken, getUser, isLoggedIn, setAuth, clearAuth, logout, requireAuth, apiRequest, showToast, populateSidebar };
 
-// Initialize search when DOM is ready
-document.addEventListener('DOMContentLoaded', initGlobalSearch);
+// ── Socket.io & Online Status ─────────────────────────────────
+async function initSocket() {
+    const user = getUser();
+    if (!user || !user.id) return;
+
+    // Load socket.io client if not present
+    if (typeof io === 'undefined') {
+        await new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = '/socket.io/socket.io.js';
+            s.onload = resolve;
+            s.onerror = () => { console.error('Failed to load socket.io'); resolve(); };
+            document.head.appendChild(s);
+        });
+    }
+
+    if (typeof io === 'undefined') return;
+
+    try {
+        const socket = io({ timeout: 5000 });
+        window.Blink.socket = socket;
+
+        socket.on('connect', () => {
+            socket.emit('identify', user.id);
+            console.log('[Socket] Connected and identified');
+        });
+
+        socket.on('user_status', (data) => {
+            // Globally update any element with data-online-user-id
+            const elements = document.querySelectorAll(`[data-online-user-id="${data.userId}"]`);
+            elements.forEach(el => {
+                if (data.status === 'online') {
+                    el.classList.add('online');
+                    el.classList.remove('offline');
+                    if (el.tagName === 'SPAN' || el.classList.contains('status-text')) {
+                        el.textContent = '● Online';
+                    }
+                } else {
+                    el.classList.add('offline');
+                    el.classList.remove('online');
+                    if (el.tagName === 'SPAN' || el.classList.contains('status-text')) {
+                        el.textContent = '● Offline';
+                    }
+                }
+            });
+        });
+
+        // Handle reconnection
+        socket.on('reconnect', () => {
+            socket.emit('identify', user.id);
+        });
+
+    } catch (err) {
+        console.error('[Socket] initialization failed:', err);
+    }
+}
+
+// Expose globally
+window.Blink = { getToken, getUser, isLoggedIn, setAuth, clearAuth, logout, requireAuth, apiRequest, showToast, populateSidebar, initSidebar, initSocket };
+
+// Initialize search and sidebar when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    initGlobalSearch();
+    initSidebar();
+    if (isLoggedIn()) {
+        initSocket();
+    }
+});
 

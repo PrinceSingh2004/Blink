@@ -45,16 +45,22 @@ ul{list-style:none;}
 .nav-item a{display:flex;align-items:center;gap:14px;color:var(--text-secondary);font-size:16px;font-weight:600;padding:13px 16px;border-radius:var(--radius-md);transition:all var(--mid);position:relative;}
 .nav-item a::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:3px;border-radius:0 4px 4px 0;background:var(--grad-brand);opacity:0;transition:opacity var(--mid);}
 .nav-item a:hover{color:var(--text-primary);background:var(--glass-hover);}
-.nav-item a.active{color:var(--text-primary);background:linear-gradient(90deg,rgba(255,45,110,.1),rgba(0,212,255,.05));}
-.nav-item a.active::before{opacity:1;}
-.nav-icon{font-size:20px;width:24px;text-align:center;flex-shrink:0;}
-.upload-btn{
-    background:var(--grad-brand);border:none;color:white;padding:14px 20px;
-    border-radius:var(--radius-md);font-size:15px;font-weight:700;
-    box-shadow:0 4px 24px var(--pink-glow);transition:transform var(--fast),box-shadow var(--fast);
-    display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px;
+.nav-item a.active{
+    color:var(--text-primary);
+    background:linear-gradient(90deg, rgba(255,45,110,0.15) 0%, rgba(156,93,232,0.1) 50%, rgba(0,212,255,0.05) 100%);
+    box-shadow:inset 0 0 15px rgba(255,45,110,0.05);
 }
-.upload-btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px var(--pink-glow);}
+.nav-item a.active::after{
+    content:'';
+    position:absolute;
+    right:12px;
+    width:6px;
+    height:6px;
+    background:var(--pink);
+    border-radius:50%;
+    box-shadow:0 0 10px var(--pink);
+}
+.nav-icon{font-size:20px;width:24px;text-align:center;flex-shrink:0;}
 .sidebar-user{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius-md);background:var(--glass-hover);border:1px solid var(--glass-border);cursor:pointer;transition:background var(--fast);}
 .sidebar-user:hover{background:rgba(255,255,255,.08);}
 .sidebar-avatar{width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--grad-brand);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;}
