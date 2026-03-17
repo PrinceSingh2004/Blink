@@ -276,7 +276,7 @@ async function openCommentModal(videoId) {
 
 function renderComments(comments) {
     if (!comments.length) {
-        commentList.innerHTML = '<div class="comment-empty">💬<br>No comments yet. Be first!';
+        commentList.innerHTML = '<div class="comment-empty"><i class="bi bi-chat-dots-fill"></i><br>No comments yet. Be first!';
         return;
     }
     commentList.innerHTML = comments.map(c => {

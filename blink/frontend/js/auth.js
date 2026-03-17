@@ -137,7 +137,7 @@ if (loginForm) {
         const input = document.getElementById('passwordInput');
         const isText = input.type === 'text';
         input.type = isText ? 'password' : 'text';
-        this.textContent = isText ? '👁️' : '🙈';
+        this.innerHTML = isText ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
     });
 
     loginForm.addEventListener('submit', async (e) => {
@@ -161,7 +161,7 @@ if (loginForm) {
                 body:   JSON.stringify({ identifier, password })
             });
             setAuth(data.token, data.user);
-            alertEl.textContent = '✅ Welcome back, @' + data.user.username;
+            alertEl.textContent = 'Welcome back, @' + data.user.username;
             alertEl.className   = 'auth-alert success show';
             setTimeout(() => { window.location.href = '/pages/index.html'; }, 600);
         } catch (err) {
@@ -203,7 +203,7 @@ if (registerForm) {
         const input = document.getElementById('passwordInput');
         const isText = input.type === 'text';
         input.type = isText ? 'password' : 'text';
-        this.textContent = isText ? '👁️' : '🙈';
+        this.innerHTML = isText ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
     });
 
     registerForm.addEventListener('submit', async (e) => {
@@ -239,7 +239,7 @@ if (registerForm) {
                 body:   JSON.stringify({ username, email, password })
             });
             setAuth(data.token, data.user);
-            alertEl.textContent = '🎉 Account created! Redirecting…';
+            alertEl.textContent = 'Account created! Redirecting...';
             alertEl.className   = 'auth-alert success show';
             setTimeout(() => { window.location.href = '/pages/index.html'; }, 700);
         } catch (err) {
