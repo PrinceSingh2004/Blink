@@ -264,8 +264,8 @@ async function initGlobalSearch() {
         overlay.className = 'search-results-overlay';
         overlay.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px">
-                <h2 style="font-size:24px;font-weight:900">Found Creators 🔍</h2>
-                <button class="btn btn-secondary btn-sm" id="closeSearchBtn">Close ✕</button>
+                <h2 style="font-size:24px;font-weight:900"><i class="bi bi-search icon-inline"></i>Found Creators</h2>
+                <button class="btn btn-secondary btn-sm" id="closeSearchBtn">Close <i class="bi bi-x-lg"></i></button>
             </div>
             <div class="search-grid" id="searchGrid"></div>
         `;
@@ -354,13 +354,13 @@ async function initSocket() {
                     el.classList.add('online');
                     el.classList.remove('offline');
                     if (el.tagName === 'SPAN' || el.classList.contains('status-text')) {
-                        el.textContent = '● Online';
+                        el.innerHTML = '<i class="bi bi-circle-fill" style="margin-right:6px;color:var(--green)"></i>Online';
                     }
                 } else {
                     el.classList.add('offline');
                     el.classList.remove('online');
                     if (el.tagName === 'SPAN' || el.classList.contains('status-text')) {
-                        el.textContent = '● Offline';
+                        el.innerHTML = '<i class="bi bi-circle-fill" style="margin-right:6px;color:var(--text-muted)"></i>Offline';
                     }
                 }
             });
