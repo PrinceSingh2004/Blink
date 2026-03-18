@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>if(!localStorage.getItem('blink_token')) window.location.href='/login.html';</script>
 <title>Blink | Messages</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 <link rel="stylesheet" href="../css/style.css">
@@ -13,9 +14,12 @@
 
   <!-- SIDEBAR -->
   <nav class="sidebar" role="navigation">
-    <a href="index.html" class="logo-container">
-      <div class="logo-icon">B</div><span class="logo-text">Blink</span>
-    </a>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+      <a href="index.html" class="logo-container" style="margin-bottom: 0;">
+        <div class="logo-icon">B</div><span class="logo-text">Blink</span>
+      </a>
+      <button id="themeToggle" title="Toggle Theme">🌙</button>
+    </div>
     <div class="sidebar-search">
       <i class="bi bi-search input-icon"></i>
       <input type="search" class="form-input" id="globalSearchInput" placeholder="Search creators..." aria-label="Search creators">
@@ -25,6 +29,7 @@
       <li class="nav-item"><a href="upload.html"><i class="bi bi-upload nav-icon"></i><span class="nav-text">Upload</span></a></li>
       <li class="nav-item"><a href="messages.html" class="active"><i class="bi bi-chat-dots-fill nav-icon"></i><span class="nav-text">Messages</span></a></li>
       <li class="nav-item"><a href="live.html"><i class="bi bi-broadcast nav-icon"></i><span class="nav-text">Live</span></a></li>
+      <li class="nav-item"><a href="contact.html"><i class="bi bi-chat-left-dots-fill nav-icon"></i><span class="nav-text">Contact</span></a></li>
       <li class="nav-item"><a href="profile.html"><i class="bi bi-person-circle nav-icon"></i><span class="nav-text">Profile</span></a></li>
     </ul>
     <div class="sidebar-user">

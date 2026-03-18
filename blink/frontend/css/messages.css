@@ -3,7 +3,7 @@
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.75);
+    background: rgba(17, 24, 39, 0.35);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     display: flex;
@@ -103,7 +103,7 @@
 
 .modal-btn-primary {
     background: var(--grad-brand);
-    color: white;
+    color: #ffffff;
     box-shadow: 0 4px 16px var(--pink-glow);
 }
 

@@ -178,8 +178,8 @@ uploadForm?.addEventListener('submit', async e => {
         const res = JSON.parse(xhr.responseText);
         if (xhr.status >= 200 && xhr.status < 300) {
             progressFill.style.width = '100%';
-            progressText.textContent = '✅ Upload complete!';
-            showToast('🎬 Video uploaded!', 'success');
+            progressText.textContent = 'Upload complete!';
+            showToast('Video uploaded!', 'success');
             setTimeout(() => { window.location.href = '/pages/index.html'; }, 1200);
         } else {
             showToast(res.error || 'Upload failed', 'error');
@@ -198,4 +198,3 @@ uploadForm?.addEventListener('submit', async e => {
 });
 
 }); // end DOMContentLoaded
-

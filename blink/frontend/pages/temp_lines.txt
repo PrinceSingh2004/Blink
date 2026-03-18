@@ -1,0 +1,6 @@
+  <nav class="sidebar">
+    <a href="index.html" class="logo-container">
+      <div class="logo-icon">B</div><span class="logo-text">Blink</span>
+    </a>
+    <div class="sidebar-search">
+      <i class="bi bi-search input-icon"></i>

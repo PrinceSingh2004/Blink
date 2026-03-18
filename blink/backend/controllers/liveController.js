@@ -8,7 +8,7 @@ exports.startLive = async (req, res) => {
         
         // Create new stream record
         const [result] = await db.query(
-            'INSERT INTO live_streams (user_id, stream_title) VALUES (?, ?)',
+            'INSERT INTO live_streams (user_id, stream_title, status, viewer_count, started_at) VALUES (?, ?, "live", 0, NOW())',
             [req.user.id, title || 'Live Session']
         );
         
@@ -24,10 +24,24 @@ exports.startLive = async (req, res) => {
 
 exports.endLive = async (req, res) => {
     try {
-        await db.query('UPDATE live_streams SET status = "offline" WHERE user_id = ? AND status = "live"', [req.user.id]);
+        const [streams] = await db.query('SELECT id FROM live_streams WHERE user_id = ? AND status = "live"', [req.user.id]);
+        
+        await db.query('UPDATE live_streams SET status = "offline", viewer_count = 0 WHERE user_id = ? AND status = "live"', [req.user.id]);
+        await db.query('DELETE FROM live_viewers WHERE stream_id IN (SELECT id FROM live_streams WHERE user_id = ?)', [req.user.id]);
         await db.query('UPDATE users SET is_live = 0 WHERE id = ?', [req.user.id]);
+
+        const io = req.app.get('io');
+        if (io && streams.length) {
+            streams.forEach(s => {
+                const room = `live_${s.id}`;
+                io.to(room).emit('live_ended', { by: req.user.username });
+                io.to(room).emit('viewer_update', { count: 0 });
+            });
+        }
+
         res.json({ message: 'Stream ended' });
     } catch (err) {
+        console.error('[Live] endLive error:', err);
         res.status(500).json({ error: 'Failed to end stream' });
     }
 };

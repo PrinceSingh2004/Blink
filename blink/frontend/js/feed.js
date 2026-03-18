@@ -50,8 +50,9 @@ function buildCard(v) {
         <video class="video-player" data-src="${v.video_url}" loop playsinline preload="none"></video>
         <div class="video-shimmer"><div class="shimmer-bar"></div><div class="shimmer-bar short"></div></div>
         <div class="video-info">
-            <div class="creator-handle" onclick="window.location.href='/pages/profile.html?id=${v.user_id}'">
-                <span class="creator-name">@${username}</span>
+            <div class="user-info" onclick="window.location.href='/pages/profile.html?id=${v.user_id}'">
+                <img src="${avatarSrc}" class="profile-pic" alt="@${username}">
+                <span class="username">@${username}</span>
                 <span class="verified-badge"><i class="bi bi-patch-check-fill"></i></span>
                 ${v.mood_category ? `<span class="mood-tag">${v.mood_category}</span>` : ''}
             </div>

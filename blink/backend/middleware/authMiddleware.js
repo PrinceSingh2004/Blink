@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'blink_jwt_super_secret_key_2024';
+const { JWT_SECRET } = require('../config/env');
 
 // Required auth - returns 401 if no/invalid token
 module.exports.requireAuth = (req, res, next) => {

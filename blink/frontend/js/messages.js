@@ -32,7 +32,7 @@ async function loadConversations() {
 
 function renderConversations(convs) {
     if (!convs.length) {
-        convList.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--text-secondary)"><div style="font-size:40px;margin-bottom:12px">💬</div><p>No messages yet</p></div>';
+        convList.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--text-secondary)"><div style="font-size:40px;margin-bottom:12px"><i class="bi bi-chat-dots-fill"></i></div><p>No messages yet</p></div>';
         return;
     }
     convList.innerHTML = convs.map(c => {
@@ -99,7 +99,7 @@ async function openChat(userId, username) {
 
 function renderMessages(msgs) {
     if (!msgs.length) {
-        messagesArea.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--text-muted)">👋 Start the conversation!</div>';
+        messagesArea.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><i class="bi bi-chat-dots"></i> Start the conversation!</div>';
         return;
     }
     messagesArea.innerHTML = msgs.map(m => {
@@ -216,10 +216,10 @@ function updateStatusUI(status) {
     if (!statusEl) return;
     
     if (status === 'online') {
-        statusEl.textContent = '● Online';
+        statusEl.innerHTML = '<i class="bi bi-circle-fill" style="margin-right:6px;color:var(--green)"></i>Online';
         statusEl.style.color = 'var(--green)';
     } else {
-        statusEl.textContent = '● Offline';
+        statusEl.innerHTML = '<i class="bi bi-circle-fill" style="margin-right:6px;color:var(--text-muted)"></i>Offline';
         statusEl.style.color = 'var(--text-muted)';
     }
 }
@@ -272,4 +272,3 @@ loadConversations();
 setupSocket();
 
 }); // end DOMContentLoaded
-

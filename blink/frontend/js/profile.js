@@ -127,7 +127,7 @@ if (document.getElementById('profilePage')) {
                 isFollowing = true;
                 const el = document.getElementById('statFollowers');
                 el.textContent = fmt(parseInt(el.textContent.replace(/\D/g,'')) + 1);
-                showToast('✅ Following!');
+                showToast('Following!');
             }
             updateFollowBtn();
         } catch (err) { showToast(err.message, 'error'); }
@@ -143,14 +143,14 @@ if (document.getElementById('profilePage')) {
         try {
             const data = await apiRequest(`/videos/user/${targetId}`);
             if (!data.videos.length) {
-                grid.innerHTML = '<div class="tab-empty"><div class="icon">🎬</div><h3>No Videos Yet</h3><p>Upload your first video!</p></div>';
+                grid.innerHTML = '<div class="tab-empty"><div class="icon"><i class="bi bi-camera-reels-fill"></i></div><h3>No Videos Yet</h3><p>Upload your first video!</p></div>';
                 return;
             }
             grid.innerHTML = '';
             if (isOwnProfile) {
                 const addBtn = document.createElement('div');
                 addBtn.className = 'grid-video-item grid-add-btn';
-                addBtn.innerHTML = '<span>＋</span><span>New Video</span>';
+                addBtn.innerHTML = '<i class="bi bi-plus-lg"></i><span>New Video</span>';
                 addBtn.onclick = () => window.location.href = '/pages/upload.html';
                 grid.appendChild(addBtn);
             }
@@ -159,7 +159,7 @@ if (document.getElementById('profilePage')) {
                 item.className = 'grid-video-item';
                 item.innerHTML = `
                     <video src="${v.video_url}" loop muted playsinline preload="none"></video>
-                    <div class="grid-play-count">▶ ${fmt(v.likes_count)}</div>
+                    <div class="grid-play-count"><i class="bi bi-heart-fill"></i> ${fmt(v.likes_count)}</div>
                 `;
                 const vid = item.querySelector('video');
                 item.addEventListener('mouseenter', () => vid.play().catch(() => {}));
@@ -259,7 +259,7 @@ if (document.getElementById('editProfilePage')) {
             user.profile_picture = data.profile_picture;
             localStorage.setItem('blink_user', JSON.stringify(user));
             await window.Blink.populateSidebar();
-            showToast('✅ Avatar updated!', 'success');
+            showToast('Avatar updated!', 'success');
         } catch (err) { showToast(err.message, 'error'); }
     });
 
@@ -279,7 +279,7 @@ if (document.getElementById('editProfilePage')) {
             const curUser = window.Blink.getUser();
             Object.assign(curUser, { username: data.user.username, bio: data.user.bio });
             localStorage.setItem('blink_user', JSON.stringify(curUser));
-            showToast('✅ Profile updated!', 'success');
+            showToast('Profile updated!', 'success');
         } catch (err) { showToast(err.message, 'error'); }
         finally { btn.disabled = false; }
     });
@@ -300,7 +300,7 @@ if (document.getElementById('editProfilePage')) {
                     new_password:     newPw
                 })
             });
-            showToast('✅ Password changed!', 'success');
+            showToast('Password changed!', 'success');
             e.target.reset();
         } catch (err) { showToast(err.message, 'error'); }
         finally { btn.disabled = false; }
@@ -308,7 +308,7 @@ if (document.getElementById('editProfilePage')) {
 
     // Delete account
     document.getElementById('deleteAccountBtn')?.addEventListener('click', async () => {
-        const confirm1 = confirm('⚠️ Are you sure you want to PERMANENTLY delete your account? This will remove all your videos and data.');
+        const confirm1 = confirm('Are you sure you want to PERMANENTLY delete your account? This will remove all your videos and data.');
         if (!confirm1) return;
         const confirm2 = confirm('Final warning: This action cannot be undone. Proceed with deletion?');
         if (!confirm2) return;
