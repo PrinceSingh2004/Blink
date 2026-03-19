@@ -1,0 +1,35 @@
+# ── Dependencies ──────────────────────────────────────────────
+node_modules/
+.npm
+package-lock.json
+
+# ── Environment (NEVER commit .env) ──────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+
+# ── Uploads (user content – use cloud storage in production) ──
+backend/uploads/videos/*
+backend/uploads/avatars/*
+!backend/uploads/videos/.gitkeep
+!backend/uploads/avatars/.gitkeep
+
+# ── OS / IDE ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+*.log
+npm-debug.log*
+
+# ── Build / Temp ──────────────────────────────────────────────
+dist/
+.cache/
+*.tmp
+db_check_result.txt
+temp_lines.txt
+repair_and_run.ps1
+RUN_APP.bat
+run_project.bat
+check_db.js
+migrate.js

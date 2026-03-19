@@ -1,26 +1,33 @@
-require('dotenv').config();
 const mysql = require('mysql2');
+const env   = require('./env');
 
 async function initDatabase() {
-    // Step 1: Create database if it doesn't exist
+    // ── Step 1: Create DB if not exists (connect without db name) ─
     const rawPool = mysql.createPool({
-        host:               process.env.DB_HOST     || 'localhost',
-        user:               process.env.DB_USER     || 'root',
-        password:           process.env.DB_PASSWORD || '',
+        host:               env.DB_HOST,
+        port:               env.DB_PORT,
+        user:               env.DB_USER,
+        password:           env.DB_PASSWORD,
         waitForConnections: true,
         connectionLimit:    2
     }).promise();
 
-    const dbName = process.env.DB_NAME || 'blink_app';
-    await rawPool.query(
-        `CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
-    );
-    await rawPool.end();
+    try {
+        await rawPool.query(
+            `CREATE DATABASE IF NOT EXISTS \`${env.DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+        );
+        console.log(`[DB] Database "${env.DB_NAME}" ensured.`);
+    } catch (err) {
+        console.error('[DB] Could not create database:', err.message);
+        throw err;
+    } finally {
+        await rawPool.end();
+    }
 
-    // Step 2: Use the app pool
+    // ── Step 2: Use app pool ───────────────────────────────────
     const db = require('./db');
 
-    // ── Helper: check if column exists ───────────────────────
+    // ── Helper: check column exists ───────────────────────────
     async function columnExists(table, column) {
         const [rows] = await db.query(
             `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
@@ -30,7 +37,15 @@ async function initDatabase() {
         return rows[0].cnt > 0;
     }
 
-    // ── Helper: check if table exists ─────────────────────────
+    // ── Helper: add column if missing ─────────────────────────
+    async function addCol(table, col, def) {
+        if (!(await columnExists(table, col))) {
+            await db.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${col}\` ${def}`).catch(() => {});
+            console.log(`[DB] Added column: ${table}.${col}`);
+        }
+    }
+
+    // ── Helper: check table exists ────────────────────────────
     async function tableExists(table) {
         const [rows] = await db.query(
             `SELECT COUNT(*) AS cnt FROM information_schema.TABLES
@@ -40,52 +55,23 @@ async function initDatabase() {
         return rows[0].cnt > 0;
     }
 
-    // ── USERS: migrate or create ──────────────────────────────
+    // ── Migrate old users schema if needed ────────────────────
     const usersExist = await tableExists('users');
-
     if (usersExist) {
-        // Detect old schema (old server used 'contact' instead of 'email')
         const hasContact      = await columnExists('users', 'contact');
         const hasPasswordHash = await columnExists('users', 'password_hash');
-
         if (hasContact || !hasPasswordHash) {
-            console.log('[DB] ⚠️  Detected old users schema – migrating…');
-            // Drop foreign key constraints first so we can drop the table
-            try {
-                const [fks] = await db.query(
-                    `SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
-                     WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME = 'users'`
-                );
-                for (const fk of fks) {
-                    const [[{ tbl }]] = await db.query(
-                        `SELECT TABLE_NAME AS tbl FROM information_schema.KEY_COLUMN_USAGE
-                         WHERE TABLE_SCHEMA = DATABASE() AND CONSTRAINT_NAME = ?`, [fk.CONSTRAINT_NAME]
-                    );
-                    await db.query(`ALTER TABLE \`${tbl}\` DROP FOREIGN KEY \`${fk.CONSTRAINT_NAME}\``).catch(() => {});
-                }
-            } catch {}
-            // Now drop and recreate
+            console.log('[DB] ⚠️  Old schema detected – migrating…');
             await db.query('SET FOREIGN_KEY_CHECKS=0').catch(() => {});
-            await db.query('DROP TABLE IF EXISTS messages').catch(() => {});
-            await db.query('DROP TABLE IF EXISTS followers').catch(() => {});
-            await db.query('DROP TABLE IF EXISTS comments').catch(() => {});
-            await db.query('DROP TABLE IF EXISTS video_likes').catch(() => {});
-            await db.query('DROP TABLE IF EXISTS videos').catch(() => {});
-            await db.query('DROP TABLE IF EXISTS users').catch(() => {});
+            for (const t of ['live_chat', 'live_viewers', 'live_streams', 'messages', 'followers', 'comments', 'video_likes', 'videos', 'users']) {
+                await db.query(`DROP TABLE IF EXISTS \`${t}\``).catch(() => {});
+            }
             await db.query('SET FOREIGN_KEY_CHECKS=1').catch(() => {});
-            console.log('[DB] 🗑️  Old tables dropped. Recreating with new schema…');
-        } else {
-            // New schema: just add missing columns
-            if (!(await columnExists('users', 'profile_picture'))) await db.query('ALTER TABLE users ADD COLUMN profile_picture VARCHAR(500) DEFAULT NULL').catch(() => {});
-            if (!(await columnExists('users', 'bio')))             await db.query('ALTER TABLE users ADD COLUMN bio TEXT DEFAULT NULL').catch(() => {});
-            if (!(await columnExists('users', 'followers_count'))) await db.query('ALTER TABLE users ADD COLUMN followers_count INT DEFAULT 0').catch(() => {});
-            if (!(await columnExists('users', 'following_count'))) await db.query('ALTER TABLE users ADD COLUMN following_count INT DEFAULT 0').catch(() => {});
-            if (!(await columnExists('users', 'total_likes')))     await db.query('ALTER TABLE users ADD COLUMN total_likes INT DEFAULT 0').catch(() => {});
-            if (!(await columnExists('users', 'is_live')))         await db.query('ALTER TABLE users ADD COLUMN is_live TINYINT(1) DEFAULT 0').catch(() => {});
+            console.log('[DB] Old tables dropped. Recreating…');
         }
     }
 
-    // ── Create tables (safe – IF NOT EXISTS) ──────────────────
+    // ── Create tables (IF NOT EXISTS = safe) ──────────────────
     await db.query(`
         CREATE TABLE IF NOT EXISTS users (
             id              INT AUTO_INCREMENT PRIMARY KEY,
@@ -99,7 +85,7 @@ async function initDatabase() {
             total_likes     INT          DEFAULT 0,
             is_live         TINYINT(1)   DEFAULT 0,
             created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
     await db.query(`
@@ -108,14 +94,22 @@ async function initDatabase() {
             user_id        INT          NOT NULL,
             video_url      VARCHAR(500) NOT NULL,
             caption        TEXT         DEFAULT NULL,
+            mood_category  VARCHAR(50)  DEFAULT 'General',
             likes_count    INT          DEFAULT 0,
             comments_count INT          DEFAULT 0,
             shares_count   INT          DEFAULT 0,
-            mood_category  VARCHAR(50)  DEFAULT 'General',
             created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_mood (mood_category),
+            INDEX idx_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
+    // Add any missing columns to videos table
+    await addCol('videos', 'likes_count',    'INT DEFAULT 0');
+    await addCol('videos', 'comments_count', 'INT DEFAULT 0');
+    await addCol('videos', 'shares_count',   'INT DEFAULT 0');
+    await addCol('videos', 'mood_category',  "VARCHAR(50) DEFAULT 'General'");
 
     await db.query(`
         CREATE TABLE IF NOT EXISTS video_likes (
@@ -137,7 +131,8 @@ async function initDatabase() {
             comment_text TEXT NOT NULL,
             created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id)  REFERENCES users(id)  ON DELETE CASCADE
+            FOREIGN KEY (user_id)  REFERENCES users(id)  ON DELETE CASCADE,
+            INDEX idx_video (video_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
@@ -162,10 +157,12 @@ async function initDatabase() {
             is_read      TINYINT(1) DEFAULT 0,
             created_at   TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (sender_id)   REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+            FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_sender   (sender_id),
+            INDEX idx_receiver (receiver_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
-    
+
     await db.query(`
         CREATE TABLE IF NOT EXISTS live_streams (
             id            INT AUTO_INCREMENT PRIMARY KEY,
@@ -184,6 +181,7 @@ async function initDatabase() {
             stream_id  INT NOT NULL,
             user_id    INT NOT NULL,
             joined_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_viewer (stream_id, user_id),
             FOREIGN KEY (stream_id) REFERENCES live_streams(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id)   REFERENCES users(id)        ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -197,7 +195,8 @@ async function initDatabase() {
             message    TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (stream_id) REFERENCES live_streams(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id)   REFERENCES users(id)        ON DELETE CASCADE
+            FOREIGN KEY (user_id)   REFERENCES users(id)        ON DELETE CASCADE,
+            INDEX idx_stream (stream_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
@@ -215,15 +214,14 @@ async function initDatabase() {
         CREATE TABLE IF NOT EXISTS password_resets (
             id         INT AUTO_INCREMENT PRIMARY KEY,
             email      VARCHAR(100) NOT NULL,
-            otp        VARCHAR(6) NOT NULL,
-            expires_at TIMESTAMP NOT NULL,
+            otp        VARCHAR(6)   NOT NULL,
+            expires_at TIMESTAMP    NOT NULL,
             attempts   INT DEFAULT 0,
-            INDEX (email)
+            INDEX idx_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
     console.log('[DB] ✅ All tables ready.');
 }
-
 
 module.exports = { initDatabase };

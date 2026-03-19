@@ -1,7 +1,9 @@
 /* auth.js – Robust shared auth utilities */
 window.Blink = window.Blink || {};
 
-const API   = '/api';
+// In production set window.BLINK_API_URL to your backend URL (e.g. https://blink-api.onrender.com)
+// If not set, assume the backend is on the same origin (Express serves frontend too)
+const API   = (window.BLINK_API_URL || '') + '/api';
 const TOKEN = 'blink_token';
 const USER  = 'blink_user';
 
@@ -20,16 +22,15 @@ function logout() {
     console.log('[Auth] Logging out...');
     localStorage.removeItem(TOKEN);
     localStorage.removeItem(USER);
-    localStorage.clear(); // Ensure total cleanup
     sessionStorage.clear();
-    window.location.href = '/login.html'; // Redirect instantly
+    window.location.href = '/pages/login.html';
 }
 
 // ── Page Protection ───────────────────────────────────────────
 function requireAuth() {
     if (!isLoggedIn()) {
         console.warn('[Auth] Access denied. Redirecting to login...');
-        window.location.href = '/login.html';
+        window.location.href = '/pages/login.html';
         return false;
     }
     return true;
@@ -259,14 +260,16 @@ if (loginForm) {
         const btn        = document.getElementById('loginBtn');
         try {
             btn.disabled = true;
+            btn.textContent = 'Signing in...';
             const data = await apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ identifier, password }) });
             if (data?.token) {
                 setAuth(data.token, data.user);
-                window.location.href = '/index.html';
+                window.location.href = '/pages/index.html';
             }
         } catch (err) {
             showToast(err.message, 'error');
             btn.disabled = false;
+            btn.textContent = 'Sign In';
         }
     });
 }
@@ -292,17 +295,19 @@ if (registerForm) {
 
         try {
             btn.disabled = true;
+            btn.textContent = 'Creating account...';
             const data = await apiRequest('/auth/register', { 
                 method: 'POST', 
                 body: JSON.stringify({ username, email, password }) 
             });
             if (data?.token) {
                 setAuth(data.token, data.user);
-                window.location.href = '/index.html';
+                window.location.href = '/pages/index.html';
             }
         } catch (err) {
             showToast(err.message, 'error');
             btn.disabled = false;
+            btn.textContent = 'Create Account';
         }
     });
 }
