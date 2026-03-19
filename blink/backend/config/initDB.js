@@ -18,8 +18,13 @@ async function initDatabase() {
         );
         console.log(`[DB] Database "${env.DB_NAME}" ensured.`);
     } catch (err) {
-        console.error('[DB] Could not create database:', err.message);
-        throw err;
+        // Many cloud providers (PlanetScale, Railway, Aiven) don't allow CREATE DATABASE via SQL.
+        // We log it and continue so the app can still use the pre-created database.
+        if (err.code === 'ER_DBACCESS_DENIED_ERROR' || err.code === 'ER_ACCESS_DENIED_ERROR') {
+            console.warn(`[DB] Note: Could not confirm database "${env.DB_NAME}" existence via SQL. Ensure it exists in your cloud dashboard.`);
+        } else {
+            console.error('[DB] Creation check error:', err.message);
+        }
     } finally {
         await rawPool.end();
     }

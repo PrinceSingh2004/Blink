@@ -22,6 +22,7 @@ module.exports = {
     DB_PASSWORD:  process.env.DB_PASSWORD  || '',
     DB_NAME:      process.env.DB_NAME      || 'blink_app',
     DB_PORT:      parseInt(process.env.DB_PORT) || 3306,
+    DB_SSL:       process.env.DB_SSL === 'true',
 
     // Auth
     JWT_SECRET:   process.env.JWT_SECRET   || 'blink_super_secret_change_in_production',
