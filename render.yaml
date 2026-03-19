@@ -1,5 +1,5 @@
 services:
-  # ── Web Service (Node.js Express) ──────────────────────────────
+  # ── Web Service (Node.js Express) 
   - type: web
     name: blink-app
     runtime: node
