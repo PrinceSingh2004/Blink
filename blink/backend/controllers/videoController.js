@@ -14,6 +14,7 @@ exports.getFeed = async (req, res) => {
         const limit   = Math.min(parseInt(req.query.limit) || 10, 20);
         const exclude = req.query.exclude || '';
         const mood    = req.query.mood    || null;
+        const cycled  = req.query.cycled  || '';  // Client signals it already cycled
 
         const excludeIds = exclude
             ? exclude.split(',').map(Number).filter(n => !isNaN(n) && n > 0)
@@ -30,10 +31,13 @@ exports.getFeed = async (req, res) => {
 
         const whereSQL = 'WHERE ' + where.join(' AND ');
 
-        // If no unseen videos, cycle back
+        // If no unseen videos, cycle back (only if client hasn't already cycled)
         const [[{ cnt }]] = await db.query(`SELECT COUNT(*) AS cnt FROM videos v ${whereSQL}`, params);
         let sql, finalParams;
-        if (cnt === 0) {
+        if (cnt === 0 && cycled) {
+            // Client already cycled — return empty to prevent infinite loop
+            return res.json({ videos: [], total: 0 });
+        } else if (cnt === 0) {
             sql         = `SELECT v.*, u.username, u.profile_picture FROM videos v LEFT JOIN users u ON v.user_id = u.id ORDER BY RAND() LIMIT ?`;
             finalParams = [limit];
         } else {

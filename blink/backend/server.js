@@ -234,6 +234,10 @@ io.on('connection', (socket) => {
     socket.on('answer',        (data) => { if (data.to) io.to(data.to).emit('answer',         { from: socket.id, answer: data.answer }); });
     socket.on('ice-candidate', (data) => { if (data.to) io.to(data.to).emit('ice-candidate',  { from: socket.id, candidate: data.candidate }); });
 
+    socket.on('profile_updated', (data) => {
+        socket.broadcast.emit('profile_updated', data);
+    });
+
     socket.on('disconnect', async () => {
         if (socket.userId && ONLINE_USERS.has(socket.userId)) {
             ONLINE_USERS.get(socket.userId).delete(socket.id);

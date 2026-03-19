@@ -222,8 +222,13 @@ console.log('[Live] Script loaded - starting initialization');
                 socket = null;
             }
             if (video) { video.srcObject = null; }
+            if (liveBadge) {
+                liveBadge.textContent = 'ENDED';
+                liveBadge.style.background = '#666';
+                liveBadge.style.animation = 'none';
+            }
             showToast('Live Stream Ended', 'info');
-            setTimeout(() => window.location.href = '/index.html', 1500);
+            setTimeout(() => window.location.href = '/pages/index.html', 1500);
         }
 
         async function startLive() {
@@ -239,6 +244,7 @@ console.log('[Live] Script loaded - starting initialization');
                 const res = await apiRequest('/live/start', { method: 'POST', body: JSON.stringify({ title: `${user.username}'s stream` }) });
                 currentStreamId = res.stream_id;
                 isBroadcaster = true;
+                if (liveBadge) { liveBadge.style.display = 'inline-flex'; }
                 if (discoveryEl) discoveryEl.style.display = 'none';
                 if (chatAreaEl) chatAreaEl.style.display = 'flex';
                 if (stopLiveBtn) stopLiveBtn.style.display = 'block';
@@ -319,19 +325,44 @@ console.log('[Live] Script loaded - starting initialization');
         });
 
         // --- Multi-User Discovery ---
+        let discoveryInterval = null;
+
         async function loadDiscovery() {
             try {
                 const data = await apiRequest('/live/now');
                 if (!streamsGrid) return;
-                streamsGrid.innerHTML = (data.streams || []).map(s => `
-                    <div class="live-card" onclick="window.Blink.watchStream(${s.stream_id})" style="cursor:pointer; background:rgba(255,45,110,0.05); border:1px solid rgba(255,45,110,0.1); padding:15px; border-radius:12px; transition:all 0.2s ease;">
-                        <div style="font-weight:900; color:var(--pink); margin-bottom:4px;">@${s.username}</div>
-                        <div style="font-size:12px; color:var(--text-muted);">🎥 Active Stream</div>
-                    </div>
-                `).join('') || '<div style="grid-column:1/-1; color:var(--text-muted); padding:20px;">Watching for streamers...</div>';
-            } catch (e) {}
+                const streams = data.streams || [];
+                if (streams.length) {
+                    streamsGrid.innerHTML = streams.map(s => `
+                        <div class="live-card" onclick="window.Blink.watchStream(${s.stream_id})" 
+                             style="cursor:pointer; background:rgba(255,45,110,0.05); border:1px solid rgba(255,45,110,0.1); padding:15px; border-radius:12px; transition:all 0.2s ease;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                                <img src="${s.profile_picture || `https://i.pravatar.cc/100?u=${s.user_id}`}" 
+                                     style="width:36px;height:36px;border-radius:50%;border:2px solid var(--pink);object-fit:cover;" 
+                                     onerror="this.style.display='none'">
+                                <div>
+                                    <div style="font-weight:900; color:var(--pink);">@${s.username}</div>
+                                    <div style="font-size:11px; color:var(--text-muted);">${s.viewer_count || 0} viewers</div>
+                                </div>
+                            </div>
+                            <button style="width:100%;padding:8px;background:var(--pink);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">
+                                <i class="bi bi-play-fill"></i> Watch Stream
+                            </button>
+                        </div>
+                    `).join('');
+                } else {
+                    streamsGrid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--text-muted); padding:20px;"><i class="bi bi-broadcast" style="font-size:32px;display:block;margin-bottom:8px;"></i>No one is live right now</div>';
+                }
+            } catch (e) {
+                dbg('[Live] Discovery fetch error:', e.message);
+            }
         }
         loadDiscovery();
+
+        // Auto-refresh discovery every 10 seconds
+        discoveryInterval = setInterval(() => {
+            if (!isBroadcaster && !currentStreamId) loadDiscovery();
+        }, 10000);
 
         // --- Automatic Join from URL ---
         const urlParams = new URLSearchParams(window.location.search);

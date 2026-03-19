@@ -13,6 +13,8 @@ const moodBar  = document.getElementById('moodSelector');
 let currentMood  = 'General';
 let isLoading    = false;
 let seenIds      = new Set();
+let cycleCount   = 0;          // Track how many times we've cycled the feed
+const MAX_CYCLES = 1;          // Allow 1 cycle before showing "end of feed"
 let videoObs     = null;
 let currentUser  = getUser();
 
@@ -28,9 +30,10 @@ function fmt(n) {
 async function fetchVideos(mood, limit = 10) {
     const exclude  = [...seenIds].join(',');
     const moodQ    = mood && mood !== 'General' ? `&mood=${encodeURIComponent(mood)}` : '';
+    const cycledQ  = cycleCount > 0 ? '&cycled=1' : '';
     const headers  = {};
     if (getToken()) headers['Authorization'] = `Bearer ${getToken()}`;
-    const res  = await fetch(`/api/videos?limit=${limit}${moodQ}&exclude=${exclude}`, { headers });
+    const res  = await fetch(`/api/videos?limit=${limit}${moodQ}&exclude=${exclude}${cycledQ}`, { headers });
     const data = await res.json();
     return data.videos || [];
 }
@@ -47,7 +50,7 @@ function buildCard(v) {
 
     post.innerHTML = `
         ${v.is_blink_moment ? `<div class="blink-badge"><i class="bi bi-lightning-charge-fill"></i> Blink Moment <span style="opacity:.7;font-size:10px">24h left</span></div>` : ''}
-        <video class="video-player" data-src="${v.video_url}" loop playsinline preload="none"></video>
+        <video class="video-player" data-src="${v.video_url}" playsinline preload="none"></video>
         <div class="video-shimmer"><div class="shimmer-bar"></div><div class="shimmer-bar short"></div></div>
         <div class="video-info">
             <div class="user-info" onclick="window.location.href='/pages/profile.html?id=${v.user_id}'">
@@ -223,9 +226,24 @@ async function loadMore() {
     isLoading = true;
     try {
         let videos = await fetchVideos(currentMood, 10);
-        if (!videos.length) { seenIds.clear(); videos = await fetchVideos(currentMood, 10); }
-        if (!videos.length) showToast('No videos found');
-        else appendVideos(videos);
+        if (!videos.length && cycleCount < MAX_CYCLES) {
+            // Cycle once: clear seen IDs so we can re-show older videos
+            cycleCount++;
+            seenIds.clear();
+            videos = await fetchVideos(currentMood, 10);
+        }
+        if (!videos.length) {
+            // No more videos at all, or already cycled — show end message
+            if (!feedEl.querySelector('.feed-end-msg')) {
+                const endMsg = document.createElement('div');
+                endMsg.className = 'feed-end-msg';
+                endMsg.style.cssText = 'text-align:center;padding:40px 20px;color:var(--text-muted);font-size:14px;';
+                endMsg.innerHTML = '<i class="bi bi-check-circle-fill" style="font-size:28px;display:block;margin-bottom:8px"></i>You\'re all caught up!';
+                feedEl.appendChild(endMsg);
+            }
+        } else {
+            appendVideos(videos);
+        }
     } catch (err) {
         console.error('[Feed]', err.message);
         showToast('Failed to load videos', 'error');
@@ -252,6 +270,7 @@ moodBar?.addEventListener('click', async e => {
     feedEl.querySelectorAll('.video-player').forEach(v => v.pause());
     feedEl.innerHTML = '';
     seenIds.clear();
+    cycleCount = 0;  // Reset cycle count on mood change
     isLoading = false;
     if (videoObs) { videoObs.disconnect(); videoObs = null; }
     await loadMore();

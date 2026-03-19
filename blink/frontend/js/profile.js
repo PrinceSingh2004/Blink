@@ -234,11 +234,26 @@ if (document.getElementById('profilePage')) {
     loadLiveDiscovery();
 }
 
+    // Real-time updates for discovery grid
+    if (window.Blink.socket) {
+        window.Blink.socket.on('profile_updated', () => {
+            console.log('[Blink] Remote profile update detected, refreshing discovery...');
+            if (typeof loadLiveDiscovery === 'function') loadLiveDiscovery();
+        });
+    }
+
+// ─── GO LIVE PROFILE BTN ──────────────────────────────────────
+document.getElementById('goLiveProfileBtn')?.addEventListener('click', () => {
+    window.location.href = '/pages/live.html';
+});
+
 // ═══ EDIT PROFILE PAGE ═══════════════════════════════════════
 if (document.getElementById('editProfilePage')) {
     if (!requireAuth()) throw new Error('Auth required');
 
     const me = getUser();
+    let cropper = null;
+    let croppedBlob = null;
 
     // Load current data
     async function loadCurrentProfile() {
@@ -246,44 +261,94 @@ if (document.getElementById('editProfilePage')) {
             const data = await apiRequest(`/users/${me.id}`);
             const u = data.user;
             document.getElementById('editUsername').value = u.username || '';
-            document.getElementById('editBio').value      = u.bio || '';
+            document.getElementById('editBio').value      = u.bio   || '';
             const prev = document.getElementById('avatarPreview');
-            if (u.profile_picture) { prev.src = u.profile_picture; prev.style.display = 'block'; document.getElementById('avatarInitial').style.display = 'none'; }
-            else { document.getElementById('avatarInitial').textContent = (u.username||'U')[0].toUpperCase(); }
+            if (u.profile_picture) { 
+                prev.src = u.profile_picture; 
+                prev.style.display = 'block'; 
+                document.getElementById('avatarInitial').style.display = 'none'; 
+            } else { 
+                document.getElementById('avatarInitial').textContent = (u.username||'U')[0].toUpperCase(); 
+            }
         } catch {}
     }
     loadCurrentProfile();
 
-    // Avatar preview
-    document.getElementById('avatarInput')?.addEventListener('change', function () {
+    // Cropper Workflow
+    const avatarInput   = document.getElementById('avatarInput');
+    const cropperModal  = document.getElementById('cropperModal');
+    const cropperTarget = document.getElementById('cropperTarget');
+    const saveCropBtn   = document.getElementById('saveCropBtn');
+    const cancelCropBtn = document.getElementById('cancelCropBtn');
+
+    avatarInput?.addEventListener('change', function () {
         const file = this.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = e => {
-            const prev = document.getElementById('avatarPreview');
-            prev.src = e.target.result;
-            prev.style.display = 'block';
-            document.getElementById('avatarInitial').style.display = 'none';
+            cropperTarget.src = e.target.result;
+            cropperModal.style.display = 'flex';
+            if (cropper) cropper.destroy();
+            cropper = new Cropper(cropperTarget, {
+                aspectRatio: 1,
+                viewMode: 1,
+                background: false
+            });
         };
         reader.readAsDataURL(file);
     });
 
-    // Upload avatar
+    cancelCropBtn?.addEventListener('click', () => {
+        cropperModal.style.display = 'none';
+        avatarInput.value = '';
+    });
+
+    saveCropBtn?.addEventListener('click', () => {
+        if (!cropper) return;
+        const canvas = cropper.getCroppedCanvas({ width: 300, height: 300 });
+        canvas.toBlob(blob => {
+            croppedBlob = blob;
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = e => {
+                const prev = document.getElementById('avatarPreview');
+                prev.src = e.target.result;
+                prev.style.display = 'block';
+                document.getElementById('avatarInitial').style.display = 'none';
+            };
+            reader.readAsDataURL(blob);
+            cropperModal.style.display = 'none';
+        }, 'image/jpeg', 0.85);
+    });
+
     document.getElementById('uploadAvatarBtn')?.addEventListener('click', async () => {
-        const file = document.getElementById('avatarInput')?.files[0];
-        if (!file) { showToast('Pick an image first'); return; }
+        if (!croppedBlob) { showToast('Please choose and crop a photo first', 'error'); return; }
+        const btn = document.getElementById('uploadAvatarBtn');
+        btn.disabled = true;
         const formData = new FormData();
-        formData.append('avatar', file);
+        formData.append('avatar', croppedBlob, 'avatar.jpg');
         try {
-            const res  = await fetch('/api/users/profile/avatar', { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` }, body: formData });
+            const res  = await fetch('/api/users/profile/avatar', { 
+                method: 'POST', 
+                headers: { 'Authorization': `Bearer ${getToken()}` }, 
+                body: formData 
+            });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
             const user = window.Blink.getUser();
             user.profile_picture = data.profile_picture;
             localStorage.setItem('blink_user', JSON.stringify(user));
             await window.Blink.populateSidebar();
-            showToast('Avatar updated!', 'success');
+            
+            // Broadcast the update via socket
+            if (window.Blink.socket) {
+                window.Blink.socket.emit('profile_updated', { userId: user.id });
+            }
+
+            showToast('Avatar updated successfully!', 'success');
+            croppedBlob = null;
         } catch (err) { showToast(err.message, 'error'); }
+        finally { btn.disabled = false; }
     });
 
     // Update profile form
