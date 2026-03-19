@@ -58,6 +58,16 @@
 .grid-video-item:hover video,.grid-video-item:hover img{filter:brightness(1);transform:scale(1.04);}
 .grid-play-count{position:absolute;bottom:8px;left:8px;font-size:12px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.9);}
 .grid-badge{position:absolute;top:6px;right:6px;background:var(--pink);font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;letter-spacing:.5px;}
+.btn-grid-delete{
+    position:absolute;top:6px;right:6px;width:28px;height:28px;
+    background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);
+    border:none;border-radius:50%;color:#ff2d55;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;cursor:pointer;opacity:0;
+    transition:opacity 0.2s, transform 0.2s;z-index:5;
+}
+.grid-video-item:hover .btn-grid-delete{opacity:1;}
+.btn-grid-delete:hover{transform:scale(1.1);background:rgba(255,45,110,0.15);}
 .grid-add-btn{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer;background:rgba(255,255,255,.02);border:2px dashed var(--glass-border);}
 .grid-add-btn span:first-child{font-size:32px;color:var(--text-muted);}
 .grid-add-btn span:last-child{font-size:11px;color:var(--text-muted);font-weight:600;}

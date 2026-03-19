@@ -161,6 +161,24 @@ if (document.getElementById('profilePage')) {
                     <video src="${v.video_url}" loop muted playsinline preload="none"></video>
                     <div class="grid-play-count"><i class="bi bi-heart-fill"></i> ${fmt(v.likes_count)}</div>
                 `;
+
+                if (isOwnProfile) {
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'btn-grid-delete';
+                    delBtn.innerHTML = '<i class="bi bi-trash3-fill"></i>';
+                    delBtn.title = 'Delete Video';
+                    delBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (!confirm('Are you sure you want to delete this video?')) return;
+                        try {
+                            await apiRequest(`/videos/${v.id}`, { method: 'DELETE' });
+                            item.remove();
+                            showToast('Video deleted');
+                        } catch (err) { showToast(err.message, 'error'); }
+                    });
+                    item.appendChild(delBtn);
+                }
+
                 const vid = item.querySelector('video');
                 item.addEventListener('mouseenter', () => vid.play().catch(() => {}));
                 item.addEventListener('mouseleave', () => { vid.pause(); vid.currentTime = 0; });
@@ -188,20 +206,25 @@ if (document.getElementById('profilePage')) {
         if (!disc || !grid) return;
 
         try {
-            const data = await apiRequest('/follow/live/following');
-            const users = (data.live || []).filter(u => parseInt(u.id) !== parseInt(targetId)); // Don't show current profile if already listed there
+            const data = await apiRequest('/live/now');
+            const streams = data.streams || [];
+            
+            // Filter out the current user if they are live
+            const otherStreams = streams.filter(s => parseInt(s.user_id) !== parseInt(me.id));
 
-            if (users.length) {
+            if (otherStreams.length) {
                 disc.style.display = 'block';
-                grid.innerHTML = users.map(u => `
-                    <div class="live-mini-card" onclick="window.location.href='live.html'">
+                grid.innerHTML = otherStreams.map(s => `
+                    <div class="live-mini-card" onclick="window.location.href='live.html?id=${s.stream_id}'" style="cursor:pointer;">
                         <div class="live-mini-badge">LIVE</div>
                         <div class="live-mini-avatar">
-                            <img src="${u.profile_picture || `https://i.pravatar.cc/100?u=${u.id}`}" alt="">
+                            <img src="${s.profile_picture || `https://i.pravatar.cc/100?u=${s.user_id}`}" alt="">
                         </div>
-                        <div class="live-mini-username">@${u.username}</div>
+                        <div class="live-mini-username">@${s.username}</div>
                     </div>
                 `).join('');
+            } else {
+                disc.style.display = 'none';
             }
         } catch {}
     }

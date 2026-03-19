@@ -58,13 +58,23 @@ console.log('[Live] Script loaded - starting initialization');
         let peerConnection  = null; 
         let streamEnded     = false;
         let pendingIce      = []; 
-        const rtcConfig     = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        const rtcConfig     = { 
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
+            ],
+            iceCandidatePoolSize: 10
+        };
+
         const dbg = (...args) => console.log('[Live]', ...args);
         const getCurrentUser = () => getUser() || {};
-
-        // --- WebRTC Helpers ---
+        
         let pendingIceBroadcaster = {}; // { socketId: [candidates] }
 
+        // --- WebRTC Helpers ---
         async function initiatePeerConnection(viewerSocketId) {
             dbg('initiatePeerConnection to', viewerSocketId);
             if (peerConnections[viewerSocketId]) peerConnections[viewerSocketId].close();
@@ -119,7 +129,6 @@ console.log('[Live] Script loaded - starting initialization');
             dbg('[Live] Answer created and sent to Broadcaster');
             socket.emit('answer', { to: from, answer });
 
-            // Process any ICE candidates that arrived before the offer
             if (pendingIce.length) {
                 dbg('Processing', pendingIce.length, 'queued ICE candidates');
                 for (const cand of pendingIce) await peerConnection.addIceCandidate(new RTCIceCandidate(cand)).catch(e => {});
@@ -154,7 +163,6 @@ console.log('[Live] Script loaded - starting initialization');
                 const pc = peerConnections[data.from];
                 if (isBroadcaster && pc) {
                     await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                    // Process any ICE candidates queued for this specific PC
                     if (pendingIceBroadcaster[data.from]) {
                         for (const cand of pendingIceBroadcaster[data.from]) {
                             await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => {});
@@ -183,7 +191,7 @@ console.log('[Live] Script loaded - starting initialization');
             socket.on('live_ended', () => handleStreamEnded());
         }
 
-        // --- UI ---
+        // --- UI & Controls ---
         function appendComment(username, message, isSelf) {
             if (!commentsEl) return;
             const div = document.createElement('div');
@@ -209,19 +217,11 @@ console.log('[Live] Script loaded - starting initialization');
             }
             Object.values(peerConnections).forEach(pc => pc.close());
             peerConnections = {};
-            
             if (socket) {
                 socket.disconnect();
                 socket = null;
             }
-
             if (video) { video.srcObject = null; }
-            if (liveBadge) {
-                liveBadge.textContent = 'ENDED';
-                liveBadge.style.background = '#666';
-                liveBadge.style.animation = 'none';
-                liveBadge.style.display = 'inline-flex';
-            }
             showToast('Live Stream Ended', 'info');
             setTimeout(() => window.location.href = '/index.html', 1500);
         }
@@ -246,7 +246,7 @@ console.log('[Live] Script loaded - starting initialization');
                 showToast('You are LIVE!', 'success');
             } catch (err) {
                 dbg('startLive fail', err);
-                showToast('Failed to start stream: ' + err.message, 'error');
+                showToast('Camera access denied. Enable HTTPS and Permissions.', 'error');
             }
         }
 
@@ -278,10 +278,9 @@ console.log('[Live] Script loaded - starting initialization');
         window.Blink.watchStream = async (streamId) => {
             dbg('[Live] watchStream requested for:', streamId);
             try {
-                // Pre-play gesture to satisfy browser autoplay policy
                 if (video) {
                     video.muted = false;
-                    await video.play().catch(e => dbg('[Live] Play gesture initiated'));
+                    await video.play().catch(e => dbg('[Live] Priming player...'));
                 }
 
                 const data = await apiRequest(`/live/${streamId}`);
@@ -292,32 +291,22 @@ console.log('[Live] Script loaded - starting initialization');
                 if (watchingInfo) watchingInfo.style.display = 'block';
                 if (watchingUserEl) watchingUserEl.textContent = data.stream.username;
                 
-                dbg('[Live] Initializing viewer socket...');
+                dbg('[Live] Initializing signaling...');
                 initSocket(streamId, 'viewer');
             } catch (err) { 
                 dbg('[Live] watchStream failed:', err.message);
-                showToast('Stream not found', 'error'); 
+                showToast('Stream is offline', 'error'); 
             }
         };
 
-        // --- Listeners ---
-        if (goLiveBtn) {
-            console.log('[Live] Found goLiveBtn, attaching listener');
-            goLiveBtn.addEventListener('click', startLive);
-        } else {
-            console.error('[Live] goLiveBtn NOT found in DOM');
-        }
-
+        if (goLiveBtn) goLiveBtn.addEventListener('click', startLive);
         if (stopLiveBtn) stopLiveBtn.addEventListener('click', async () => {
-            await apiRequest('/live/end', { method: 'POST' });
-            handleStreamEnded();
+             await apiRequest('/live/end', { method: 'POST' });
+             handleStreamEnded();
         });
-
         if (exitLiveBtn) exitLiveBtn.addEventListener('click', async () => {
-            if (isBroadcaster) {
-                await apiRequest('/live/end', { method: 'POST' });
-            }
-            handleStreamEnded();
+             if (isBroadcaster) await apiRequest('/live/end', { method: 'POST' });
+             handleStreamEnded();
         });
 
         sendMsgBtn?.addEventListener('click', () => {
@@ -329,18 +318,27 @@ console.log('[Live] Script loaded - starting initialization');
             appendComment(user.username, msg, true);
         });
 
-        // Discovery View
+        // --- Multi-User Discovery ---
         async function loadDiscovery() {
             try {
                 const data = await apiRequest('/live/now');
                 if (!streamsGrid) return;
                 streamsGrid.innerHTML = (data.streams || []).map(s => `
-                    <div class="live-card" onclick="window.Blink.watchStream(${s.stream_id})" style="cursor:pointer;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px">
-                        <strong>@${s.username}</strong>
+                    <div class="live-card" onclick="window.Blink.watchStream(${s.stream_id})" style="cursor:pointer; background:rgba(255,45,110,0.05); border:1px solid rgba(255,45,110,0.1); padding:15px; border-radius:12px; transition:all 0.2s ease;">
+                        <div style="font-weight:900; color:var(--pink); margin-bottom:4px;">@${s.username}</div>
+                        <div style="font-size:12px; color:var(--text-muted);">🎥 Active Stream</div>
                     </div>
-                `).join('') || 'No one is live.';
+                `).join('') || '<div style="grid-column:1/-1; color:var(--text-muted); padding:20px;">Watching for streamers...</div>';
             } catch (e) {}
         }
         loadDiscovery();
+
+        // --- Automatic Join from URL ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoStreamId = urlParams.get('id');
+        if (autoStreamId) {
+             dbg('[Live] Auto-joining stream:', autoStreamId);
+             setTimeout(() => window.Blink.watchStream(autoStreamId), 500);
+        }
     });
 })();
