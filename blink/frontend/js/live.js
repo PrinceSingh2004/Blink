@@ -63,40 +63,65 @@ console.log('[Live] Script loaded - starting initialization');
         const getCurrentUser = () => getUser() || {};
 
         // --- WebRTC Helpers ---
+        let pendingIceBroadcaster = {}; // { socketId: [candidates] }
+
         async function initiatePeerConnection(viewerSocketId) {
             dbg('initiatePeerConnection to', viewerSocketId);
             if (peerConnections[viewerSocketId]) peerConnections[viewerSocketId].close();
             const pc = new RTCPeerConnection(rtcConfig);
             peerConnections[viewerSocketId] = pc;
-            if (localStream) localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            
+            if (localStream) {
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                dbg('Tracks added to peer connection');
+            }
+
             pc.onicecandidate = (event) => {
-                if (event.candidate) socket.emit('ice-candidate', { to: viewerSocketId, candidate: event.candidate });
+                if (event.candidate) {
+                    dbg('ICE candidate found for viewer', viewerSocketId);
+                    socket.emit('ice-candidate', { to: viewerSocketId, candidate: event.candidate });
+                }
             };
+
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
+            dbg('[Live] Offer sent to viewer', viewerSocketId);
             socket.emit('offer', { to: viewerSocketId, offer });
         }
 
         async function handleOffer(from, offer) {
-            dbg('handleOffer from', from);
+            dbg('[Live] Offer received from Broadcaster:', from);
             if (peerConnection) peerConnection.close();
             peerConnection = new RTCPeerConnection(rtcConfig);
+            
             peerConnection.onicecandidate = (e) => {
-                if (e.candidate) socket.emit('ice-candidate', { to: from, candidate: e.candidate });
-            };
-            peerConnection.ontrack = (e) => {
-                dbg('remote track received');
-                if (video) {
-                    video.srcObject = e.streams[0];
-                    video.muted = false;
-                    video.play().catch(err => dbg('play fail', err));
+                if (e.candidate) {
+                    dbg('[Live] ICE candidate sent to Broadcaster');
+                    socket.emit('ice-candidate', { to: from, candidate: e.candidate });
                 }
             };
+
+            peerConnection.ontrack = (e) => {
+                dbg('[Live] Remote track received and attached');
+                if (video) {
+                    video.srcObject = e.streams[0];
+                    video.muted = false; // Unmute for viewer
+                    video.play().catch(err => {
+                        dbg('[Live] Autoplay blocked, user interaction required:', err.message);
+                        showToast('Click anywhere to start video', 'info');
+                    });
+                }
+            };
+
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
+            dbg('[Live] Answer created and sent to Broadcaster');
             socket.emit('answer', { to: from, answer });
+
+            // Process any ICE candidates that arrived before the offer
             if (pendingIce.length) {
+                dbg('Processing', pendingIce.length, 'queued ICE candidates');
                 for (const cand of pendingIce) await peerConnection.addIceCandidate(new RTCIceCandidate(cand)).catch(e => {});
                 pendingIce = [];
             }
@@ -110,19 +135,49 @@ console.log('[Live] Script loaded - starting initialization');
             socket.emit('join_live', { streamId, userId: user.id, username: user.username, role });
 
             socket.on('viewer_update', ({ count }) => { if (viewCount) viewCount.textContent = count; });
+            
             socket.on('user_joined', async (data) => {
-                if (isBroadcaster && data.role === 'viewer' && localStream) await initiatePeerConnection(data.socketId);
+                dbg('User joined:', data.username, 'Role:', data.role);
+                if (isBroadcaster && data.role === 'viewer' && localStream) {
+                    await initiatePeerConnection(data.socketId);
+                }
             });
-            socket.on('offer', async (data) => { if (!isBroadcaster) await handleOffer(data.from, data.offer); });
+
+            socket.on('offer', async (data) => { 
+                if (!isBroadcaster) {
+                    await handleOffer(data.from, data.offer); 
+                }
+            });
+
             socket.on('answer', async (data) => {
+                dbg('[Live] Answer received from viewer');
                 const pc = peerConnections[data.from];
-                if (isBroadcaster && pc) await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                if (isBroadcaster && pc) {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    // Process any ICE candidates queued for this specific PC
+                    if (pendingIceBroadcaster[data.from]) {
+                        for (const cand of pendingIceBroadcaster[data.from]) {
+                            await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => {});
+                        }
+                        delete pendingIceBroadcaster[data.from];
+                    }
+                }
             });
+
             socket.on('ice-candidate', async (data) => {
                 const pc = isBroadcaster ? peerConnections[data.from] : peerConnection;
-                if (pc && pc.remoteDescription) await pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(e => {});
-                else if (!isBroadcaster) pendingIce.push(data.candidate);
+                if (pc && pc.remoteDescription) {
+                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(e => {});
+                } else {
+                    if (isBroadcaster) {
+                        if (!pendingIceBroadcaster[data.from]) pendingIceBroadcaster[data.from] = [];
+                        pendingIceBroadcaster[data.from].push(data.candidate);
+                    } else {
+                        pendingIce.push(data.candidate);
+                    }
+                }
             });
+
             socket.on('receive_reaction', ({ emoji }) => spawnFloatingEmoji(emoji));
             socket.on('receive_live_chat', (data) => appendComment(data.username, data.message, data.username === user.username));
             socket.on('live_ended', () => handleStreamEnded());
@@ -221,8 +276,14 @@ console.log('[Live] Script loaded - starting initialization');
         }
 
         window.Blink.watchStream = async (streamId) => {
-            dbg('watchStream', streamId);
+            dbg('[Live] watchStream requested for:', streamId);
             try {
+                // Pre-play gesture to satisfy browser autoplay policy
+                if (video) {
+                    video.muted = false;
+                    await video.play().catch(e => dbg('[Live] Play gesture initiated'));
+                }
+
                 const data = await apiRequest(`/live/${streamId}`);
                 currentStreamId = streamId;
                 isBroadcaster = false;
@@ -230,8 +291,13 @@ console.log('[Live] Script loaded - starting initialization');
                 if (chatAreaEl) chatAreaEl.style.display = 'flex';
                 if (watchingInfo) watchingInfo.style.display = 'block';
                 if (watchingUserEl) watchingUserEl.textContent = data.stream.username;
+                
+                dbg('[Live] Initializing viewer socket...');
                 initSocket(streamId, 'viewer');
-            } catch (err) { showToast('Stream not found', 'error'); }
+            } catch (err) { 
+                dbg('[Live] watchStream failed:', err.message);
+                showToast('Stream not found', 'error'); 
+            }
         };
 
         // --- Listeners ---
