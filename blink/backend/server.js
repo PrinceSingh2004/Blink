@@ -25,11 +25,10 @@ const allowedOrigins = [
 
 const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (mobile apps, curl, Postman)
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(null, true); // Keep open for now; tighten in production if needed
+            callback(null, true);
         }
     },
     credentials: true,
@@ -49,7 +48,7 @@ const io = new Server(server, {
 
 // ── Security Middleware ───────────────────────────────────────
 app.use(helmet({
-    contentSecurityPolicy: false, // Allow inline scripts for frontend
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false
 }));
 app.use(compression());
@@ -58,7 +57,7 @@ app.options('*', cors(corsOptions));
 
 // ── Rate Limiters ─────────────────────────────────────────────
 const globalLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 15 * 60 * 1000,
     max: 500,
     standardHeaders: true,
     legacyHeaders: false,
@@ -162,52 +161,95 @@ async function endLiveStream(streamId, userId, username) {
         await db.query('UPDATE live_streams SET status = "offline", viewer_count = 0 WHERE id = ?', [streamId]);
         if (userId) await db.query('UPDATE users SET is_live = 0 WHERE id = ?', [userId]);
         await db.query('DELETE FROM live_viewers WHERE stream_id = ?', [streamId]);
+        
         io.to(room).emit('live_ended', { by: username || 'host' });
         io.to(room).emit('viewer_update', { count: 0 });
+        io.emit('live_discovery_update'); // Global update for story bars
+        console.log(`[Socket] Stream Ended: ${streamId} by ${username}`);
     } catch (err) {
         console.error('[Socket] end_live_stream error:', err.message);
     }
 }
 
 io.on('connection', (socket) => {
+    console.log(`[Socket] Connected: ${socket.id}`);
+
     socket.on('identify', (userId) => {
         if (!userId) return;
         socket.userId = userId;
+        console.log(`[Socket] Identity: ${userId} for ${socket.id}`);
         if (!ONLINE_USERS.has(userId)) ONLINE_USERS.set(userId, new Set());
         ONLINE_USERS.get(userId).add(socket.id);
         io.emit('user_status', { userId, status: 'online' });
     });
 
-    socket.on('join_room',    (room) => socket.join(room));
+    socket.on('join_room', (room) => socket.join(room));
     socket.on('send_message', (data) => io.to(data.room).emit('receive_message', data));
 
+    // --- Live Streaming Signaling ---
     socket.on('join_live', async ({ streamId, userId, username, role }) => {
         if (!streamId || !userId) return;
         const room = `live_${streamId}`;
         socket.join(room);
-        socket.streamId   = streamId;
-        socket.userId     = userId;
-        socket.username   = username;
+        socket.streamId = streamId;
+        socket.userId = userId;
+        socket.username = username;
         socket.isBroadcaster = (role === 'broadcaster');
+
+        console.log(`[Live] ${username} (${role}) joined room ${room}`);
+
         try {
             if (role === 'viewer') {
                 await db.query('INSERT IGNORE INTO live_viewers (stream_id, user_id) VALUES (?, ?)', [streamId, userId]);
             }
             const [rows] = await db.query('SELECT COUNT(*) as count FROM live_viewers WHERE stream_id = ?', [streamId]);
-            const count  = rows[0].count;
+            const count = rows[0].count;
             await db.query('UPDATE live_streams SET viewer_count = ? WHERE id = ?', [count, streamId]);
-            io.to(room).emit('viewer_update', { count });
+            
             io.to(room).emit('user_joined', { userId, username, socketId: socket.id, role });
+            io.to(room).emit('viewer_update', { count });
+            io.emit('live_discovery_update');
         } catch (err) { console.error('[Socket] join_live error:', err.message); }
     });
 
-    socket.on('leave_live', async ({ streamId, userId }) => {
-        socket.leave(`live_${streamId}`);
+    socket.on('leave_live', async () => {
+        if (!socket.streamId) return;
+        const room = `live_${socket.streamId}`;
+        console.log(`[Live] ${socket.username} leaving room ${room}`);
         try {
-            await db.query('DELETE FROM live_viewers WHERE stream_id = ? AND user_id = ?', [streamId, userId]);
-            const [rows] = await db.query('SELECT COUNT(*) as count FROM live_viewers WHERE stream_id = ?', [streamId]);
-            io.to(`live_${streamId}`).emit('viewer_update', { count: rows[0].count });
+            await db.query('DELETE FROM live_viewers WHERE stream_id = ? AND user_id = ?', [socket.streamId, socket.userId]);
+            const [rows] = await db.query('SELECT COUNT(*) as count FROM live_viewers WHERE stream_id = ?', [socket.streamId]);
+            io.to(room).emit('viewer_update', { count: rows[0].count });
+            socket.leave(room);
         } catch {}
+    });
+
+    socket.on('request_offer', (data) => {
+        const streamId = data.streamId || socket.streamId;
+        if (!streamId) return;
+        const room = `live_${streamId}`;
+        console.log(`[Signaling] Request offer from ${socket.username} in room ${room}`);
+        socket.to(room).emit('request_offer', { from: socket.id, username: socket.username });
+    });
+
+    socket.on('offer', (data) => {
+        if (data.to) {
+            console.log(`[Signaling] Offer ${socket.id} -> ${data.to}`);
+            io.to(data.to).emit('offer', { from: socket.id, offer: data.offer });
+        }
+    });
+
+    socket.on('answer', (data) => {
+        if (data.to) {
+            console.log(`[Signaling] Answer ${socket.id} -> ${data.to}`);
+            io.to(data.to).emit('answer', { from: socket.id, answer: data.answer });
+        }
+    });
+
+    socket.on('ice-candidate', (data) => {
+        if (data.to) {
+            io.to(data.to).emit('ice-candidate', { from: socket.id, candidate: data.candidate });
+        }
     });
 
     socket.on('send_live_chat', async ({ streamId, userId, message, username }) => {
@@ -223,33 +265,10 @@ io.on('connection', (socket) => {
         io.to(`live_${streamId}`).emit('receive_reaction', { emoji });
     });
 
-    socket.on('end_live_stream', async ({ streamId, username }) => {
-        if (socket.endedStream) return;
-        socket.endedStream = true;
-        await endLiveStream(streamId || socket.streamId, socket.userId, username || socket.username);
-    });
-
-    socket.on('request_offer', (data) => {
-        const room = `live_${data.streamId || socket.streamId}`;
-        dbg('[Socket] Request offer from:', socket.username, 'to:', data.to || 'room');
-        if (data.to) {
-            io.to(data.to).emit('request_offer', { from: socket.id, username: socket.username });
-        } else {
-            // Broadcast to the whole room so any broadcaster can respond
-            socket.to(room).emit('request_offer', { from: socket.id, username: socket.username });
-        }
-    });
-
-    socket.on('signal',        (data) => { if (data.to) io.to(data.to).emit('signal',        { from: socket.id, signal: data.signal }); });
-    socket.on('offer',         (data) => { if (data.to) io.to(data.to).emit('offer',          { from: socket.id, offer: data.offer });   });
-    socket.on('answer',        (data) => { if (data.to) io.to(data.to).emit('answer',         { from: socket.id, answer: data.answer }); });
-    socket.on('ice-candidate', (data) => { if (data.to) io.to(data.to).emit('ice-candidate',  { from: socket.id, candidate: data.candidate }); });
-
-    socket.on('profile_updated', (data) => {
-        socket.broadcast.emit('profile_updated', data);
-    });
+    socket.on('profile_updated', (data) => socket.broadcast.emit('profile_updated', data));
 
     socket.on('disconnect', async () => {
+        console.log(`[Socket] Disconnected: ${socket.id}`);
         if (socket.userId && ONLINE_USERS.has(socket.userId)) {
             ONLINE_USERS.get(socket.userId).delete(socket.id);
             if (ONLINE_USERS.get(socket.userId).size === 0) {
@@ -266,25 +285,21 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
-// ── Start Server ──────────────────────────────────────────────
 initDatabase()
     .then(() => {
         const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
         server.listen(PORT, HOST, () => {
-            console.log(`✅ Blink Server → http://${HOST}:${PORT}`);
-            console.log(`   Environment : ${process.env.NODE_ENV || 'development'}`);
+            console.log(`✅ Blink Server Running → http://${HOST}:${PORT}`);
         });
     })
     .catch(err => {
-        console.error('[Fatal] Could not initialize database:', err.message);
+        console.error('[Fatal] Database Error:', err.message);
         process.exit(1);
     });
 
-// ── Graceful Shutdown ─────────────────────────────────────────
 process.on('SIGTERM', () => {
-    console.log('[Server] SIGTERM received. Shutting down gracefully...');
-    server.close(() => { console.log('[Server] Closed.'); process.exit(0); });
+    server.close(() => process.exit(0));
 });
 process.on('SIGINT', () => {
-    server.close(() => { process.exit(0); });
+    server.close(() => process.exit(0));
 });

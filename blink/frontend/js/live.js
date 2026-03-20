@@ -45,42 +45,45 @@ console.log('[Live] Script loaded - starting initialization');
         const liveBadge     = document.getElementById('liveBadge');
         const watchingInfo  = document.getElementById('watchingInfo');
         const watchingUserEl= document.getElementById('watchingUsername');
-        const emojiBtn      = document.getElementById('emojiBtn');
-        const emojiPicker   = document.getElementById('emojiPicker');
         const exitLiveBtn   = document.getElementById('exitLiveBtn');
+        const watchOverlay  = document.getElementById('watchOverlay');
 
         // --- Internal State ---
         let localStream     = null;
         let isBroadcaster   = false;
         let currentStreamId = null;
         let socket          = null;
-        let peerConnections = {}; 
-        let peerConnection  = null; 
+        let peerConnections = {}; // Broadcaster: { viewerSocketId: RTCPeerConnection }
+        let viewerPc        = null; // Viewer: current connection to broadcaster
         let streamEnded     = false;
-        let pendingIce      = []; 
-        const rtcConfig     = { 
+        let pendingIce      = []; // For viewer
+        let pendingIceBroadcaster = {}; // { viewerSocketId: [candidates] }
+        
+        // Recording State
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        // Robust RTC Config with several STUN servers
+        const rtcConfig = { 
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
                 { urls: 'stun:stun2.l.google.com:19302' },
                 { urls: 'stun:stun3.l.google.com:19302' },
-                { urls: 'stun:stun4.l.google.com:19302' }
+                { urls: 'stun:stun4.l.google.com:19302' },
+                { urls: 'stun:stun.l.google.com:19305' },
+                { urls: 'stun:stun.services.mozilla.com' }
             ],
             iceCandidatePoolSize: 10
         };
 
         const dbg = (...args) => console.log('[Live]', ...args);
         const getCurrentUser = () => getUser() || {};
-        
-        let pendingIceBroadcaster = {}; // { socketId: [candidates] }
 
-        // --- WebRTC Logic (Signaling & Peer Management) ---
-        let signalQueue = []; // For when we get a signal before pc is ready
-
-        async function initiatePeerConnection(viewerSocketId) {
-            dbg('Initiating PeerConnection to viewer:', viewerSocketId);
+        // --- WebRTC Logic (Broadcaster Side) ---
+        async function initiateBroadcasterPc(viewerSocketId) {
+            dbg('Initiating PC for viewer:', viewerSocketId);
             if (peerConnections[viewerSocketId]) {
-                dbg('Closing existing PC for', viewerSocketId);
                 peerConnections[viewerSocketId].close();
             }
             
@@ -88,10 +91,7 @@ console.log('[Live] Script loaded - starting initialization');
             peerConnections[viewerSocketId] = pc;
             
             if (localStream) {
-                localStream.getTracks().forEach(track => {
-                    dbg('Adding track to PC:', track.kind);
-                    pc.addTrack(track, localStream);
-                });
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
             }
 
             pc.onicecandidate = (event) => {
@@ -100,62 +100,69 @@ console.log('[Live] Script loaded - starting initialization');
                 }
             };
 
-            pc.onconnectionstatechange = () => dbg(`PC State [${viewerSocketId}]:`, pc.connectionState);
+            pc.onconnectionstatechange = () => {
+                dbg(`Broadcaster PC State [${viewerSocketId}]:`, pc.connectionState);
+                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+                    delete peerConnections[viewerSocketId];
+                }
+            };
 
             try {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
-                dbg('Offer sent to viewer:', viewerSocketId);
                 socket.emit('offer', { to: viewerSocketId, offer });
+                dbg('Offer sent to viewer:', viewerSocketId);
             } catch (err) {
-                dbg('PC createOffer error:', err.message);
+                dbg('Error creating offer:', err);
             }
         }
 
-        async function handleOffer(from, offer) {
-            dbg('Offer received from broadcaster:', from);
-            if (peerConnection) peerConnection.close();
-            peerConnection = new RTCPeerConnection(rtcConfig);
+        // --- WebRTC Logic (Viewer Side) ---
+        async function handleOffer(broadcasterSocketId, offer) {
+            dbg('Offer received from broadcaster:', broadcasterSocketId);
+            if (viewerPc) viewerPc.close();
             
-            peerConnection.onicecandidate = (e) => {
+            viewerPc = new RTCPeerConnection(rtcConfig);
+            
+            viewerPc.onicecandidate = (e) => {
                 if (e.candidate) {
-                    socket.emit('ice-candidate', { to: from, candidate: e.candidate });
+                    socket.emit('ice-candidate', { to: broadcasterSocketId, candidate: e.candidate });
                 }
             };
 
-            peerConnection.ontrack = (e) => {
-                dbg('Remote track received:', e.streams[0]?.id);
-                if (video && e.streams[0]) {
-                    if (video.srcObject !== e.streams[0]) {
-                        dbg('Attaching remote stream to video element');
-                        video.srcObject = e.streams[0];
-                    }
+            viewerPc.ontrack = (event) => {
+                dbg('Remote track received:', event.streams[0]?.id);
+                if (video && event.streams[0]) {
+                    video.srcObject = event.streams[0];
+                    video.muted = false; 
                     video.onloadedmetadata = () => {
-                         dbg('Remote metadata loaded, attempting play');
-                         video.play().catch(pErr => dbg('Auto-play blocked, interaction required'));
+                        dbg('Remote metadata loaded, playing...');
+                        video.play().catch(err => {
+                            dbg('Autoplay blocked, user interaction required');
+                            if (watchOverlay) watchOverlay.style.display = 'flex';
+                        });
                     };
                 }
             };
 
-            peerConnection.onconnectionstatechange = () => dbg('Viewer PC state:', peerConnection.connectionState);
+            viewerPc.onconnectionstatechange = () => dbg('Viewer PC State:', viewerPc.connectionState);
 
             try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                dbg('Answer sent to broadcaster');
-                socket.emit('answer', { to: from, answer });
+                await viewerPc.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await viewerPc.createAnswer();
+                await viewerPc.setLocalDescription(answer);
+                socket.emit('answer', { to: broadcasterSocketId, answer });
+                dbg('Answer sent back to broadcaster');
 
-                // Process any ICE candidates that arrived before the offer
                 if (pendingIce.length > 0) {
-                    dbg('Relaying', pendingIce.length, 'queued ICE candidates');
+                    dbg('Adding', pendingIce.length, 'queued ICE candidates');
                     for (const cand of pendingIce) {
-                        await peerConnection.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+                        await viewerPc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
                     }
                     pendingIce = [];
                 }
             } catch (err) {
-                dbg('handleOffer error:', err.message);
+                dbg('handleOffer error:', err);
             }
         }
 
@@ -164,27 +171,24 @@ console.log('[Live] Script loaded - starting initialization');
             if (socket) socket.disconnect();
             socket = io();
             const user = getCurrentUser();
+            
             socket.emit('join_live', { streamId, userId: user.id, username: user.username, role });
 
-            socket.on('viewer_update', ({ count }) => { if (viewCount) viewCount.textContent = count; });
+            socket.on('viewer_update', ({ count }) => { 
+                if (viewCount) viewCount.textContent = count; 
+            });
             
             socket.on('user_joined', async (data) => {
-                dbg('User joined:', data.username, 'Role:', data.role);
-                // If I am broadcaster and a viewer joined, send them an offer
+                dbg('User joined:', data.username, 'Role:', data.role, 'SocketID:', data.socketId);
                 if (isBroadcaster && data.role === 'viewer' && localStream) {
-                    await initiatePeerConnection(data.socketId);
-                }
-                // If I am viewer and a broadcaster joined, ask for an offer
-                if (!isBroadcaster && data.role === 'broadcaster') {
-                    dbg('Broadcaster detected, requesting offer...');
-                    socket.emit('request_offer', { to: data.socketId });
+                    await initiateBroadcasterPc(data.socketId);
                 }
             });
 
             socket.on('request_offer', async (data) => {
                 if (isBroadcaster && localStream) {
                     dbg('Offer requested by:', data.from);
-                    await initiatePeerConnection(data.from);
+                    await initiateBroadcasterPc(data.from);
                 }
             });
 
@@ -195,13 +199,13 @@ console.log('[Live] Script loaded - starting initialization');
             });
 
             socket.on('answer', async (data) => {
-                dbg('[Live] Answer received from viewer');
+                dbg('Answer received from:', data.from);
                 const pc = peerConnections[data.from];
                 if (isBroadcaster && pc) {
                     await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
                     if (pendingIceBroadcaster[data.from]) {
                         for (const cand of pendingIceBroadcaster[data.from]) {
-                            await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(e => {});
+                            await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
                         }
                         delete pendingIceBroadcaster[data.from];
                     }
@@ -209,9 +213,9 @@ console.log('[Live] Script loaded - starting initialization');
             });
 
             socket.on('ice-candidate', async (data) => {
-                const pc = isBroadcaster ? peerConnections[data.from] : peerConnection;
+                const pc = isBroadcaster ? peerConnections[data.from] : viewerPc;
                 if (pc && pc.remoteDescription) {
-                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(e => {});
+                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(() => {});
                 } else {
                     if (isBroadcaster) {
                         if (!pendingIceBroadcaster[data.from]) pendingIceBroadcaster[data.from] = [];
@@ -234,11 +238,14 @@ console.log('[Live] Script loaded - starting initialization');
         function appendComment(username, message, isSelf) {
             if (!commentsEl) return;
             const div = document.createElement('div');
-            div.style.padding = '4px 8px';
-            div.style.marginBottom = '4px';
-            div.style.borderRadius = '4px';
-            div.style.background = isSelf ? 'rgba(230,0,35,0.1)' : 'rgba(255,255,255,0.05)';
-            div.innerHTML = `<strong style="color:${isSelf ? '#ff2d55':'#aaa'}">${username}:</strong> ${message}`;
+            div.className = 'chat-message';
+            div.style.padding = '8px 12px';
+            div.style.marginBottom = '6px';
+            div.style.borderRadius = '12px';
+            div.style.background = isSelf ? 'rgba(255,45,110,0.15)' : 'rgba(255,255,255,0.08)';
+            div.style.fontSize = '13px';
+            div.style.border = isSelf ? '1px solid rgba(255,45,110,0.2)' : '1px solid rgba(255,255,255,0.1)';
+            div.innerHTML = `<strong style="color:${isSelf ? 'var(--pink)':'#eee'}; font-weight:700;">@${username}:</strong> <span style="color:#fff;">${message}</span>`;
             commentsEl.appendChild(div);
             commentsEl.scrollTop = commentsEl.scrollHeight;
         }
@@ -246,13 +253,19 @@ console.log('[Live] Script loaded - starting initialization');
         function handleStreamEnded() {
             dbg('Stream ended');
             streamEnded = true;
+            
+            // Stop recording if broadcaster
+            if (isBroadcaster && mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+
             if (localStream) {
                 localStream.getTracks().forEach(t => t.stop());
                 localStream = null;
             }
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
+            if (viewerPc) {
+                viewerPc.close();
+                viewerPc = null;
             }
             Object.values(peerConnections).forEach(pc => pc.close());
             peerConnections = {};
@@ -260,97 +273,108 @@ console.log('[Live] Script loaded - starting initialization');
                 socket.disconnect();
                 socket = null;
             }
-            if (video) { video.srcObject = null; }
+            if (video) video.srcObject = null;
             if (liveBadge) {
                 liveBadge.textContent = 'ENDED';
-                liveBadge.style.background = '#666';
+                liveBadge.style.background = '#444';
                 liveBadge.style.animation = 'none';
             }
             showToast('Live Stream Ended', 'info');
-            setTimeout(() => window.location.href = '/pages/index.html', 1500);
+            setTimeout(() => window.location.href = '/pages/index.html', 2000);
         }
 
         async function startLive() {
-            dbg('startLive called');
+            dbg('startLive initiating...');
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 1280, height: 720, frameRate: 30 }, 
+                    audio: true 
+                });
+                
+                // --- Recording Logic ---
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(localStream, { mimeType: 'video/webm' });
+                mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) recordedChunks.push(event.data); };
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const formData = new FormData();
+                    formData.append('video', blob, `live_archive_${Date.now()}.webm`);
+                    formData.append('caption', `Live Archive: ${new Date().toLocaleString()}`);
+                    
+                    try {
+                        const res = await fetch('/api/videos', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${getToken()}` },
+                            body: formData
+                        });
+                        const data = await res.json();
+                        if (data.video) showToast('Live archive saved!', 'success');
+                    } catch (e) { console.error('Archive failed', e); }
+                };
+                mediaRecorder.start(2000); // 2sec chunks
+                
                 if (video) {
                     video.srcObject = localStream;
-                    video.muted = true;
-                    video.play().catch(e => {});
+                    video.muted = true; 
+                    video.play().catch(() => {});
                 }
                 const user = getCurrentUser();
-                const res = await apiRequest('/live/start', { method: 'POST', body: JSON.stringify({ title: `${user.username}'s stream` }) });
+                const res = await apiRequest('/live/start', { 
+                    method: 'POST', 
+                    body: JSON.stringify({ title: `${user.username}'s Live Blink` }) 
+                });
                 currentStreamId = res.stream_id;
                 isBroadcaster = true;
-                if (liveBadge) { liveBadge.style.display = 'inline-flex'; }
+                
+                if (liveBadge) liveBadge.style.display = 'inline-flex';
                 if (discoveryEl) discoveryEl.style.display = 'none';
                 if (chatAreaEl) chatAreaEl.style.display = 'flex';
                 if (stopLiveBtn) stopLiveBtn.style.display = 'block';
+                if (goLiveBtn) goLiveBtn.style.display = 'none';
+                
                 initSocket(currentStreamId, 'broadcaster');
                 showToast('You are LIVE!', 'success');
+                dbg('Live started with ID:', currentStreamId);
             } catch (err) {
-                dbg('startLive fail', err);
-                showToast('Camera access denied. Enable HTTPS and Permissions.', 'error');
+                dbg('startLive error:', err);
+                showToast('Camera access denied.', 'error');
             }
         }
 
-        window.Blink.sendReaction = (emoji) => {
-            if (!socket || !currentStreamId) return;
-            socket.emit('send_reaction', { streamId: currentStreamId, emoji });
-            spawnFloatingEmoji(emoji);
-        };
-
-        function spawnFloatingEmoji(emoji) {
-            const container = document.getElementById('floatingReactions');
-            if (!container) return;
-            const el = document.createElement('div');
-            el.textContent = emoji;
-            el.style.position = 'absolute';
-            el.style.bottom = '0';
-            el.style.right = Math.random() * 80 + 'px';
-            el.style.fontSize = '24px';
-            el.style.transition = 'all 2s ease-out';
-            el.style.opacity = '1';
-            container.appendChild(el);
-            setTimeout(() => {
-                el.style.transform = `translateY(-200px) scale(1.5) rotate(${Math.random()*40-20}deg)`;
-                el.style.opacity = '0';
-            }, 50);
-            setTimeout(() => el.remove(), 2000);
-        }
-
-        const watchOverlay = document.getElementById('watchOverlay');
-        if (watchOverlay) watchOverlay.style.display = 'none';
-
         window.Blink.watchStream = async (streamId) => {
-            dbg('[Live] watchStream requested for:', streamId);
+            dbg('watchStream requested ID:', streamId);
+            if (!streamId) return;
+            
             if (watchOverlay) {
                 watchOverlay.style.display = 'flex';
-                // Attach a one-time click handler to the overlay to prime the video
                 watchOverlay.onclick = async () => {
                     try {
-                        if (video) {
-                            video.muted = false;
-                            await video.play().catch(e => dbg('[Live] Priming player...'));
-                        }
                         watchOverlay.style.display = 'none';
-                        // Immediately show chat/video grid to provide feedback
                         if (discoveryEl) discoveryEl.style.display = 'none';
                         if (chatAreaEl) chatAreaEl.style.display = 'flex';
                         if (watchingInfo) watchingInfo.style.display = 'block';
+                        
+                        if (video) {
+                            video.muted = false;
+                            await video.play().catch(() => dbg('Priming player...'));
+                        }
 
                         const data = await apiRequest(`/live/${streamId}`);
                         currentStreamId = streamId;
                         isBroadcaster = false;
                         if (watchingUserEl) watchingUserEl.textContent = data.stream.username;
-                        dbg('[Live] Initializing signaling...');
+                        
                         initSocket(streamId, 'viewer');
-                        // Notify anyone already there that I've joined and need an offer
-                        setTimeout(() => { if (socket) socket.emit('request_offer', { isInitial: true }); }, 1000);
-                    } catch (err) { 
-                        dbg('[Live] watchStream failed:', err.message);
-                        showToast('Stream is offline or failed', 'error'); 
+                        
+                        setTimeout(() => {
+                            if (socket) {
+                                dbg('Requesting offer...');
+                                socket.emit('request_offer', { streamId: currentStreamId });
+                            }
+                        }, 800);
+                    } catch (err) {
+                        dbg('watchStream setup error:', err);
+                        showToast('Stream is offline', 'error');
                         watchOverlay.style.display = 'none';
                     }
                 };
@@ -359,12 +383,20 @@ console.log('[Live] Script loaded - starting initialization');
 
         if (goLiveBtn) goLiveBtn.addEventListener('click', startLive);
         if (stopLiveBtn) stopLiveBtn.addEventListener('click', async () => {
-             await apiRequest('/live/end', { method: 'POST' });
-             handleStreamEnded();
+             if (confirm('End live stream?')) {
+                 await apiRequest('/live/end', { method: 'POST' }).catch(() => {});
+                 handleStreamEnded();
+             }
         });
-        if (exitLiveBtn) exitLiveBtn.addEventListener('click', async () => {
-             if (isBroadcaster) await apiRequest('/live/end', { method: 'POST' });
-             handleStreamEnded();
+        if (exitLiveBtn) exitLiveBtn.addEventListener('click', () => {
+             if (isBroadcaster) {
+                 if (confirm('Stop broadcasting?')) {
+                     apiRequest('/live/end', { method: 'POST' }).catch(() => {});
+                     handleStreamEnded();
+                 }
+             } else {
+                 handleStreamEnded();
+             }
         });
 
         sendMsgBtn?.addEventListener('click', () => {
@@ -376,9 +408,37 @@ console.log('[Live] Script loaded - starting initialization');
             appendComment(user.username, msg, true);
         });
 
-        // --- Multi-User Discovery ---
-        let discoveryInterval = null;
+        msgInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendMsgBtn.click();
+        });
 
+        function spawnFloatingEmoji(emoji) {
+            const container = document.getElementById('floatingReactions');
+            if (!container) return;
+            const el = document.createElement('div');
+            el.textContent = emoji;
+            el.style.position = 'absolute';
+            el.style.bottom = '0';
+            el.style.right = (Math.random() * 60 + 20) + 'px';
+            el.style.fontSize = '28px';
+            el.style.transition = 'all 2.5s ease-out';
+            el.style.opacity = '1';
+            el.style.pointerEvents = 'none';
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.transform = `translateY(-300px) scale(2) rotate(${Math.random()*60-30}deg)`;
+                el.style.opacity = '0';
+            }, 50);
+            setTimeout(() => el.remove(), 2600);
+        }
+
+        window.Blink.sendReaction = (emoji) => {
+            if (!socket || !currentStreamId) return;
+            socket.emit('send_reaction', { streamId: currentStreamId, emoji });
+            spawnFloatingEmoji(emoji);
+        };
+
+        // --- Discovery ---
         async function loadDiscovery() {
             try {
                 const data = await apiRequest('/live/now');
@@ -386,45 +446,59 @@ console.log('[Live] Script loaded - starting initialization');
                 const streams = data.streams || [];
                 if (streams.length) {
                     streamsGrid.innerHTML = streams.map(s => `
-                        <div class="live-card" 
-                             onclick="if(window.Blink && window.Blink.watchStream) window.Blink.watchStream('${s.stream_id}')" 
-                             style="cursor:pointer; background:rgba(255,45,110,0.05); border:1px solid rgba(255,45,110,0.1); padding:15px; border-radius:12px; transition:all 0.2s ease; position:relative;">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                                <img src="${s.profile_picture || `https://i.pravatar.cc/100?u=${s.user_id}`}" 
-                                     style="width:36px;height:36px;border-radius:50%;border:2px solid var(--pink);object-fit:cover;" 
+                        <div class="live-card" onclick="window.Blink.watchStream('${s.stream_id}')">
+                            <div class="live-card-hero">
+                                <img src="${s.profile_picture || `https://i.pravatar.cc/150?u=${s.user_id}`}" 
                                      onerror="this.src='/favicon.png'">
-                                <div>
-                                    <div style="font-weight:900; color:var(--pink);">@${s.username}</div>
-                                    <div style="font-size:11px; color:var(--text-muted);">${s.viewer_count || 0} viewers</div>
-                                </div>
+                                <div class="live-badge-mini">LIVE</div>
+                                <div class="viewer-count-tag"><i class="bi bi-eye-fill"></i> ${s.viewer_count || 0}</div>
                             </div>
-                            <button type="button" 
-                                    onclick="event.stopPropagation(); if(window.Blink && window.Blink.watchStream) window.Blink.watchStream('${s.stream_id}')"
-                                    style="width:100%;padding:8px;background:var(--pink);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">
-                                <i class="bi bi-play-fill"></i> Watch Stream
-                            </button>
+                            <div class="live-card-info">
+                                <div class="live-card-user">
+                                    <div class="user-name">@${s.username}</div>
+                                    <div class="stream-title">${s.stream_title || 'Live Stream'}</div>
+                                </div>
+                                <button class="watch-now-btn">Watch</button>
+                            </div>
                         </div>
                     `).join('');
                 } else {
-                    streamsGrid.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--text-muted); padding:20px;"><i class="bi bi-broadcast" style="font-size:32px;display:block;margin-bottom:8px;"></i>No one is live right now</div>';
+                    streamsGrid.innerHTML = `
+                        <div class="no-live-placeholder">
+                            <div class="pulse-icon"><i class="bi bi-broadcast"></i></div>
+                            <p>No creators are currently live.</p>
+                        </div>
+                    `;
                 }
-            } catch (e) {
-                dbg('[Live] Discovery fetch error:', e.message);
-            }
+            } catch (e) { dbg('Discovery fail:', e); }
         }
         loadDiscovery();
+        setInterval(() => { if (!isBroadcaster && !currentStreamId) loadDiscovery(); }, 8000);
 
-        // Auto-refresh discovery every 10 seconds
-        discoveryInterval = setInterval(() => {
-            if (!isBroadcaster && !currentStreamId) loadDiscovery();
-        }, 10000);
-
-        // --- Automatic Join from URL ---
         const urlParams = new URLSearchParams(window.location.search);
-        const autoStreamId = urlParams.get('id');
-        if (autoStreamId) {
-             dbg('[Live] Auto-joining stream:', autoStreamId);
-             setTimeout(() => window.Blink.watchStream(autoStreamId), 500);
+        const autoJoinId = urlParams.get('id');
+        if (autoJoinId) {
+            dbg('Auto-joining stream:', autoJoinId);
+            setTimeout(() => window.Blink.watchStream(autoJoinId), 600);
         }
     });
+
+    const style = document.createElement('style');
+    style.textContent = `
+        .live-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
+        .live-card:hover { transform: translateY(-4px); background: rgba(255, 255, 255, 0.06); border-color: var(--pink); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .live-card-hero { position: relative; aspect-ratio: 16/10; background: #111; }
+        .live-card-hero img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.8); }
+        .live-badge-mini { position: absolute; top: 12px; left: 12px; background: var(--pink); color: #fff; font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 4px; }
+        .viewer-count-tag { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 4px; }
+        .live-card-info { padding: 12px; display: flex; align-items: center; justify-content: space-between; }
+        .user-name { font-weight: 800; color: var(--pink); font-size: 13px; }
+        .stream-title { color: #aaa; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+        .watch-now-btn { background: var(--pink); color: #fff; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 11px; cursor: pointer; }
+        .no-live-placeholder { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: #666; }
+        .pulse-icon { font-size: 48px; margin-bottom: 20px; animation: pulse-broadcast 2s infinite; }
+        @keyframes pulse-broadcast { 0% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 1; color: var(--pink); } 100% { transform: scale(1); opacity: 0.5; } }
+        #watchOverlay { backdrop-filter: blur(20px); background: rgba(0,0,0,0.8); }
+    `;
+    document.head.appendChild(style);
 })();

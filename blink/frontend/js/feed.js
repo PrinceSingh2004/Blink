@@ -32,18 +32,18 @@ async function loadLiveBar() {
             list.innerHTML = streams.map(s => `
                 <div class="live-story-card" 
                      onclick="window.location.href='/pages/live.html?id=${s.stream_id}'" 
-                     style="display:flex; flex-direction:column; align-items:center; cursor:pointer; min-width:80px; position:relative;">
-                    <div style="position:relative; width:64px; height:64px; border-radius:50%; padding:2.5px; 
-                         background:linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);">
+                     style="display:flex; flex-direction:column; align-items:center; cursor:pointer; min-width:82px; position:relative; transition:transform 0.2s ease;">
+                    <div style="position:relative; width:68px; height:68px; border-radius:50%; padding:3px; 
+                         background:linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); box-shadow:0 4px 12px rgba(220,39,67,0.3);">
                         <img src="${s.profile_picture || `https://i.pravatar.cc/100?u=${s.user_id}`}" 
                              style="width:100%; height:100%; border-radius:50%; object-fit:cover; border:3px solid #000; display:block;"
                              onerror="this.src='/favicon.png'">
-                        <div style="position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); 
-                             background:#ff2d55; color:#fff; font-size:9px; font-weight:900; padding:1px 5px; 
-                             border-radius:4px; border:2px solid #000; text-transform:uppercase; pointer-events:none;">LIVE</div>
+                        <div style="position:absolute; bottom:-2px; left:50%; transform:translateX(-50%); 
+                             background:var(--pink); color:#fff; font-size:9px; font-weight:900; padding:1px 6px; 
+                             border-radius:6px; border:2px solid #000; text-transform:uppercase; letter-spacing:0.5px; box-shadow:0 2px 4px rgba(0,0,0,0.3);">LIVE</div>
                     </div>
-                    <span style="font-size:11px; margin-top:8px; color:var(--text-secondary); max-width:70px; 
-                          overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@${s.username}</span>
+                    <span style="font-size:11px; margin-top:10px; color:#fff; font-weight:600; max-width:70px; 
+                          overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,0.5);">@${s.username}</span>
                 </div>
             `).join('');
         } else {
@@ -56,7 +56,7 @@ loadLiveBar();
 if (window.Blink.socket) {
     window.Blink.socket.on('live_discovery_update', loadLiveBar);
 }
-setInterval(loadLiveBar, 15000); // 15s polling as fallback
+setInterval(loadLiveBar, 10000); // 10s polling as fallback
 
 // ── Format numbers ────────────────────────────────────────────
 function fmt(n) {
@@ -257,6 +257,13 @@ function appendVideos(videos) {
             newCards.push(card);
         }
     });
+    
+    // Safety check: if all fetched videos were already seen and we haven't reached end
+    if (newCards.length === 0 && videos.length > 0 && !isLoading) {
+        console.log('[Feed] All fetched videos were duplicates, requesting more...');
+        loadMore();
+    }
+
     setupVideoObs(newCards);
 }
 
