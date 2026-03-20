@@ -15,6 +15,9 @@ exports.startLive = async (req, res) => {
         // Update user status
         await db.query('UPDATE users SET is_live = 1 WHERE id = ?', [req.user.id]);
         
+        const io = req.app.get('io');
+        if (io) io.emit('live_discovery_update');
+        
         res.json({ message: 'Stream started', stream_id: result.insertId });
     } catch (err) {
         console.error('[Live] start:', err);
@@ -38,6 +41,8 @@ exports.endLive = async (req, res) => {
                 io.to(room).emit('viewer_update', { count: 0 });
             });
         }
+
+        if (io) io.emit('live_discovery_update');
 
         res.json({ message: 'Stream ended' });
     } catch (err) {

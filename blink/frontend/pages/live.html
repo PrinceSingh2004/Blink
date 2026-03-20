@@ -177,7 +177,15 @@
   <main class="main-content" style="padding:0">
     <div class="live-container">
       <div class="live-video-wrap">
-        <video id="livePreview" autoplay muted playsinline></video>
+        <div id="watchOverlay" style="position:absolute; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.8); cursor:pointer;">
+            <div style="text-align:center; color:white;">
+                <div style="width:72px; height:72px; border-radius:50%; background:var(--pink); display:flex; align-items:center; justify-content:center; margin-bottom:12px; box-shadow:0 0 30px var(--pink-glow);">
+                    <i class="bi bi-play-fill" style="font-size:36px; margin-left:4px;"></i>
+                </div>
+                <div style="font-weight:900; font-size:18px; text-transform:uppercase; letter-spacing:1px;">Click to Watch</div>
+            </div>
+        </div>
+        <video id="livePreview" autoplay playsinline style="width:100%; height:100%; object-fit:cover;"></video>
         <button id="stopLiveBtn"><i class="bi bi-stop-circle-fill"></i> End Live</button>
 
         <div class="live-overlay">

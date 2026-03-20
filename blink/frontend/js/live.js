@@ -74,65 +74,88 @@ console.log('[Live] Script loaded - starting initialization');
         
         let pendingIceBroadcaster = {}; // { socketId: [candidates] }
 
-        // --- WebRTC Helpers ---
+        // --- WebRTC Logic (Signaling & Peer Management) ---
+        let signalQueue = []; // For when we get a signal before pc is ready
+
         async function initiatePeerConnection(viewerSocketId) {
-            dbg('initiatePeerConnection to', viewerSocketId);
-            if (peerConnections[viewerSocketId]) peerConnections[viewerSocketId].close();
+            dbg('Initiating PeerConnection to viewer:', viewerSocketId);
+            if (peerConnections[viewerSocketId]) {
+                dbg('Closing existing PC for', viewerSocketId);
+                peerConnections[viewerSocketId].close();
+            }
+            
             const pc = new RTCPeerConnection(rtcConfig);
             peerConnections[viewerSocketId] = pc;
             
             if (localStream) {
-                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-                dbg('Tracks added to peer connection');
+                localStream.getTracks().forEach(track => {
+                    dbg('Adding track to PC:', track.kind);
+                    pc.addTrack(track, localStream);
+                });
             }
 
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
-                    dbg('ICE candidate found for viewer', viewerSocketId);
                     socket.emit('ice-candidate', { to: viewerSocketId, candidate: event.candidate });
                 }
             };
 
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            dbg('[Live] Offer sent to viewer', viewerSocketId);
-            socket.emit('offer', { to: viewerSocketId, offer });
+            pc.onconnectionstatechange = () => dbg(`PC State [${viewerSocketId}]:`, pc.connectionState);
+
+            try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                dbg('Offer sent to viewer:', viewerSocketId);
+                socket.emit('offer', { to: viewerSocketId, offer });
+            } catch (err) {
+                dbg('PC createOffer error:', err.message);
+            }
         }
 
         async function handleOffer(from, offer) {
-            dbg('[Live] Offer received from Broadcaster:', from);
+            dbg('Offer received from broadcaster:', from);
             if (peerConnection) peerConnection.close();
             peerConnection = new RTCPeerConnection(rtcConfig);
             
             peerConnection.onicecandidate = (e) => {
                 if (e.candidate) {
-                    dbg('[Live] ICE candidate sent to Broadcaster');
                     socket.emit('ice-candidate', { to: from, candidate: e.candidate });
                 }
             };
 
             peerConnection.ontrack = (e) => {
-                dbg('[Live] Remote track received and attached');
-                if (video) {
-                    video.srcObject = e.streams[0];
-                    video.muted = false; // Unmute for viewer
-                    video.play().catch(err => {
-                        dbg('[Live] Autoplay blocked, user interaction required:', err.message);
-                        showToast('Click anywhere to start video', 'info');
-                    });
+                dbg('Remote track received:', e.streams[0]?.id);
+                if (video && e.streams[0]) {
+                    if (video.srcObject !== e.streams[0]) {
+                        dbg('Attaching remote stream to video element');
+                        video.srcObject = e.streams[0];
+                    }
+                    video.onloadedmetadata = () => {
+                         dbg('Remote metadata loaded, attempting play');
+                         video.play().catch(pErr => dbg('Auto-play blocked, interaction required'));
+                    };
                 }
             };
 
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            dbg('[Live] Answer created and sent to Broadcaster');
-            socket.emit('answer', { to: from, answer });
+            peerConnection.onconnectionstatechange = () => dbg('Viewer PC state:', peerConnection.connectionState);
 
-            if (pendingIce.length) {
-                dbg('Processing', pendingIce.length, 'queued ICE candidates');
-                for (const cand of pendingIce) await peerConnection.addIceCandidate(new RTCIceCandidate(cand)).catch(e => {});
-                pendingIce = [];
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                dbg('Answer sent to broadcaster');
+                socket.emit('answer', { to: from, answer });
+
+                // Process any ICE candidates that arrived before the offer
+                if (pendingIce.length > 0) {
+                    dbg('Relaying', pendingIce.length, 'queued ICE candidates');
+                    for (const cand of pendingIce) {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
+                    }
+                    pendingIce = [];
+                }
+            } catch (err) {
+                dbg('handleOffer error:', err.message);
             }
         }
 
@@ -147,8 +170,21 @@ console.log('[Live] Script loaded - starting initialization');
             
             socket.on('user_joined', async (data) => {
                 dbg('User joined:', data.username, 'Role:', data.role);
+                // If I am broadcaster and a viewer joined, send them an offer
                 if (isBroadcaster && data.role === 'viewer' && localStream) {
                     await initiatePeerConnection(data.socketId);
+                }
+                // If I am viewer and a broadcaster joined, ask for an offer
+                if (!isBroadcaster && data.role === 'broadcaster') {
+                    dbg('Broadcaster detected, requesting offer...');
+                    socket.emit('request_offer', { to: data.socketId });
+                }
+            });
+
+            socket.on('request_offer', async (data) => {
+                if (isBroadcaster && localStream) {
+                    dbg('Offer requested by:', data.from);
+                    await initiatePeerConnection(data.from);
                 }
             });
 
@@ -189,6 +225,9 @@ console.log('[Live] Script loaded - starting initialization');
             socket.on('receive_reaction', ({ emoji }) => spawnFloatingEmoji(emoji));
             socket.on('receive_live_chat', (data) => appendComment(data.username, data.message, data.username === user.username));
             socket.on('live_ended', () => handleStreamEnded());
+            socket.on('live_discovery_update', () => {
+                if (!isBroadcaster && !currentStreamId) loadDiscovery();
+            });
         }
 
         // --- UI & Controls ---
@@ -281,27 +320,40 @@ console.log('[Live] Script loaded - starting initialization');
             setTimeout(() => el.remove(), 2000);
         }
 
+        const watchOverlay = document.getElementById('watchOverlay');
+        if (watchOverlay) watchOverlay.style.display = 'none';
+
         window.Blink.watchStream = async (streamId) => {
             dbg('[Live] watchStream requested for:', streamId);
-            try {
-                if (video) {
-                    video.muted = false;
-                    await video.play().catch(e => dbg('[Live] Priming player...'));
-                }
+            if (watchOverlay) {
+                watchOverlay.style.display = 'flex';
+                // Attach a one-time click handler to the overlay to prime the video
+                watchOverlay.onclick = async () => {
+                    try {
+                        if (video) {
+                            video.muted = false;
+                            await video.play().catch(e => dbg('[Live] Priming player...'));
+                        }
+                        watchOverlay.style.display = 'none';
+                        // Immediately show chat/video grid to provide feedback
+                        if (discoveryEl) discoveryEl.style.display = 'none';
+                        if (chatAreaEl) chatAreaEl.style.display = 'flex';
+                        if (watchingInfo) watchingInfo.style.display = 'block';
 
-                const data = await apiRequest(`/live/${streamId}`);
-                currentStreamId = streamId;
-                isBroadcaster = false;
-                if (discoveryEl) discoveryEl.style.display = 'none';
-                if (chatAreaEl) chatAreaEl.style.display = 'flex';
-                if (watchingInfo) watchingInfo.style.display = 'block';
-                if (watchingUserEl) watchingUserEl.textContent = data.stream.username;
-                
-                dbg('[Live] Initializing signaling...');
-                initSocket(streamId, 'viewer');
-            } catch (err) { 
-                dbg('[Live] watchStream failed:', err.message);
-                showToast('Stream is offline', 'error'); 
+                        const data = await apiRequest(`/live/${streamId}`);
+                        currentStreamId = streamId;
+                        isBroadcaster = false;
+                        if (watchingUserEl) watchingUserEl.textContent = data.stream.username;
+                        dbg('[Live] Initializing signaling...');
+                        initSocket(streamId, 'viewer');
+                        // Notify anyone already there that I've joined and need an offer
+                        setTimeout(() => { if (socket) socket.emit('request_offer', { isInitial: true }); }, 1000);
+                    } catch (err) { 
+                        dbg('[Live] watchStream failed:', err.message);
+                        showToast('Stream is offline or failed', 'error'); 
+                        watchOverlay.style.display = 'none';
+                    }
+                };
             }
         };
 
@@ -334,18 +386,21 @@ console.log('[Live] Script loaded - starting initialization');
                 const streams = data.streams || [];
                 if (streams.length) {
                     streamsGrid.innerHTML = streams.map(s => `
-                        <div class="live-card" onclick="window.Blink.watchStream(${s.stream_id})" 
-                             style="cursor:pointer; background:rgba(255,45,110,0.05); border:1px solid rgba(255,45,110,0.1); padding:15px; border-radius:12px; transition:all 0.2s ease;">
+                        <div class="live-card" 
+                             onclick="if(window.Blink && window.Blink.watchStream) window.Blink.watchStream('${s.stream_id}')" 
+                             style="cursor:pointer; background:rgba(255,45,110,0.05); border:1px solid rgba(255,45,110,0.1); padding:15px; border-radius:12px; transition:all 0.2s ease; position:relative;">
                             <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
                                 <img src="${s.profile_picture || `https://i.pravatar.cc/100?u=${s.user_id}`}" 
                                      style="width:36px;height:36px;border-radius:50%;border:2px solid var(--pink);object-fit:cover;" 
-                                     onerror="this.style.display='none'">
+                                     onerror="this.src='/favicon.png'">
                                 <div>
                                     <div style="font-weight:900; color:var(--pink);">@${s.username}</div>
                                     <div style="font-size:11px; color:var(--text-muted);">${s.viewer_count || 0} viewers</div>
                                 </div>
                             </div>
-                            <button style="width:100%;padding:8px;background:var(--pink);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">
+                            <button type="button" 
+                                    onclick="event.stopPropagation(); if(window.Blink && window.Blink.watchStream) window.Blink.watchStream('${s.stream_id}')"
+                                    style="width:100%;padding:8px;background:var(--pink);color:#fff;border:none;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">
                                 <i class="bi bi-play-fill"></i> Watch Stream
                             </button>
                         </div>

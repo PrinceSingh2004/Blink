@@ -18,6 +18,46 @@ const MAX_CYCLES = 1;          // Allow 1 cycle before showing "end of feed"
 let videoObs     = null;
 let currentUser  = getUser();
 
+// ── TikTok Live Bar Populator ───────────────────────────────
+async function loadLiveBar() {
+    const bar = document.getElementById('liveDiscoveryBar');
+    const list = document.getElementById('liveBarList');
+    if (!bar || !list) return;
+
+    try {
+        const data = await apiRequest('/live/now');
+        const streams = data.streams || [];
+        if (streams.length > 0) {
+            bar.style.display = 'block';
+            list.innerHTML = streams.map(s => `
+                <div class="live-story-card" 
+                     onclick="window.location.href='/pages/live.html?id=${s.stream_id}'" 
+                     style="display:flex; flex-direction:column; align-items:center; cursor:pointer; min-width:80px; position:relative;">
+                    <div style="position:relative; width:64px; height:64px; border-radius:50%; padding:2.5px; 
+                         background:linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);">
+                        <img src="${s.profile_picture || `https://i.pravatar.cc/100?u=${s.user_id}`}" 
+                             style="width:100%; height:100%; border-radius:50%; object-fit:cover; border:3px solid #000; display:block;"
+                             onerror="this.src='/favicon.png'">
+                        <div style="position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); 
+                             background:#ff2d55; color:#fff; font-size:9px; font-weight:900; padding:1px 5px; 
+                             border-radius:4px; border:2px solid #000; text-transform:uppercase; pointer-events:none;">LIVE</div>
+                    </div>
+                    <span style="font-size:11px; margin-top:8px; color:var(--text-secondary); max-width:70px; 
+                          overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">@${s.username}</span>
+                </div>
+            `).join('');
+        } else {
+            bar.style.display = 'none';
+        }
+    } catch (e) { console.warn('[LiveBar] fail', e); }
+}
+loadLiveBar();
+// Real-time update for discovery bar
+if (window.Blink.socket) {
+    window.Blink.socket.on('live_discovery_update', loadLiveBar);
+}
+setInterval(loadLiveBar, 15000); // 15s polling as fallback
+
 // ── Format numbers ────────────────────────────────────────────
 function fmt(n) {
     const v = parseInt(n) || 0;

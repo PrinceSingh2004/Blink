@@ -229,6 +229,17 @@ io.on('connection', (socket) => {
         await endLiveStream(streamId || socket.streamId, socket.userId, username || socket.username);
     });
 
+    socket.on('request_offer', (data) => {
+        const room = `live_${data.streamId || socket.streamId}`;
+        dbg('[Socket] Request offer from:', socket.username, 'to:', data.to || 'room');
+        if (data.to) {
+            io.to(data.to).emit('request_offer', { from: socket.id, username: socket.username });
+        } else {
+            // Broadcast to the whole room so any broadcaster can respond
+            socket.to(room).emit('request_offer', { from: socket.id, username: socket.username });
+        }
+    });
+
     socket.on('signal',        (data) => { if (data.to) io.to(data.to).emit('signal',        { from: socket.id, signal: data.signal }); });
     socket.on('offer',         (data) => { if (data.to) io.to(data.to).emit('offer',          { from: socket.id, offer: data.offer });   });
     socket.on('answer',        (data) => { if (data.to) io.to(data.to).emit('answer',         { from: socket.id, answer: data.answer }); });

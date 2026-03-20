@@ -1,8 +1,8 @@
 const multer = require('multer');
-const path   = require('path');
-const fs     = require('fs');
+const path = require('path');
+const fs = require('fs');
 
-const videoDir  = path.join(__dirname, '../uploads/videos');
+const videoDir = path.join(__dirname, '../uploads/videos');
 const avatarDir = path.join(__dirname, '../uploads/avatars');
 
 [videoDir, avatarDir].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); });
@@ -10,7 +10,7 @@ const avatarDir = path.join(__dirname, '../uploads/avatars');
 // ── Video Storage ─────────────────────────────────────────────
 const videoStorage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, videoDir),
-    filename:    (req, file, cb) => {
+    filename: (req, file, cb) => {
         const unique = `${Date.now()}_${Math.round(Math.random() * 1e9)}`;
         cb(null, `${unique}${path.extname(file.originalname).toLowerCase()}`);
     }
@@ -25,7 +25,7 @@ const videoFilter = (req, file, cb) => {
 // ── Avatar Storage ────────────────────────────────────────────
 const avatarStorage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, avatarDir),
-    filename:    (req, file, cb) => {
+    filename: (req, file, cb) => {
         const unique = `${Date.now()}_${Math.round(Math.random() * 1e9)}`;
         cb(null, `${unique}${path.extname(file.originalname).toLowerCase()}`);
     }
@@ -39,13 +39,13 @@ const avatarFilter = (req, file, cb) => {
 
 // ── Exports ───────────────────────────────────────────────────
 module.exports.uploadVideo = multer({
-    storage:  videoStorage,
+    storage: videoStorage,
     fileFilter: videoFilter,
-    limits: { fileSize: 200 * 1024 * 1024 } // 200 MB
+    limits: { fileSize: Infinity }
 }).single('video');
 
 module.exports.uploadAvatar = multer({
-    storage:  avatarStorage,
+    storage: avatarStorage,
     fileFilter: avatarFilter,
     limits: { fileSize: 10 * 1024 * 1024 } // 10 MB
 }).single('avatar');
