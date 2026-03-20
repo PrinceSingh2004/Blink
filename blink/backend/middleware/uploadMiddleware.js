@@ -17,9 +17,9 @@ const videoStorage = multer.diskStorage({
 });
 
 const videoFilter = (req, file, cb) => {
-    const allowed = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/mpeg'];
+    const allowed = ['video/mp4', 'video/quicktime'];
     if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Only video files are allowed (mp4, webm, mov, avi)'), false);
+    else cb(new Error('Only video files are allowed (mp4, mov)'), false);
 };
 
 // ── Avatar Storage ────────────────────────────────────────────
@@ -41,7 +41,7 @@ const avatarFilter = (req, file, cb) => {
 module.exports.uploadVideo = multer({
     storage: videoStorage,
     fileFilter: videoFilter,
-    limits: { fileSize: Infinity }
+    limits: { fileSize: 1024 * 1024 * 1024 } // 1GB limit
 }).single('video');
 
 module.exports.uploadAvatar = multer({

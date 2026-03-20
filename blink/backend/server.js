@@ -257,7 +257,7 @@ io.on('connection', (socket) => {
         const room = `live_${streamId}`;
         try {
             await db.query('INSERT INTO live_chat (stream_id, user_id, message) VALUES (?, ?, ?)', [streamId, userId, message]);
-            io.to(room).emit('receive_live_chat', { username, message, created_at: new Date() });
+            socket.to(room).emit('receive_live_chat', { username, message, created_at: new Date() });
         } catch {}
     });
 
