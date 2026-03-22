@@ -339,7 +339,7 @@ select.form-input { appearance: none; cursor: pointer; }
 /* ══════════════════════════════════════════════════════════════ */
 
 @media (max-width: 960px) {
-  /* ── 1. Bottom Navigation Bar (Glassmorphism & Safe Area) ── */
+  /* ── 1. Bottom Navigation Bar (Clean White UI) ── */
   .sidebar {
     position: fixed;
     width: 100%;
@@ -348,15 +348,14 @@ select.form-input { appearance: none; cursor: pointer; }
     top: auto;
     left: 0;
     flex-direction: row;
-    padding: 0 0 env(safe-area-inset-bottom, 0px) 0; /* Important padding for iPhone Home Indicator */
+    padding: 0 0 env(safe-area-inset-bottom, 0px) 0;
     border-right: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.08); /* Subtle glass edge */
+    border-top: 1px solid #ddd; /* 5. Subtle top border */
     justify-content: space-around;
     align-items: center;
-    background: rgba(10, 10, 15, 0.85); /* Dark layout like Reels */
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    z-index: 1000; /* Ensure strictly above all video contents */
+    background: #ffffff; /* 1. Pure white background */
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05); /* Slight elevation shadow */
+    z-index: 1000; /* 7. Ensure above all contents */
     transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
   }
   
@@ -368,7 +367,7 @@ select.form-input { appearance: none; cursor: pointer; }
     display: none !important; 
   }
 
-  /* ── 7. Touch Optimization & Spacing ── */
+  /* ── 3. Touch Optimization & Spacing ── */
   .nav-links { 
     flex-direction: row; 
     flex: none; 
@@ -393,25 +392,32 @@ select.form-input { appearance: none; cursor: pointer; }
     padding: 0;
     height: 56px; /* Touch target minimum > 40px */
     width: 100%;
-    background: transparent !important; /* No desktop hover boxes */
+    background: transparent !important;
     border-radius: 0;
     -webkit-tap-highlight-color: transparent;
   }
   
   .nav-item a::before, .nav-item a::after { display: none !important; }
   
+  /* ── 2. Icon Styling ── */
   .nav-icon { 
-    font-size: 24px; 
+    font-size: 26px; /* Increased size for mobile usability */
     width: auto; 
-    color: var(--text-secondary);
+    color: #222222; /* Default dark gray/black */
     transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s linear;
   }
 
-  /* ── 10. Bonus: Active State Animation ── */
+  /* ── 6. Active State Animation ── */
   .nav-item a.active .nav-icon {
-    color: var(--text-primary);
+    color: #007bff; /* Active highlight color (Blue) */
     transform: scale(1.15) translateY(-2px);
-    filter: drop-shadow(0 4px 12px rgba(255, 255, 255, 0.3));
+  }
+  
+  /* Active subtle tab indicator (optional bonus) */
+  .nav-item a.active::before {
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 20px; height: 3px; background: #007bff; border-radius: 0 0 4px 4px;
+    opacity: 1; display: block !important;
   }
 
   /* ── 8. Prevent Content Cut / Video Feed full screen ── */

@@ -311,3 +311,55 @@ if (registerForm) {
         }
     });
 }
+
+// ══════════════════════════════════════════════════════════════
+// ── Native Mobile Back Button Handler ─────────────────────────
+// ══════════════════════════════════════════════════════════════
+(function initMobileBackButton() {
+    // 1. Only execute on mobile platforms (especially Android for back button)
+    const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
+    if (!isMobile) return;
+
+    let exitTimeout = null;
+    let backPressCount = 0;
+
+    // Detect if we are currently on the Home Page
+    const pathname = window.location.pathname.toLowerCase();
+    const isHomePage = pathname.endsWith('index.html') || pathname.endsWith('pages/') || pathname === '/' || pathname.endsWith('blink/');
+
+    // To intercept the hardware back button cleanly, we must push a trap state into the window's history
+    history.pushState({ intercept: true }, '', window.location.href);
+
+    window.addEventListener('popstate', (e) => {
+        if (!isHomePage) {
+            // Not on Home -> Force redirect to Home seamlessly
+            window.location.replace('/pages/index.html');
+            return;
+        }
+
+        // We ARE on the Home Page
+        backPressCount++;
+        
+        if (backPressCount === 1) {
+            // First press -> warn user and restore trap state to prevent closed app
+            history.pushState({ intercept: true }, '', window.location.href);
+            
+            if (window.Blink && typeof window.Blink.showToast === 'function') {
+                window.Blink.showToast('Press again to exit', 'info');
+            } else if (typeof showToast === 'function') {
+                showToast('Press again to exit', 'info');
+            } else {
+                console.warn('Press again to exit');
+            }
+
+            // Reset threshold after 2 seconds
+            exitTimeout = setTimeout(() => {
+                backPressCount = 0;
+            }, 2000);
+        } else {
+            // Second press within 2s threshold -> Execute native exit / history escape
+            clearTimeout(exitTimeout);
+            history.back();
+        }
+    });
+})();
