@@ -21,7 +21,10 @@
   border: 1px solid rgba(255,255,255,0.06);
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   max-width: calc(100vw - 40px);
-  overflow-x: auto; scrollbar-width: none;
+  overflow-x: auto; 
+  scrollbar-width: none;
+  scroll-behavior: smooth; /* Smooth scroll support */
+  -webkit-overflow-scrolling: touch; /* Momentum scrolling on iOS */
 }
 .mood-selector::-webkit-scrollbar { display: none; }
 

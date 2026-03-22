@@ -491,20 +491,20 @@ console.log('[Live] Script loaded — starting initialization');
         if (goLiveBtn) goLiveBtn.addEventListener('click', startLive);
 
         // Stop Live
-        if (stopLiveBtn) stopLiveBtn.addEventListener('click', async () => {
-            if (confirm('End your live stream?')) {
+        if (stopLiveBtn) {
+            stopLiveBtn.addEventListener('click', async () => {
+                showToast('Ending live stream...', 'info');
                 await apiRequest('/live/end', { method: 'POST' }).catch(() => {});
                 handleStreamEnded();
-            }
-        });
+            });
+        }
 
         // Exit Live (both broadcaster and viewer)
         if (exitLiveBtn) exitLiveBtn.addEventListener('click', () => {
             if (isBroadcaster) {
-                if (confirm('Stop broadcasting?')) {
-                    apiRequest('/live/end', { method: 'POST' }).catch(() => {});
-                    handleStreamEnded();
-                }
+                showToast('Exiting stream...', 'info');
+                apiRequest('/live/end', { method: 'POST' }).catch(() => {});
+                handleStreamEnded();
             } else {
                 if (socket) socket.emit('leave_live');
                 handleStreamEnded();

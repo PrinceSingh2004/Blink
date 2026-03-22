@@ -827,6 +827,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ══════════════════════════════════════════════════════════════
+    // ── Bonus: Hide Bottom Nav on active scroll ───────────────────
+    // ══════════════════════════════════════════════════════════════
+    if (IS_MOBILE) {
+        let isScrollingTimeout;
+        const sidebarEl = document.querySelector('.sidebar');
+        feedEl.addEventListener('scroll', () => {
+            if (sidebarEl && !sidebarEl.classList.contains('hidden-nav')) {
+                sidebarEl.classList.add('hidden-nav');
+            }
+            clearTimeout(isScrollingTimeout);
+            isScrollingTimeout = setTimeout(() => {
+                if (sidebarEl) sidebarEl.classList.remove('hidden-nav');
+            }, 300); // Wait 300ms after snap scroll ends to reveal navbar gracefully
+        }, { passive: true });
+    }
+
+    // ══════════════════════════════════════════════════════════════
     // ── Boot ──────────────────────────────────────────────────────
     // ══════════════════════════════════════════════════════════════
     (() => {
