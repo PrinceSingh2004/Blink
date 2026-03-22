@@ -80,16 +80,17 @@ async function populateSidebar() {
         const nameEl   = document.getElementById('sidebarName');
         const handleEl = document.getElementById('sidebarHandle');
         const avatarEl = document.getElementById('sidebarAvatar');
+        const topAvEl  = document.getElementById('topNavAvatar');
         
         if (nameEl)   nameEl.textContent   = u.username;
         if (handleEl) handleEl.textContent = '@' + u.username;
-        if (avatarEl) {
-            if (u.profile_photo) {
-                avatarEl.innerHTML = `<img src="${u.profile_photo}" alt="${u.username}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-            } else {
-                avatarEl.textContent = (u.username || 'U')[0].toUpperCase();
-            }
-        }
+
+        const imgHtml = u.profile_pic || u.profile_photo 
+            ? `<img src="${u.profile_pic || u.profile_photo}" alt="${u.username}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+            : (u.username || 'U')[0].toUpperCase();
+
+        if (avatarEl) avatarEl.innerHTML = imgHtml;
+        if (topAvEl)  topAvEl.innerHTML  = imgHtml;
     };
     
     // Instant paint

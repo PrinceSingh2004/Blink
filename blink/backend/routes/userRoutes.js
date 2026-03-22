@@ -7,9 +7,11 @@ router.get('/search',           requireAuth, uc.searchUsers);
 router.get('/profile',          requireAuth, (req,res) => { req.params.id = req.user.id; uc.getProfile(req,res); });
 router.post('/upload-profile',   requireAuth, uploadAvatar, uc.updateAvatar);
 router.get('/:id',              uc.getProfile);
-router.put('/profile/update',   requireAuth, uc.updateProfile);
-router.post('/profile/avatar',  requireAuth, uploadAvatar, uc.updateAvatar);
-router.put('/profile/password', requireAuth, uc.changePassword);
+
+// Production-level updates (Part 2)
+router.post('/profile/update',   requireAuth, uc.updateProfile); 
+router.post('/profile/avatar',   requireAuth, uploadAvatar, uc.updateAvatar);
+router.put('/profile/password',  requireAuth, uc.changePassword);
 router.post('/go-live',         requireAuth, uc.goLive);
 router.post('/stop-live',       requireAuth, uc.stopLive);
 router.delete('/profile',        requireAuth, uc.deleteAccount);

@@ -63,16 +63,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.getElementById('confirmCropBtn').addEventListener('click', () => {
-        const canvas = cropper.getCroppedCanvas({ width: 400, height: 400 });
+        // Advanced Compression: scale down to 300x300 and quality 0.7
+        const canvas = cropper.getCroppedCanvas({ width: 300, height: 300 });
         canvas.toBlob(async (blob) => {
             const formData = new FormData();
             formData.append('avatar', blob, 'avatar.jpg');
 
             cropModal.style.display = 'none';
-            showToast('Uploading photo...');
+            showToast('Optimizing & Uploading...');
+
+            const saveBtn = document.getElementById('saveProfileBtn');
+            saveBtn.disabled = true;
 
             try {
-                const res = await fetch(window.location.origin + '/api/users/upload-profile', {
+                const res = await fetch(window.location.origin + '/api/users/profile/avatar', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${getToken()}` },
                     body: formData
@@ -81,11 +85,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Upload failed');
 
-                // Update local session
                 setAuth(getToken(), data.user);
-                
-                // Update UI
-                currentAvatar.src = data.profile_photo;
+                currentAvatar.src = data.profile_pic || data.profile_photo;
                 currentAvatar.style.display = 'block';
                 initialsEl.style.display = 'none';
                 
@@ -93,36 +94,52 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await populateSidebar();
             } catch (err) {
                 showToast(err.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
             }
-        }, 'image/jpeg');
+        }, 'image/jpeg', 0.7); // 70% quality compression
+    });
+
+    document.getElementById('removeAvatarBtn').addEventListener('click', async () => {
+        if (!confirm('Remove profile photo?')) return;
+        try {
+            const data = await apiRequest('/users/profile/update', {
+                method: 'POST',
+                body: JSON.stringify({ profile_pic: null })
+            });
+            setAuth(getToken(), data.user);
+            currentAvatar.style.display = 'none';
+            initialsEl.style.display = 'block';
+            initialsEl.textContent = (me.username || 'U')[0].toUpperCase();
+            showToast('Photo removed');
+            await populateSidebar();
+        } catch (err) { showToast(err.message, 'error'); }
     });
 
     // 2. Profile Info Logic
     editForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const saveBtn = document.getElementById('saveProfileBtn');
+        const originalText = saveBtn.textContent;
         saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving...';
+        saveBtn.innerHTML = '<div class="spinner-small"></div> Saving...';
 
         try {
             const data = await apiRequest('/users/profile/update', {
-                method: 'PUT',
+                method: 'POST',
                 body: JSON.stringify({
                     username: editUsername.value.trim(),
                     bio: editBio.value.trim()
                 })
             });
 
-            // Sync local storage
             setAuth(getToken(), data.user);
             showToast('Profile updated!', 'success');
-            
-            // Wait a sec and go back
             setTimeout(() => window.location.href = 'profile.html', 800);
         } catch (err) {
             showToast(err.message, 'error');
             saveBtn.disabled = false;
-            saveBtn.textContent = 'Save Changes';
+            saveBtn.textContent = originalText;
         }
     });
 

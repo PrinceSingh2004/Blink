@@ -225,3 +225,43 @@
     .edit-profile-wrap,.upload-wrap{padding:24px 20px;}
     .profile-body{padding:0 20px;}
 }
+
+/* ── PRODUCTION REFINEMENTS (Part 5/6) ────────────────── */
+.btn {
+    min-height: 44px; /* Touch friendly requirement */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0 20px;
+}
+.btn:active { transform: scale(0.96); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── AVATARS (Part 3) ────────────────────────────────── */
+img.profile-pic, .avatar-preview img, .sidebar-avatar img, .creator-avatar img, .comment-avatar img, .chat-header-avatar img {
+    border-radius: 50% !important;
+    object-fit: cover !important;
+}
+
+/* ── UTILITIES (Part 7) ──────────────────────────────── */
+.spinner-small {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin-mini 0.6s linear infinite;
+    margin-right: 8px;
+}
+@keyframes spin-mini { to { transform: rotate(360deg); } }
+
+/* Fix iOS form zoom */
+@media (max-width: 480px) {
+    .form-input, .chat-input, #editUsername, #editBio { font-size: 16px !important; }
+}
+

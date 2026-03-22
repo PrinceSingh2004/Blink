@@ -43,37 +43,44 @@ exports.searchUsers = async (req, res) => {
 // ─── UPDATE PROFILE (username, bio) ──────────────────────────
 exports.updateProfile = async (req, res) => {
     try {
-        const { username, bio } = req.body;
+        const { username, bio, profile_pic } = req.body;
         const updates = [];
         const params  = [];
 
         if (username) {
-            if (username.length < 3 || username.length > 30)
+            const cleanName = username.trim().toLowerCase();
+            if (cleanName.length < 3 || cleanName.length > 30)
                 return res.status(400).json({ error: 'Username must be 3–30 characters' });
             // Check uniqueness
             const [dup] = await db.query(
                 'SELECT id FROM users WHERE username = ? AND id != ?',
-                [username.toLowerCase(), req.user.id]
+                [cleanName, req.user.id]
             );
             if (dup.length) return res.status(409).json({ error: 'Username already taken' });
             updates.push('username = ?');
-            params.push(username.toLowerCase());
+            params.push(cleanName);
         }
 
-        if (bio !== undefined) { updates.push('bio = ?'); params.push(bio); }
+        if (bio !== undefined)      { updates.push('bio = ?'); params.push(bio); }
+        if (profile_pic !== undefined) { 
+            updates.push('profile_pic = ?, profile_photo = ?'); 
+            params.push(profile_pic);
+            params.push(profile_pic); // sync both for legacy/future
+        }
+
         if (!updates.length) return res.status(400).json({ error: 'No fields to update' });
 
         params.push(req.user.id);
         await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
 
         const [rows] = await db.query(
-            'SELECT id, username, email, profile_photo, bio, followers_count, following_count, total_likes FROM users WHERE id = ?',
+            'SELECT id, username, email, profile_photo, profile_pic, bio, followers_count, following_count, total_likes FROM users WHERE id = ?',
             [req.user.id]
         );
-        res.json({ message: 'Profile updated', user: rows[0] });
+        res.json({ message: 'Profile updated!', user: rows[0] });
     } catch (err) {
-        console.error('[User] updateProfile:', err.message);
-        res.status(500).json({ error: 'Failed to update profile' });
+        console.error('[User] updateProfile Error:', err.message);
+        res.status(500).json({ error: 'Update failed. Please try again.' });
     }
 };
 
@@ -98,13 +105,16 @@ exports.updateAvatar = async (req, res) => {
         // Cleanup local ephemeral file from node memory
         try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) {}
 
-        // Store secure URL securely in the Production Database
-        await db.query('UPDATE users SET profile_photo = ? WHERE id = ?', [avatarUrl, req.user.id]);
+        // Store secure URL securely in both columns
+        await db.query('UPDATE users SET profile_photo = ?, profile_pic = ? WHERE id = ?', [avatarUrl, avatarUrl, req.user.id]);
         
         // Return latest user context immediately for instant UI
-        const [rows] = await db.query('SELECT id, username, email, profile_photo, bio, followers_count, following_count, total_likes FROM users WHERE id = ?', [req.user.id]);
+        const [rows] = await db.query(
+            'SELECT id, username, email, profile_photo, profile_pic, bio, followers_count, following_count, total_likes FROM users WHERE id = ?', 
+            [req.user.id]
+        );
         
-        res.json({ message: 'Avatar updated', profile_photo: avatarUrl, user: rows[0] });
+        res.json({ message: 'Avatar updated!', profile_photo: avatarUrl, profile_pic: avatarUrl, user: rows[0] });
     } catch (err) {
         console.error('[User] avatar upload failed:', err.message);
         res.status(500).json({ error: 'Failed to update avatar' });

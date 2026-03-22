@@ -15,6 +15,25 @@ const { initLiveSocket } = require('./sockets/live.socket');
 const app    = express();
 const server = http.createServer(app);
 
+// ── Production Security (Part 1) ─────────────────────────────
+app.set('trust proxy', 1);
+
+// Force HTTPS in production
+app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] !== 'https' && process.env.NODE_ENV === 'production') {
+        return res.redirect(301, 'https://' + req.headers.host + req.url);
+    }
+    next();
+});
+
+// Helmet with HSTS and CSP refinements
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet.hsts({
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+}));
+
 // ── CORS config ───────────────────────────────────────────────
 const allowedOrigins = [
     CLIENT_URL,
@@ -28,12 +47,15 @@ const corsOptions = {
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(null, true); // Allow all in dev
+            callback(null, true);
         }
     },
     credentials: true,
     optionsSuccessStatus: 200
 };
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // ── Socket.IO ─────────────────────────────────────────────────
 const io = new Server(server, {
@@ -42,24 +64,28 @@ const io = new Server(server, {
     pingInterval: 25000,
     maxHttpBufferSize: 1e6
 });
-
-// Initialize Live Socket (lightweight, no Redis)
 initLiveSocket(io);
 
-// ── Ensure upload directories exist ──────────────────────────
+// ── Environment ───────────────────────────────────────────────
 ['uploads/videos', 'uploads/avatars'].forEach(dir => {
     const fullPath = path.join(__dirname, dir);
     if (!fs.existsSync(fullPath)) fs.mkdirSync(fullPath, { recursive: true });
 });
 
-// ── Security Middleware ───────────────────────────────────────
-app.use(helmet({
-    contentSecurityPolicy: false,
-    crossOriginEmbedderPolicy: false
-}));
 app.use(compression());
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+
+// Secure Sessions (Part 1.3)
+app.use(require('express-session')({
+    secret: JWT_SECRET || 'blink-prod-system-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        sameSite: 'strict',
+        maxAge: 1000 * 60 * 60 * 24 // 24 hours
+    }
+}));
 
 // ── Rate Limiters ─────────────────────────────────────────────
 const globalLimiter = rateLimit({

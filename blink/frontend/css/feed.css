@@ -55,6 +55,37 @@
 /* ── Feed Container – Vertical Snap Scroll ────────────────── */
 /* ══════════════════════════════════════════════════════════════ */
 
+/* ── Mobile Top Header (Part 3) ───────────────────────── */
+.mobile-top-header {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 60px;
+  padding: env(safe-area-inset-top, 0) 16px 0;
+  background: linear-gradient(to bottom, rgba(10,10,15,0.8), transparent);
+  align-items: center; justify-content: space-between;
+  z-index: 100;
+  pointer-events: none;
+}
+.mobile-top-header .logo-sm {
+  width: 32px; height: 32px; background: var(--grad-brand); border-radius: 8px;
+  color: #fff; font-weight: 900; display: flex; align-items: center; justify-content: center;
+  font-size: 18px; pointer-events: auto;
+}
+.mobile-avatar-wrap { pointer-events: auto; }
+.top-nav-avatar {
+  width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff;
+  background: var(--bg-elevated); display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.top-nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+@media (max-width: 960px) {
+  .mobile-top-header { display: flex; }
+  .mood-selector { top: max(72px, calc(env(safe-area-inset-top, 0px) + 68px)); }
+}
+
 .feed-container {
   width: 100%;
   max-width: 480px;
