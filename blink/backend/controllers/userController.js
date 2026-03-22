@@ -2,12 +2,19 @@ const db     = require('../config/db');
 const bcrypt = require('bcrypt');
 const path   = require('path');
 const fs     = require('fs');
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.API_KEY,
+    api_secret: process.env.API_SECRET
+});
 
 // ─── GET PUBLIC PROFILE ───────────────────────────────────────
 exports.getProfile = async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT id, username, email, profile_picture, bio,
+            `SELECT id, username, email, profile_photo, bio,
                     followers_count, following_count, total_likes, is_live, created_at
              FROM users WHERE id = ?`,
             [req.params.id]
@@ -24,7 +31,7 @@ exports.searchUsers = async (req, res) => {
     try {
         const q = `%${req.query.q || ''}%`;
         const [users] = await db.query(
-            `SELECT id, username, profile_picture, followers_count, is_live FROM users WHERE username LIKE ? LIMIT 20`,
+            `SELECT id, username, profile_photo, followers_count, is_live FROM users WHERE username LIKE ? LIMIT 20`,
             [q]
         );
         res.json({ users });
@@ -60,7 +67,7 @@ exports.updateProfile = async (req, res) => {
         await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
 
         const [rows] = await db.query(
-            'SELECT id, username, email, profile_picture, bio, followers_count, following_count, total_likes FROM users WHERE id = ?',
+            'SELECT id, username, email, profile_photo, bio, followers_count, following_count, total_likes FROM users WHERE id = ?',
             [req.user.id]
         );
         res.json({ message: 'Profile updated', user: rows[0] });
@@ -75,19 +82,31 @@ exports.updateAvatar = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image provided' });
 
-        // Delete old avatar
-        const [rows] = await db.query('SELECT profile_picture FROM users WHERE id = ?', [req.user.id]);
-        const old = rows[0]?.profile_picture;
-        if (old && old.startsWith('/uploads/avatars/')) {
-            const oldPath = path.join(__dirname, '../', old);
-            if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-        }
+        console.log('[User] Uploading avatar to Cloudinary...');
 
-        const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-        await db.query('UPDATE users SET profile_picture = ? WHERE id = ?', [avatarUrl, req.user.id]);
-        res.json({ message: 'Avatar updated', profile_picture: avatarUrl });
+        // Upload to Cloudinary with strict optimizations
+        const cloudResult = await cloudinary.uploader.upload(req.file.path, {
+            folder: "blink_avatars",
+            resource_type: "image",
+            // Center crop on the user's face at standard 300x300, and autocompress
+            eager: [{ width: 300, height: 300, crop: "fill", gravity: "face", quality: "auto", format: "auto" }]
+        });
+        
+        // Grab the optimized avatar
+        const avatarUrl = cloudResult.eager ? cloudResult.eager[0].secure_url : cloudResult.secure_url;
+
+        // Cleanup local ephemeral file from node memory
+        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) {}
+
+        // Store secure URL securely in the Production Database
+        await db.query('UPDATE users SET profile_photo = ? WHERE id = ?', [avatarUrl, req.user.id]);
+        
+        // Return latest user context immediately for instant UI
+        const [rows] = await db.query('SELECT id, username, email, profile_photo, bio, followers_count, following_count, total_likes FROM users WHERE id = ?', [req.user.id]);
+        
+        res.json({ message: 'Avatar updated', profile_photo: avatarUrl, user: rows[0] });
     } catch (err) {
-        console.error('[User] avatar:', err.message);
+        console.error('[User] avatar upload failed:', err.message);
         res.status(500).json({ error: 'Failed to update avatar' });
     }
 };
@@ -119,8 +138,8 @@ exports.deleteAccount = async (req, res) => {
     try {
         const userId = req.user.id;
         // Delete avatar from disk
-        const [rows] = await db.query('SELECT profile_picture FROM users WHERE id = ?', [userId]);
-        const avatar = rows[0]?.profile_picture;
+        const [rows] = await db.query('SELECT profile_photo FROM users WHERE id = ?', [userId]);
+        const avatar = rows[0]?.profile_photo;
         if (avatar && avatar.startsWith('/uploads/avatars/')) {
             const avatarPath = path.join(__dirname, '../', avatar);
             if (fs.existsSync(avatarPath)) fs.unlinkSync(avatarPath);

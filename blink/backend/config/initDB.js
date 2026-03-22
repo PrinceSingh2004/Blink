@@ -93,7 +93,7 @@ async function initDatabase() {
             username        VARCHAR(50)  UNIQUE NOT NULL,
             email           VARCHAR(100) UNIQUE NOT NULL,
             password_hash   VARCHAR(255) NOT NULL,
-            profile_picture VARCHAR(500) DEFAULT NULL,
+            profile_photo VARCHAR(500) DEFAULT NULL,
             bio             TEXT         DEFAULT NULL,
             followers_count INT          DEFAULT 0,
             following_count INT          DEFAULT 0,

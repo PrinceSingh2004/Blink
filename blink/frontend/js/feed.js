@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                          style="display:flex;flex-direction:column;align-items:center;cursor:pointer;min-width:82px;position:relative;transition:transform 0.2s ease;">
                         <div style="position:relative;width:68px;height:68px;border-radius:50%;padding:3px;
                              background:linear-gradient(45deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);box-shadow:0 4px 12px rgba(220,39,67,0.3);">
-                            <img src="${s.profile_picture || `https://i.pravatar.cc/100?u=${s.user_id}`}"
+                            <img src="${s.profile_photo || `https://i.pravatar.cc/100?u=${s.user_id}`}"
                                  style="width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid #000;display:block;"
                                  onerror="this.src='/favicon.png'">
                             <div style="position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);
@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         post.className  = 'video-post';
         post.dataset.id = v.id;
 
-        const avatarSrc = v.profile_picture || `https://i.pravatar.cc/100?u=blink_${v.user_id}`;
+        const avatarSrc = v.profile_photo || `https://i.pravatar.cc/100?u=blink_${v.user_id}`;
         const username  = v.username || 'blink_user';
         const isOwnPost = currentUser && currentUser.id === v.user_id;
 
@@ -694,8 +694,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         commentList.innerHTML = comments.map(c => {
-            const av = c.profile_picture
-                ? `<img class="comment-avatar" src="${c.profile_picture}" alt="">`
+            const av = c.profile_photo
+                ? `<img class="comment-avatar" src="${c.profile_photo}" alt="">`
                 : `<div class="comment-avatar">${(c.username || 'U')[0].toUpperCase()}</div>`;
             const d    = new Date(c.created_at);
             const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

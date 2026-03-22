@@ -45,10 +45,10 @@ exports.getFeed = async (req, res) => {
             // Client already cycled — return empty to prevent infinite loop
             return res.json({ videos: [], total: 0 });
         } else if (cnt === 0) {
-            sql         = `SELECT v.*, u.username, u.profile_picture FROM videos v LEFT JOIN users u ON v.user_id = u.id ORDER BY RAND() LIMIT ?`;
+            sql         = `SELECT v.*, u.username, u.profile_photo FROM videos v LEFT JOIN users u ON v.user_id = u.id ORDER BY RAND() LIMIT ?`;
             finalParams = [limit];
         } else {
-            sql         = `SELECT v.*, u.username, u.profile_picture FROM videos v LEFT JOIN users u ON v.user_id = u.id ${whereSQL} ORDER BY RAND() LIMIT ?`;
+            sql         = `SELECT v.*, u.username, u.profile_photo FROM videos v LEFT JOIN users u ON v.user_id = u.id ${whereSQL} ORDER BY RAND() LIMIT ?`;
             finalParams = [...params, limit];
         }
 
@@ -71,7 +71,7 @@ exports.getFeed = async (req, res) => {
             likes_formatted:    fmtNum(v.likes_count),
             comments_formatted: fmtNum(v.comments_count),
             shares_formatted:   fmtNum(v.shares_count),
-            avatar: v.profile_picture || null
+            avatar: v.profile_photo || null
         }));
 
         res.json({ videos: enriched, total: enriched.length });
@@ -85,7 +85,7 @@ exports.getFeed = async (req, res) => {
 exports.getVideo = async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT v.*, u.username, u.profile_picture, u.followers_count
+            `SELECT v.*, u.username, u.profile_photo, u.followers_count
              FROM videos v LEFT JOIN users u ON v.user_id = u.id WHERE v.id = ?`,
             [req.params.id]
         );
@@ -100,7 +100,7 @@ exports.getVideo = async (req, res) => {
 exports.getUserVideos = async (req, res) => {
     try {
         const [videos] = await db.query(
-            `SELECT v.*, u.username, u.profile_picture FROM videos v
+            `SELECT v.*, u.username, u.profile_photo FROM videos v
              LEFT JOIN users u ON v.user_id = u.id
              WHERE v.user_id = ? ORDER BY v.created_at DESC`,
             [req.params.userId]

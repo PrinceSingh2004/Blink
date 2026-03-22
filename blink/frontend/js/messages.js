@@ -36,8 +36,8 @@ function renderConversations(convs) {
         return;
     }
     convList.innerHTML = convs.map(c => {
-        const av = c.profile_picture
-            ? `<img src="${c.profile_picture}" alt="${c.username}">`
+        const av = c.profile_photo
+            ? `<img src="${c.profile_photo}" alt="${c.username}">`
             : c.username[0].toUpperCase();
         const unread = c.unread_count > 0 ? `<div class="unread-badge">${c.unread_count}</div>` : '';
 

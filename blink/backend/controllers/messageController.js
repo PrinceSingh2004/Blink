@@ -5,7 +5,7 @@ exports.getConversations = async (req, res) => {
     try {
         const [convs] = await db.query(
             `SELECT
-                u.id, u.username, u.profile_picture,
+                u.id, u.username, u.profile_photo,
                 latest.message_text, latest.created_at,
                 (SELECT COUNT(*) FROM messages m2
                  WHERE m2.sender_id = u.id AND m2.receiver_id = ? AND m2.is_read = 0) AS unread_count
@@ -37,7 +37,7 @@ exports.getMessages = async (req, res) => {
         const myId    = req.user.id;
 
         const [messages] = await db.query(
-            `SELECT m.*, u.username AS sender_name, u.profile_picture AS sender_avatar
+            `SELECT m.*, u.username AS sender_name, u.profile_photo AS sender_avatar
              FROM messages m
              LEFT JOIN users u ON m.sender_id = u.id
              WHERE (m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?)

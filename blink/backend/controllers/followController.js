@@ -71,7 +71,7 @@ exports.unfollow = async (req, res) => {
 exports.getFollowers = async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT u.id, u.username, u.profile_picture FROM followers f
+            `SELECT u.id, u.username, u.profile_photo FROM followers f
              JOIN users u ON f.follower_id = u.id WHERE f.following_id = ?`,
             [req.params.userId]
         );
@@ -85,7 +85,7 @@ exports.getFollowers = async (req, res) => {
 exports.getFollowing = async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT u.id, u.username, u.profile_picture FROM followers f
+            `SELECT u.id, u.username, u.profile_photo FROM followers f
              JOIN users u ON f.following_id = u.id WHERE f.follower_id = ?`,
             [req.params.userId]
         );
@@ -98,7 +98,7 @@ exports.getFollowing = async (req, res) => {
 exports.getFollowedLive = async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT id, username, profile_picture FROM users 
+            `SELECT id, username, profile_photo FROM users 
              WHERE is_live = 1 AND (id = ? OR id IN (SELECT following_id FROM followers WHERE follower_id = ?))`,
             [req.user.id, req.user.id]
         );

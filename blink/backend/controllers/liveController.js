@@ -67,7 +67,7 @@ exports.getLiveNow = async (req, res) => {
     try {
         const [rows] = await db.query(
             `SELECT ls.id as stream_id, ls.title as stream_title, 
-                    u.id as user_id, u.username, u.profile_picture, ls.viewer_count
+                    u.id as user_id, u.username, u.profile_photo, ls.viewer_count
              FROM live_streams ls
              JOIN users u ON ls.user_id = u.id
              WHERE ls.status = 'live' AND u.is_live = 1
@@ -84,7 +84,7 @@ exports.getLiveNow = async (req, res) => {
 exports.getStreamDetails = async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT ls.*, u.username, u.profile_picture 
+            `SELECT ls.*, u.username, u.profile_photo 
              FROM live_streams ls
              JOIN users u ON ls.user_id = u.id
              WHERE ls.id = ?`,

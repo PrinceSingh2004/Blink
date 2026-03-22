@@ -29,7 +29,7 @@ async function createStream(userId, streamKeyId, title, hlsUrl) {
 
 async function getStreamById(streamId) {
     const [rows] = await db.execute(
-        `SELECT s.*, u.username, u.profile_picture as avatar 
+        `SELECT s.*, u.username, u.profile_photo as avatar 
          FROM live_streams s
          JOIN users u ON s.user_id = u.id
          WHERE s.id = ?`,
@@ -40,7 +40,7 @@ async function getStreamById(streamId) {
 
 async function getAllLiveStreams() {
     const [rows] = await db.execute(
-        `SELECT s.id, s.title, s.viewer_count, s.hls_url, u.username, u.profile_picture as avatar
+        `SELECT s.id, s.title, s.viewer_count, s.hls_url, u.username, u.profile_photo as avatar
          FROM live_streams s
          JOIN users u ON s.user_id = u.id
          WHERE s.status = 'live'`

@@ -69,8 +69,8 @@ if (document.getElementById('profilePage')) {
             const avatarEl = document.getElementById('profileAvatar');
             const initialEl = document.getElementById('profileAvatarInitial');
             
-            if (u.profile_picture) {
-                avatarEl.src = u.profile_picture;
+            if (u.profile_photo) {
+                avatarEl.src = u.profile_photo;
                 avatarEl.style.display = 'block';
                 if (initialEl) initialEl.style.display = 'none';
             } else {
@@ -136,6 +136,43 @@ if (document.getElementById('profilePage')) {
     document.getElementById('editProfileBtn')?.addEventListener('click', () => {
         window.location.href = '/pages/edit-profile.html';
     });
+
+    // ─── MOBILE LOGOUT BTN & MODAL ────────────────────────────────
+    const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
+    const logoutConfirmModal = document.getElementById('logoutConfirmModal');
+    const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
+    const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
+
+    if (mobileLogoutBtn && logoutConfirmModal) {
+        // Only show button if browsing your OWN profile
+        if (isOwnProfile) {
+            mobileLogoutBtn.classList.remove('hidden');
+        }
+
+        mobileLogoutBtn.addEventListener('click', () => {
+            logoutConfirmModal.classList.add('open');
+        });
+        
+        cancelLogoutBtn?.addEventListener('click', () => {
+            logoutConfirmModal.classList.remove('open');
+        });
+
+        // Close on backdrop click
+        logoutConfirmModal.addEventListener('click', (e) => {
+            if (e.target === logoutConfirmModal) {
+                logoutConfirmModal.classList.remove('open');
+            }
+        });
+
+        confirmLogoutBtn?.addEventListener('click', () => {
+            logoutConfirmModal.classList.remove('open');
+            // Execute logout
+            localStorage.removeItem('blink_token');
+            localStorage.removeItem('blink_user');
+            sessionStorage.clear();
+            window.location.replace('/pages/login.html');
+        });
+    }
 
     // Load videos
     async function loadVideos() {
@@ -218,7 +255,7 @@ if (document.getElementById('profilePage')) {
                     <div class="live-mini-card" onclick="window.location.href='live.html?id=${s.stream_id}'" style="cursor:pointer;">
                         <div class="live-mini-badge">LIVE</div>
                         <div class="live-mini-avatar">
-                            <img src="${s.profile_picture || `https://i.pravatar.cc/100?u=${s.user_id}`}" alt="">
+                            <img src="${s.profile_photo || `https://i.pravatar.cc/100?u=${s.user_id}`}" alt="">
                         </div>
                         <div class="live-mini-username">@${s.username}</div>
                     </div>
@@ -263,8 +300,8 @@ if (document.getElementById('editProfilePage')) {
             document.getElementById('editUsername').value = u.username || '';
             document.getElementById('editBio').value      = u.bio   || '';
             const prev = document.getElementById('avatarPreview');
-            if (u.profile_picture) { 
-                prev.src = u.profile_picture; 
+            if (u.profile_photo) { 
+                prev.src = u.profile_photo; 
                 prev.style.display = 'block'; 
                 document.getElementById('avatarInitial').style.display = 'none'; 
             } else { 
@@ -328,7 +365,8 @@ if (document.getElementById('editProfilePage')) {
         const formData = new FormData();
         formData.append('avatar', croppedBlob, 'avatar.jpg');
         try {
-            const res  = await fetch('/api/users/profile/avatar', { 
+            // Production Endpoint: Always uses the root-level upload route
+            const res  = await fetch('/upload-profile', { 
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${getToken()}` }, 
                 body: formData 
@@ -336,7 +374,7 @@ if (document.getElementById('editProfilePage')) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
             const user = window.Blink.getUser();
-            user.profile_picture = data.profile_picture;
+            user.profile_photo = data.profile_photo;
             localStorage.setItem('blink_user', JSON.stringify(user));
             await window.Blink.populateSidebar();
             

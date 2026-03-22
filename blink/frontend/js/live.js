@@ -456,8 +456,8 @@ console.log('[Live] Script loaded — starting initialization');
                         if (watchingUserEl && data.stream) {
                             watchingUserEl.textContent = data.stream.username;
                             const watchingAvatar = document.getElementById('watchingAvatar');
-                            if (watchingAvatar && data.stream.profile_picture) {
-                                watchingAvatar.src = data.stream.profile_picture;
+                            if (watchingAvatar && data.stream.profile_photo) {
+                                watchingAvatar.src = data.stream.profile_photo;
                             }
                         }
 
@@ -590,7 +590,7 @@ console.log('[Live] Script loaded — starting initialization');
                     streamsGrid.innerHTML = streams.map(s => `
                         <div class="live-card" onclick="window.Blink.watchStream('${s.stream_id}')">
                             <div class="live-card-hero">
-                                <img src="${s.profile_picture || `https://i.pravatar.cc/150?u=${s.user_id}`}" 
+                                <img src="${s.profile_photo || `https://i.pravatar.cc/150?u=${s.user_id}`}" 
                                      onerror="this.src='/favicon.png'" alt="${s.username}">
                                 <div class="live-badge-mini">LIVE</div>
                                 <div class="viewer-count-tag"><i class="bi bi-eye-fill"></i> ${s.viewer_count || 0}</div>

@@ -5,7 +5,7 @@ exports.getComments = async (req, res) => {
     try {
         const [comments] = await db.query(
             `SELECT c.id, c.comment_text, c.created_at,
-                    u.id AS user_id, u.username, u.profile_picture
+                    u.id AS user_id, u.username, u.profile_photo
              FROM comments c
              LEFT JOIN users u ON c.user_id = u.id
              WHERE c.video_id = ?
@@ -42,7 +42,7 @@ exports.addComment = async (req, res) => {
         await db.query('UPDATE videos SET comments_count = comments_count + 1 WHERE id = ?', [videoId]);
 
         const [[newComment]] = await db.query(
-            `SELECT c.id, c.comment_text, c.created_at, u.id AS user_id, u.username, u.profile_picture
+            `SELECT c.id, c.comment_text, c.created_at, u.id AS user_id, u.username, u.profile_photo
              FROM comments c LEFT JOIN users u ON c.user_id = u.id WHERE c.id = ?`,
             [result.insertId]
         );

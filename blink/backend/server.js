@@ -89,6 +89,15 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString(), service: 'Blink API' });
 });
 
+// ── Specific Requested Endpoints (Redirect/Alias) ─────────────
+const { requireAuth } = require('./middleware/authMiddleware');
+const { uploadAvatar } = require('./middleware/uploadMiddleware');
+const uc = require('./controllers/userController');
+
+app.post('/upload-profile', authLimiter, requireAuth, uploadAvatar, uc.updateAvatar);
+app.get('/user/profile', requireAuth, (req,res) => { req.params.id = req.user.id; uc.getProfile(req,res); });
+app.get('/api/user/profile', requireAuth, (req,res) => { req.params.id = req.user.id; uc.getProfile(req,res); });
+
 // ── Static Files ──────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend'), {
     maxAge: '1h',

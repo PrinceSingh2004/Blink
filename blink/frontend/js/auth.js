@@ -1,9 +1,8 @@
 /* auth.js – Robust shared auth utilities */
 window.Blink = window.Blink || {};
 
-// In production set window.BLINK_API_URL to your backend URL (e.g. https://blink-api.onrender.com)
-// If not set, assume the backend is on the same origin (Express serves frontend too)
-const API   = (window.BLINK_API_URL || '') + '/api';
+// Automatically adopt the current host origin (e.g., https://blink-api.onrender.com)
+const API = window.location.origin + '/api';
 const TOKEN = 'blink_token';
 const USER  = 'blink_user';
 
@@ -71,33 +70,43 @@ function showToast(msg, type = 'info') {
     setTimeout(() => toast.remove(), 4000);
 }
 
-// ── Sidebar user info ─────────────────────────────────────────
+// ── Sidebar & Header user info ─────────────────────────────────
 async function populateSidebar() {
     let user = getUser();
-    if (getToken() && (!user || !user.username)) {
+    
+    // Fallback renderer for instant UI
+    const renderUser = (u) => {
+        if (!u) return;
+        const nameEl   = document.getElementById('sidebarName');
+        const handleEl = document.getElementById('sidebarHandle');
+        const avatarEl = document.getElementById('sidebarAvatar');
+        
+        if (nameEl)   nameEl.textContent   = u.username;
+        if (handleEl) handleEl.textContent = '@' + u.username;
+        if (avatarEl) {
+            if (u.profile_photo) {
+                avatarEl.innerHTML = `<img src="${u.profile_photo}" alt="${u.username}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+            } else {
+                avatarEl.textContent = (u.username || 'U')[0].toUpperCase();
+            }
+        }
+    };
+    
+    // Instant paint
+    if (user) renderUser(user);
+
+    // Refresh Fix: Always aggressively fetch from backend to bypass stale localstates
+    if (getToken()) {
         try {
+            // Using /auth/me to get the freshest user data (including new Cloudinary profile_photo)
             const data = await apiRequest('/auth/me');
             if (data?.user) { 
                 user = data.user; 
                 localStorage.setItem(USER, JSON.stringify(user)); 
+                renderUser(user); // Repaint with refreshed data
             }
         } catch (err) {
-            console.warn('[Blink] populateSidebar failed:', err.message);
-        }
-    }
-    if (!user) return;
-    
-    const nameEl   = document.getElementById('sidebarName');
-    const handleEl = document.getElementById('sidebarHandle');
-    const avatarEl = document.getElementById('sidebarAvatar');
-    
-    if (nameEl)   nameEl.textContent   = user.username;
-    if (handleEl) handleEl.textContent = '@' + user.username;
-    if (avatarEl) {
-        if (user.profile_picture) {
-            avatarEl.innerHTML = `<img src="${user.profile_picture}" alt="${user.username}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-        } else {
-            avatarEl.textContent = (user.username || 'U')[0].toUpperCase();
+            console.warn('[Blink] background profile refresh failed:', err.message);
         }
     }
 }
@@ -162,7 +171,7 @@ function displaySearchResults(users) {
     container.innerHTML = users.map(user => `
         <div class="search-item" onclick="window.location.href='/pages/profile.html?id=${user.id}'">
             <div class="search-avatar">
-                ${user.profile_picture ? `<img src="${user.profile_picture}">` : user.username[0].toUpperCase()}
+                ${user.profile_photo ? `<img src="${user.profile_photo}">` : user.username[0].toUpperCase()}
             </div>
             <div class="search-info">
                 <div class="search-username">@${user.username}</div>
