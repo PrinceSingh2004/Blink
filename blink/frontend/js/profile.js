@@ -33,7 +33,8 @@ if (document.getElementById('profilePage')) {
 
     if (!targetId) { window.location.href = '/pages/login.html'; return; }
 
-    const isOwnProfile = me && parseInt(targetId) === parseInt(me.id);
+    const isOwnProfile = me && String(targetId) === String(me.id);
+    console.log('[Profile] Viewing:', targetId, ' Me:', me?.id, ' Own:', isOwnProfile);
     let isFollowing = false;
 
     // Render user profile
@@ -47,7 +48,6 @@ if (document.getElementById('profilePage')) {
             document.getElementById('profileBio').textContent      = u.bio || 'No bio yet.';
             document.getElementById('statFollowers').textContent   = fmt(u.followers_count);
             document.getElementById('statFollowing').textContent   = fmt(u.following_count);
-            document.getElementById('statLikes').textContent       = fmt(u.total_likes);
 
 
             const statusEl = document.getElementById('profileOnlineStatus');
