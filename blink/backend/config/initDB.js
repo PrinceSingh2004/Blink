@@ -2,7 +2,7 @@ const mysql = require('mysql2');
 const env   = require('./env');
 
 async function initDatabase() {
-    // ── Step 1: Create DB if not exists (connect without db name) ─
+    // ── Step 1: Create DB if not exists ───────────────────────
     const rawPool = mysql.createPool({
         host:               env.DB_HOST,
         port:               env.DB_PORT,
@@ -18,10 +18,8 @@ async function initDatabase() {
         );
         console.log(`[DB] Database "${env.DB_NAME}" ensured.`);
     } catch (err) {
-        // Many cloud providers (PlanetScale, Railway, Aiven) don't allow CREATE DATABASE via SQL.
-        // We log it and continue so the app can still use the pre-created database.
         if (err.code === 'ER_DBACCESS_DENIED_ERROR' || err.code === 'ER_ACCESS_DENIED_ERROR') {
-            console.warn(`[DB] Note: Could not confirm database "${env.DB_NAME}" existence via SQL. Ensure it exists in your cloud dashboard.`);
+            console.warn(`[DB] Note: Could not confirm database "${env.DB_NAME}" existence via SQL.`);
         } else {
             console.error('[DB] Creation check error:', err.message);
         }
@@ -29,10 +27,10 @@ async function initDatabase() {
         await rawPool.end();
     }
 
-    // ── Step 2: Use app pool ───────────────────────────────────
+    // ── Step 2: Use app pool ─────────────────────────────────
     const db = require('./db');
 
-    // ── Helper: check column exists ───────────────────────────
+    // ── Helpers ──────────────────────────────────────────────
     async function columnExists(table, column) {
         const [rows] = await db.query(
             `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
@@ -42,7 +40,6 @@ async function initDatabase() {
         return rows[0].cnt > 0;
     }
 
-    // ── Helper: add column if missing ─────────────────────────
     async function addCol(table, col, def) {
         if (!(await columnExists(table, col))) {
             await db.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${col}\` ${def}`).catch(() => {});
@@ -50,7 +47,6 @@ async function initDatabase() {
         }
     }
 
-    // ── Helper: check table exists ────────────────────────────
     async function tableExists(table) {
         const [rows] = await db.query(
             `SELECT COUNT(*) AS cnt FROM information_schema.TABLES
@@ -68,7 +64,7 @@ async function initDatabase() {
         if (hasContact || !hasPasswordHash) {
             console.log('[DB] ⚠️  Old schema detected – migrating…');
             await db.query('SET FOREIGN_KEY_CHECKS=0').catch(() => {});
-            for (const t of ['live_chat', 'live_viewers', 'live_streams', 'messages', 'followers', 'comments', 'video_likes', 'videos', 'users']) {
+            for (const t of ['live_chat', 'live_viewers', 'live_streams', 'stream_chats', 'stream_viewers', 'stream_keys', 'messages', 'followers', 'comments', 'video_likes', 'videos', 'users']) {
                 await db.query(`DROP TABLE IF EXISTS \`${t}\``).catch(() => {});
             }
             await db.query('SET FOREIGN_KEY_CHECKS=1').catch(() => {});
@@ -76,7 +72,21 @@ async function initDatabase() {
         }
     }
 
-    // ── Create tables (IF NOT EXISTS = safe) ──────────────────
+    // ── Drop old live_streams if it has stream_key_id (incompatible) ─
+    if (await tableExists('live_streams')) {
+        const hasStreamKeyId = await columnExists('live_streams', 'stream_key_id');
+        if (hasStreamKeyId) {
+            console.log('[DB] ⚠️  Old live_streams schema with stream_key_id detected — rebuilding…');
+            await db.query('SET FOREIGN_KEY_CHECKS=0').catch(() => {});
+            await db.query('DROP TABLE IF EXISTS live_chat, live_viewers, live_streams, stream_chats, stream_viewers, stream_keys').catch(() => {});
+            await db.query('SET FOREIGN_KEY_CHECKS=1').catch(() => {});
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ── Create tables (IF NOT EXISTS = safe) ─────────────────
+    // ══════════════════════════════════════════════════════════
+
     await db.query(`
         CREATE TABLE IF NOT EXISTS users (
             id              INT AUTO_INCREMENT PRIMARY KEY,
@@ -89,7 +99,9 @@ async function initDatabase() {
             following_count INT          DEFAULT 0,
             total_likes     INT          DEFAULT 0,
             is_live         TINYINT(1)   DEFAULT 0,
-            created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+            created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_username (username),
+            INDEX idx_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
@@ -106,11 +118,11 @@ async function initDatabase() {
             created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             INDEX idx_mood (mood_category),
-            INDEX idx_user (user_id)
+            INDEX idx_user (user_id),
+            INDEX idx_created (created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
-    // Add any missing columns to videos table
     await addCol('videos', 'likes_count',    'INT DEFAULT 0');
     await addCol('videos', 'comments_count', 'INT DEFAULT 0');
     await addCol('videos', 'shares_count',   'INT DEFAULT 0');
@@ -168,15 +180,21 @@ async function initDatabase() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
+    // ── Live Streaming Tables (Simple WebRTC — no stream keys) ─
     await db.query(`
         CREATE TABLE IF NOT EXISTS live_streams (
-            id            INT AUTO_INCREMENT PRIMARY KEY,
-            user_id       INT NOT NULL,
-            stream_title  VARCHAR(255) DEFAULT 'Live Stream',
-            status        ENUM('live', 'offline') DEFAULT 'live',
-            viewer_count  INT DEFAULT 0,
-            started_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            id           INT AUTO_INCREMENT PRIMARY KEY,
+            user_id      INT NOT NULL,
+            title        VARCHAR(150) DEFAULT 'Live Session',
+            status       ENUM('live', 'ended') DEFAULT 'live',
+            viewer_count INT DEFAULT 0,
+            peak_viewers INT DEFAULT 0,
+            started_at   TIMESTAMP NULL,
+            ended_at     TIMESTAMP NULL,
+            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_live_user (user_id),
+            INDEX idx_live_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
@@ -185,23 +203,24 @@ async function initDatabase() {
             id         INT AUTO_INCREMENT PRIMARY KEY,
             stream_id  INT NOT NULL,
             user_id    INT NOT NULL,
-            joined_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY unique_viewer (stream_id, user_id),
             FOREIGN KEY (stream_id) REFERENCES live_streams(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id)   REFERENCES users(id)        ON DELETE CASCADE
+            FOREIGN KEY (user_id)   REFERENCES users(id)  ON DELETE CASCADE,
+            INDEX idx_viewer_stream (stream_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
     await db.query(`
         CREATE TABLE IF NOT EXISTS live_chat (
             id         INT AUTO_INCREMENT PRIMARY KEY,
-            stream_id  INT NOT NULL,
-            user_id    INT NOT NULL,
+            stream_id  INT  NOT NULL,
+            user_id    INT  NOT NULL,
             message    TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (stream_id) REFERENCES live_streams(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id)   REFERENCES users(id)        ON DELETE CASCADE,
-            INDEX idx_stream (stream_id)
+            FOREIGN KEY (user_id)   REFERENCES users(id)  ON DELETE CASCADE,
+            INDEX idx_chat_stream (stream_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
@@ -225,6 +244,11 @@ async function initDatabase() {
             INDEX idx_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+
+    // ── Clean up stale live streams on startup ───────────────
+    await db.query('UPDATE live_streams SET status = "ended", ended_at = NOW() WHERE status = "live"').catch(() => {});
+    await db.query('UPDATE users SET is_live = 0 WHERE is_live = 1').catch(() => {});
+    await db.query('DELETE FROM live_viewers').catch(() => {});
 
     console.log('[DB] ✅ All tables ready.');
 }

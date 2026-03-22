@@ -1,6 +1,13 @@
 const db   = require('../config/db');
 const path = require('path');
 const fs   = require('fs');
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.API_KEY,
+    api_secret: process.env.API_SECRET
+});
 
 function fmtNum(n) {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
@@ -59,6 +66,7 @@ exports.getFeed = async (req, res) => {
 
         const enriched = videos.map(v => ({
             ...v,
+            videoUrl: v.video_url, // Added to strictly match user request format if needed
             liked_by_me: likedSet.has(v.id),
             likes_formatted:    fmtNum(v.likes_count),
             comments_formatted: fmtNum(v.comments_count),
@@ -109,7 +117,32 @@ exports.uploadVideo = async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No video file provided' });
 
         const { caption = '', mood_category = 'General' } = req.body;
-        const videoUrl = `/uploads/videos/${req.file.filename}`;
+        
+        console.log('[Videos] Uploading to Cloudinary...');
+        
+        // Upload to Cloudinary with eager transformations
+        const cloudResult = await cloudinary.uploader.upload(req.file.path, {
+            resource_type: "video",
+            folder: "blink_reels"
+        });
+        
+        // ⚡ PERFORMANCE OPTIMIZATION: CDN Delivery
+        // Inject q_auto (auto quality) and f_auto (auto format) for instantly optimized streaming
+        const optimizedUrl = cloudResult.secure_url.replace('/upload/', '/upload/q_auto,f_auto/');
+        const thumbnailUrl = optimizedUrl.replace('.mp4', '.jpg').replace('.webm', '.jpg'); // Auto-generated thumbnail
+
+        console.log('[Videos] Cloudinary upload successful:', optimizedUrl);
+
+        // Delete local temporary file
+        try {
+            if (fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+        } catch (cleanupErr) {
+            console.warn('[Videos] Failed to cleanup local file:', cleanupErr.message);
+        }
+
+        const videoUrl = optimizedUrl;
 
         const [result] = await db.query(
             `INSERT INTO videos (user_id, video_url, caption, mood_category) VALUES (?, ?, ?, ?)`,
@@ -118,11 +151,15 @@ exports.uploadVideo = async (req, res) => {
 
         res.status(201).json({
             message: 'Video uploaded successfully',
-            video: { id: result.insertId, video_url: videoUrl, caption, mood_category }
+            video: { id: result.insertId, videoUrl, video_url: videoUrl, caption, mood_category }
         });
     } catch (err) {
-        console.error('[Videos] upload:', err.message);
-        res.status(500).json({ error: 'Failed to upload video' });
+        console.error('[Videos] upload error:', err);
+        // Clean up local file on failure
+        if (req.file && fs.existsSync(req.file.path)) {
+            try { fs.unlinkSync(req.file.path); } catch (e) {}
+        }
+        res.status(500).json({ error: 'Failed to upload video to Cloud' });
     }
 };
 

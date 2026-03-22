@@ -3,17 +3,20 @@ node_modules/
 .npm
 package-lock.json
 
-# ── Environment (NEVER commit .env) ──────────────────────────
+# ── Environment (NEVER commit .env with secrets) ─────────────
 .env
 .env.local
 .env.production
 .env.staging
 
 # ── Uploads (user content – use cloud storage in production) ──
-backend/uploads/videos/*
-backend/uploads/avatars/*
-!backend/uploads/videos/.gitkeep
-!backend/uploads/avatars/.gitkeep
+blink/backend/uploads/videos/*
+blink/backend/uploads/avatars/*
+!blink/backend/uploads/videos/.gitkeep
+!blink/backend/uploads/avatars/.gitkeep
+
+# ── HLS temp (legacy, no longer used) ────────────────────────
+hls/
 
 # ── OS / IDE ──────────────────────────────────────────────────
 .DS_Store
@@ -33,3 +36,6 @@ RUN_APP.bat
 run_project.bat
 check_db.js
 migrate.js
+
+# ── Gemini/Antigravity agent artifacts ────────────────────────
+.gemini/

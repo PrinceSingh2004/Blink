@@ -17,7 +17,7 @@ const videoStorage = multer.diskStorage({
 });
 
 const videoFilter = (req, file, cb) => {
-    const allowed = ['video/mp4', 'video/quicktime'];
+    const allowed = ['video/mp4', 'video/quicktime', 'video/webm'];
     if (allowed.includes(file.mimetype)) cb(null, true);
     else cb(new Error('Only video files are allowed (mp4, mov)'), false);
 };

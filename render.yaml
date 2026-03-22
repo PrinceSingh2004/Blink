@@ -1,10 +1,10 @@
 services:
-  # ── Web Service (Node.js Express) 
+  # ── Blink Web Service (Node.js + Express + Socket.IO) ──────
   - type: web
     name: blink-app
     runtime: node
     plan: free
-    region: oregon          # Change: singapore / frankfurt / ohio
+    region: oregon
     rootDir: blink/backend
     buildCommand: npm install
     startCommand: node server.js
@@ -13,11 +13,11 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000          # Render assigns this automatically
+        value: 10000
       - key: DB_HOST
-        sync: false           # Set manually in Render dashboard
+        sync: false
       - key: DB_PORT
-        value: 3306
+        sync: false
       - key: DB_USER
         sync: false
       - key: DB_PASSWORD
@@ -25,7 +25,7 @@ services:
       - key: DB_NAME
         sync: false
       - key: JWT_SECRET
-        generateValue: true   # Auto-generate a secure random secret
+        generateValue: true
       - key: JWT_EXPIRES
         value: 7d
       - key: EMAIL_USER
@@ -33,4 +33,4 @@ services:
       - key: EMAIL_PASS
         sync: false
       - key: CLIENT_URL
-        sync: false           # Set to your Render web service URL
+        sync: false

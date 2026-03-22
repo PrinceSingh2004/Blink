@@ -22,14 +22,43 @@ fileInput?.addEventListener('change', handleFile);
 function handleFile(e) {
     const file = e.target.files?.[0] || (e.dataTransfer?.files?.[0]);
     if (!file) return;
-    if (!file.type.startsWith('video/')) { showToast('Please select a video file', 'error'); return; }
-    if (file.size > 200 * 1024 * 1024) { showToast('File too large (max 200MB)', 'error'); return; }
+    
+    const allowedTypes = ['video/mp4', 'video/quicktime'];
+    if (!allowedTypes.includes(file.type)) { 
+        showToast('Only MP4 and MOV allowed', 'error'); 
+        return; 
+    }
+    if (file.size > 1024 * 1024 * 1024) { 
+        showToast('File too large (max 1GB)', 'error'); 
+        return; 
+    }
 
     const url = URL.createObjectURL(file);
-    previewVideo.src = url;
-    previewWrap.style.display = '';
-    uploadZone.style.display  = 'none';
-    document.getElementById('fileNameLabel').textContent = file.name;
+    
+    // Validate duration, resolution, and aspect ratio
+    const tempVideo = document.createElement('video');
+    tempVideo.preload = 'metadata';
+    tempVideo.onloadedmetadata = () => {
+        URL.revokeObjectURL(tempVideo.src);
+        const duration = tempVideo.duration;
+        const width = tempVideo.videoWidth;
+        const height = tempVideo.videoHeight;
+        
+        if (duration < 3 || duration > 90) {
+            return showToast('Duration must be between 3 and 90 seconds', 'error');
+        }
+        
+        // Removed strict 720x1280 and 9:16 limitations here to support any aspect ratio!
+        if (width < 320 || height < 320) {
+            return showToast('Resolution is too low (minimum 320px)', 'error');
+        }
+
+        previewVideo.src = url;
+        previewWrap.style.display = '';
+        uploadZone.style.display  = 'none';
+        document.getElementById('fileNameLabel').textContent = file.name;
+    };
+    tempVideo.src = url;
 }
 
 // Drag-and-drop

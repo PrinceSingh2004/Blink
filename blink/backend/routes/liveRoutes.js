@@ -1,12 +1,13 @@
 const express = require('express');
-const router  = express.Router();
-const lc      = require('../controllers/liveController');
+const router = express.Router();
 const { requireAuth } = require('../middleware/authMiddleware');
+const liveController = require('../controllers/liveController');
 
-router.post('/start', requireAuth, lc.startLive);
-router.post('/end',   requireAuth, lc.endLive);
-router.get('/now',          lc.getLiveNow);
-router.get('/:id',          lc.getStreamDetails);
-router.get('/:id/chat',     lc.getChatHistory);
+// ── WebRTC Live Streaming Routes ──────────────────────────────
+router.post('/start',  requireAuth, liveController.startLive);
+router.post('/end',    requireAuth, liveController.endLive);
+router.get('/now',                  liveController.getLiveNow);
+router.get('/:id',                  liveController.getStreamDetails);
+router.get('/chat/:id',             liveController.getChatHistory);
 
 module.exports = router;
