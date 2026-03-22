@@ -62,11 +62,7 @@ if (document.getElementById('profilePage')) {
                 }
             }
 
-            if (u.is_live) {
-                document.getElementById('profileLiveBadge')?.classList.add('active');
-            }
-
-            const avatarEl = document.getElementById('profileAvatar');
+            const avatarEl = document.getElementById('profilePhoto');
             const initialEl = document.getElementById('profileAvatarInitial');
             
             if (u.profile_photo) {
@@ -89,21 +85,25 @@ if (document.getElementById('profilePage')) {
                     wrap.title = 'Click to change profile photo';
                     wrap.addEventListener('click', () => window.location.href = 'edit-profile.html');
                 }
-            }
-
-            // Show/hide action buttons
-            if (isOwnProfile) {
                 document.getElementById('editProfileBtn')?.classList.remove('hidden');
                 document.getElementById('goLiveProfileBtn')?.classList.remove('hidden');
-            } else if (me) {
-                const followBtn = document.getElementById('followBtn');
-                followBtn?.classList.remove('hidden');
-                // Check follow status
-                const s = await apiRequest(`/follow/status/${targetId}`);
-                isFollowing = s.following;
-                updateFollowBtn();
+                document.getElementById('rowLogoutBtn')?.classList.remove('hidden');
+            } else {
+                document.getElementById('followBtn')?.classList.remove('hidden');
+                // Check follow status if logged in
+                if (me) {
+                    const s = await apiRequest(`/follow/status/${targetId}`);
+                    isFollowing = s.following;
+                    updateFollowBtn();
+                }
             }
-        } catch (err) { showToast('Failed to load profile', 'error'); }
+
+            // Load videos
+            await loadVideos();
+        } catch (err) { 
+            console.error('[Profile] loadProfile:', err.message);
+            showToast('Failed to load profile', 'error'); 
+        }
     }
 
     function updateFollowBtn() {
@@ -139,19 +139,25 @@ if (document.getElementById('profilePage')) {
 
     // ─── MOBILE LOGOUT BTN & MODAL ────────────────────────────────
     const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
+    const rowLogoutBtn = document.getElementById('rowLogoutBtn');
     const logoutConfirmModal = document.getElementById('logoutConfirmModal');
     const cancelLogoutBtn = document.getElementById('cancelLogoutBtn');
     const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
 
-    if (mobileLogoutBtn && logoutConfirmModal) {
-        // Only show button if browsing your OWN profile
-        if (isOwnProfile) {
+    if (logoutConfirmModal) {
+        // Only show floating button if browsing your OWN profile
+        if (isOwnProfile && mobileLogoutBtn) {
             mobileLogoutBtn.classList.remove('hidden');
         }
+        // Only show row button if browsing your OWN profile
+        if (isOwnProfile && rowLogoutBtn) {
+            rowLogoutBtn.classList.remove('hidden');
+        }
 
-        mobileLogoutBtn.addEventListener('click', () => {
-            logoutConfirmModal.classList.add('open');
-        });
+        const openModal = () => logoutConfirmModal.classList.add('open');
+
+        mobileLogoutBtn?.addEventListener('click', openModal);
+        rowLogoutBtn?.addEventListener('click', openModal);
         
         cancelLogoutBtn?.addEventListener('click', () => {
             logoutConfirmModal.classList.remove('open');

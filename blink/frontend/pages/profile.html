@@ -84,15 +84,8 @@
         
         <!-- Mobile Logout Button (Top Right) -->
         <button class="mobile-logout-btn hidden" id="mobileLogoutBtn" title="Logout">
-          <i class="bi bi-box-arrow-right icon-inline"></i>Logout
+          <i class="bi bi-box-arrow-right icon-inline"></i>
         </button>
-
-        <div class="profile-header-actions">
-          <button class="btn btn-primary btn-sm hidden" id="editProfileBtn"><i class="bi bi-pencil-square icon-inline"></i>Edit Profile</button>
-          <button class="btn btn-secondary btn-sm hidden" id="goLiveProfileBtn" onclick="window.location.href='live.html'"><i class="bi bi-broadcast icon-inline"></i>Go Live</button>
-          <button class="btn btn-primary btn-sm hidden" id="followBtn"><i class="bi bi-person-plus-fill icon-inline"></i>Follow</button>
-          <button class="btn btn-secondary btn-sm" id="shareBtn" onclick="(async()=>{try{await navigator.clipboard.writeText(window.location.href);window.Blink.showToast('Link copied!')}catch{}})()"><i class="bi bi-share-fill icon-inline"></i>Share</button>
-        </div>
       </div>
 
       <!-- Custom Logout Confirmation Modal -->
@@ -110,51 +103,51 @@
 
       <!-- Body -->
       <div class="profile-body">
-        <div class="profile-avatar-wrap">
-          <div style="width:120px;height:120px;border-radius:50%;background:var(--grad-brand);display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:900;box-shadow:0 0 0 4px var(--bg-dark),0 0 0 6px var(--pink-glow);border:4px solid var(--bg-dark)" id="profileAvatarWrap">
-            <img id="profileAvatar" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:none">
-            <span id="profileAvatarInitial">?</span>
+        <!-- 1. Profile Header (Avatar Left, Info Right) -->
+        <div class="profile-main-header">
+          <div class="profile-avatar-wrap" id="profileAvatarWrap">
+            <div class="profile-avatar-inner">
+              <img id="profilePhoto" alt="avatar" style="display:none">
+              <span id="profileAvatarInitial">?</span>
+            </div>
+            <div class="profile-verified-badge"><i class="bi bi-patch-check-fill"></i></div>
           </div>
-          <div class="profile-verified-badge"><i class="bi bi-patch-check-fill"></i></div>
+
+          <div class="profile-user-info">
+            <h1 class="profile-name">
+              <span id="profileUsername">Loading...</span>
+              <span id="profileOnlineStatus" class="status-text"></span>
+            </h1>
+            <div class="profile-handle" id="profileHandle"></div>
+            <p class="profile-bio" id="profileBio"></p>
+          </div>
         </div>
 
-
-        <h1 class="profile-name">
-          <span id="profileUsername">Loading...</span>
-          <span id="profileOnlineStatus" class="status-text" style="font-size:12px; margin-left:10px; font-weight:500;"></span>
-          <span id="profileLiveBadge" class="live-badge" onclick="window.location.href='live.html'"><i class="bi bi-record-circle-fill"></i> LIVE</span>
-        </h1>
-        <div class="profile-handle" id="profileHandle"></div>
-        <p class="profile-bio" id="profileBio"></p>
-
-        <!-- Stats -->
+        <!-- 2. Stats Section (Videos | Followers | Following) -->
         <div class="profile-stats">
-          <div class="stat-item" onclick="">
-            <div class="stat-val" id="statVideos">?</div>
+          <div class="stat-item">
+            <div class="stat-val" id="statVideos">0</div>
             <div class="stat-lbl">Videos</div>
           </div>
           <div class="stat-item">
-            <div class="stat-val" id="statFollowers" style="background:var(--grad-brand);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">0</div>
+            <div class="stat-val" id="statFollowers">0</div>
             <div class="stat-lbl">Followers</div>
           </div>
           <div class="stat-item">
             <div class="stat-val" id="statFollowing">0</div>
             <div class="stat-lbl">Following</div>
           </div>
-          <div class="stat-item">
-            <div class="stat-val" id="statLikes">0</div>
-            <div class="stat-lbl">Likes</div>
-          </div>
         </div>
 
-      </div>
-
-      <!-- Mini Live Discovery (Followed users who are live) -->
-      <div id="profileLiveDiscovery" style="margin-bottom:28px; display:none;">
-        <h3 style="font-size:13px; font-weight:800; color:var(--text-muted); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">Who's Live Now <i class="bi bi-flame-fill"></i></h3>
-        <div id="profileLiveGrid" style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; scrollbar-width: none;">
-          <!-- Live users will be injected here -->
+        <!-- 3. Action Buttons Section ([Edit] [Go Live] [Share]) -->
+        <div class="profile-actions-row">
+            <button class="btn btn-primary hidden" id="editProfileBtn"><i class="bi bi-pencil-square icon-inline"></i>Edit Profile</button>
+            <button class="btn btn-secondary hidden" id="goLiveProfileBtn" onclick="window.location.href='live.html'"><i class="bi bi-broadcast icon-inline"></i>Go Live</button>
+            <button class="btn btn-secondary hidden" id="followBtn"><i class="bi bi-person-plus-fill icon-inline"></i>Follow</button>
+            <button class="btn btn-outline" id="shareBtn" onclick="(async()=>{try{await navigator.clipboard.writeText(window.location.href);window.Blink.showToast('Link copied!')}catch{}})()"><i class="bi bi-share-fill icon-inline"></i>Share</button>
+            <button class="btn btn-danger hidden" id="rowLogoutBtn"><i class="bi bi-box-arrow-right icon-inline"></i>Logout</button>
         </div>
+
       </div>
 
       <!-- Tabs -->
