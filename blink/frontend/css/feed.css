@@ -10,21 +10,19 @@
 
 .mood-selector {
   position: fixed;
-  top: max(14px, env(safe-area-inset-top, 14px));
-  left: calc(var(--sidebar-w) + 50%);
-  transform: translateX(calc(-50% - var(--sidebar-w) / 2));
-  display: flex; gap: 6px; z-index: 30; white-space: nowrap;
-  padding: 4px 6px;
-  background: rgba(10,10,15,0.65);
-  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  top: max(16px, env(safe-area-inset-top, 16px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 8px; z-index: 30; white-space: nowrap;
+  padding: 6px 12px;
+  background: rgba(10,10,15,0.45);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-radius: var(--radius-full);
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-  max-width: calc(100vw - 40px);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  max-width: calc(100vw - 32px);
   overflow-x: auto; 
   scrollbar-width: none;
-  scroll-behavior: smooth; /* Smooth scroll support */
-  -webkit-overflow-scrolling: touch; /* Momentum scrolling on iOS */
 }
 .mood-selector::-webkit-scrollbar { display: none; }
 
@@ -55,35 +53,8 @@
 /* ── Feed Container – Vertical Snap Scroll ────────────────── */
 /* ══════════════════════════════════════════════════════════════ */
 
-/* ── Mobile Top Header (Part 3) ───────────────────────── */
-.mobile-top-header {
-  display: none;
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 60px;
-  padding: env(safe-area-inset-top, 0) 16px 0;
-  background: linear-gradient(to bottom, rgba(10,10,15,0.8), transparent);
-  align-items: center; justify-content: space-between;
-  z-index: 100;
-  pointer-events: none;
-}
-.mobile-top-header .logo-sm {
-  width: 32px; height: 32px; background: var(--grad-brand); border-radius: 8px;
-  color: #fff; font-weight: 900; display: flex; align-items: center; justify-content: center;
-  font-size: 18px; pointer-events: auto;
-}
-.mobile-avatar-wrap { pointer-events: auto; }
-.top-nav-avatar {
-  width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff;
-  background: var(--bg-elevated); display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 700; overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-}
-.top-nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
-
 @media (max-width: 960px) {
-  .mobile-top-header { display: flex; }
-  .mood-selector { top: max(72px, calc(env(safe-area-inset-top, 0px) + 68px)); }
+  .mood-selector { top: max(16px, env(safe-area-inset-top, 16px)); }
 }
 
 .feed-container {

@@ -22,11 +22,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     function initUI() {
         editUsername.value = me.username || '';
         editBio.value = me.bio || '';
-        if (me.profile_photo) {
-            currentAvatar.src = me.profile_photo;
-            currentAvatar.style.display = 'block';
-            initialsEl.style.display = 'none';
+        
+        // Fix: Check both common keys used in DB
+        const photo = me.profile_photo || me.profile_pic;
+        if (photo) {
+            currentAvatar.src = photo;
+            currentAvatar.onload = () => {
+                currentAvatar.style.display = 'block';
+                initialsEl.style.display = 'none';
+            };
         } else {
+            currentAvatar.style.display = 'none';
+            initialsEl.style.display = 'flex';
             initialsEl.textContent = (me.username || 'U')[0].toUpperCase();
         }
     }

@@ -23,9 +23,9 @@ function handleFile(e) {
     const file = e.target.files?.[0] || (e.dataTransfer?.files?.[0]);
     if (!file) return;
     
-    const allowedTypes = ['video/mp4', 'video/quicktime'];
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska'];
     if (!allowedTypes.includes(file.type)) { 
-        showToast('Only MP4 and MOV allowed', 'error'); 
+        showToast('Unsupported format (MP4, WebM, MOV only)', 'error'); 
         return; 
     }
     if (file.size > 1024 * 1024 * 1024) { 
@@ -39,7 +39,7 @@ function handleFile(e) {
     const tempVideo = document.createElement('video');
     tempVideo.preload = 'metadata';
     tempVideo.onloadedmetadata = () => {
-        URL.revokeObjectURL(tempVideo.src);
+        // Do NOT revoke yet, previewVideo needs it!
         const duration = tempVideo.duration;
         const width = tempVideo.videoWidth;
         const height = tempVideo.videoHeight;
@@ -73,11 +73,13 @@ uploadZone?.addEventListener('drop', e => {
 
 // Change video button
 document.getElementById('changeVideoBtn')?.addEventListener('click', () => {
+    if (previewVideo.src.startsWith('blob:')) URL.revokeObjectURL(previewVideo.src);
     previewWrap.style.display = 'none';
     uploadZone.style.display  = '';
     previewVideo.src = '';
     fileInput.value  = '';
     recordedFile = null;
+    document.getElementById('fileNameLabel').style.display = 'none';
 });
 
 // ── CAMERA RECORDING ──────────────────────────────────────────
