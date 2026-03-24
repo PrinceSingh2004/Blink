@@ -9,6 +9,10 @@ function signToken(user) {
     return jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
 }
 
+// Memory stores for OTP rate limiting (abuse connection protection)
+const otpRequests = {};
+const failedAttempts = {};
+
 // ─── REGISTER ─────────────────────────────────────────────────
 exports.register = async (req, res) => {
     try {
@@ -97,6 +101,14 @@ exports.getMe = async (req, res) => {
 // ─── FORGOT PASSWORD: SEND OTP ─────────────────────────────────
 exports.sendOTP = async (req, res) => {
     try {
+        const ip = req.ip;
+        if (!otpRequests[ip]) otpRequests[ip] = 0;
+        otpRequests[ip]++;
+        
+        if (otpRequests[ip] > 5) {
+            return res.status(429).json({ error: 'Too many OTP requests. Try later.' });
+        }
+
         const { email } = req.body;
         if (!email) return res.status(400).json({ error: 'Email is required' });
 
@@ -131,6 +143,9 @@ exports.sendOTP = async (req, res) => {
 // ─── FORGOT PASSWORD: VERIFY OTP ───────────────────────────────
 exports.verifyOTP = async (req, res) => {
     try {
+        const ip = req.ip;
+        if (!failedAttempts[ip]) failedAttempts[ip] = 0;
+
         const { email, otp } = req.body;
         if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
 
@@ -140,9 +155,20 @@ exports.verifyOTP = async (req, res) => {
             [cleanEmail, otp]
         );
 
-        if (!user.length || user[0].otp_expiry < Date.now()) {
-            return res.status(400).json({ error: "Invalid or expired OTP" });
+        if (!user.length) {
+            failedAttempts[ip]++;
+            if (failedAttempts[ip] >= 5) {
+                return res.status(403).json({ error: "Too many wrong attempts" });
+            }
+            return res.status(400).json({ error: "Invalid OTP" });
         }
+
+        if (user[0].otp_expiry < Date.now()) {
+            return res.status(400).json({ error: "Expired OTP" });
+        }
+
+        // success -> reset attempts
+        failedAttempts[ip] = 0;
 
         res.json({ success: true, message: "OTP verified successfully" });
 
