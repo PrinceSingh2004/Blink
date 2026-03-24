@@ -85,9 +85,11 @@ async function populateSidebar() {
         if (nameEl)   nameEl.textContent   = u.username;
         if (handleEl) handleEl.textContent = '@' + u.username;
 
-        const imgHtml = u.profile_pic || u.profile_photo 
-            ? `<img src="${u.profile_pic || u.profile_photo}" alt="${u.username}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        const photo = u.profile_pic || u.profile_photo;
+        const imgHtml = photo 
+            ? `<img src="${photo}${photo.includes('?') ? '&' : '?'}t=${Date.now()}" alt="${u.username}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
             : (u.username || 'U')[0].toUpperCase();
+
 
         if (avatarEl) avatarEl.innerHTML = imgHtml;
         if (topAvEl)  topAvEl.innerHTML  = imgHtml;

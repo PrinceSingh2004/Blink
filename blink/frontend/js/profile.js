@@ -66,10 +66,11 @@ if (document.getElementById('profilePage')) {
             const initialEl = document.getElementById('profileAvatarInitial');
             
             if (u.profile_photo) {
-                avatarEl.src = u.profile_photo;
+                avatarEl.src = u.profile_photo + (u.profile_photo.includes('?') ? '&' : '?') + 't=' + Date.now();
                 avatarEl.style.display = 'block';
                 if (initialEl) initialEl.style.display = 'none';
             } else {
+
                 avatarEl.style.display = 'none';
                 if (initialEl) {
                     initialEl.style.display = 'block';
@@ -400,7 +401,8 @@ if (document.getElementById('editProfilePage')) {
         const btn = document.getElementById('uploadAvatarBtn');
         btn.disabled = true;
         const formData = new FormData();
-        formData.append('avatar', croppedBlob, 'avatar.jpg');
+        formData.append('photo', croppedBlob, 'avatar.jpg');
+
         try {
             // Production Endpoint: Always uses the root-level upload route
             const res  = await fetch('/upload-profile', { 

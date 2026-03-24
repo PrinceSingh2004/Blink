@@ -6,9 +6,10 @@ const cloudinary = require('cloudinary').v2;
 
 cloudinary.config({
     cloud_name: process.env.CLOUD_NAME,
-    api_key: process.env.API_KEY,
-    api_secret: process.env.API_SECRET
+    api_key: process.env.API_KEY || process.env.CLOUD_KEY,
+    api_secret: process.env.API_SECRET || process.env.CLOUD_SECRET
 });
+
 
 // ─── GET PUBLIC PROFILE ───────────────────────────────────────
 exports.getProfile = async (req, res) => {
@@ -40,10 +41,12 @@ exports.searchUsers = async (req, res) => {
     }
 };
 
-// ─── UPDATE PROFILE (username, bio) ──────────────────────────
+// ─── UPDATE PROFILE (username, bio, photo) ───────────────────
 exports.updateProfile = async (req, res) => {
     try {
-        const { username, bio, profile_pic } = req.body;
+        const { username, bio } = req.body;
+        let imageUrl = req.file ? req.file.path : null;
+
         const updates = [];
         const params  = [];
 
@@ -51,38 +54,58 @@ exports.updateProfile = async (req, res) => {
             const cleanName = username.trim().toLowerCase();
             if (cleanName.length < 3 || cleanName.length > 30)
                 return res.status(400).json({ error: 'Username must be 3–30 characters' });
+            
             // Check uniqueness
             const [dup] = await db.query(
                 'SELECT id FROM users WHERE username = ? AND id != ?',
                 [cleanName, req.user.id]
             );
             if (dup.length) return res.status(409).json({ error: 'Username already taken' });
+            
             updates.push('username = ?');
             params.push(cleanName);
         }
 
-        if (bio !== undefined)      { updates.push('bio = ?'); params.push(bio); }
-        if (profile_pic !== undefined) { 
-            updates.push('profile_pic = ?, profile_photo = ?'); 
-            params.push(profile_pic);
-            params.push(profile_pic); // sync both for legacy/future
+        if (bio !== undefined) {
+            updates.push('bio = ?');
+            params.push(bio);
         }
 
-        if (!updates.length) return res.status(400).json({ error: 'No fields to update' });
+        if (imageUrl) {
+            updates.push('profile_photo = ?', 'profile_pic = ?');
+            params.push(imageUrl, imageUrl);
+        } else if (req.body.profile_pic === '') {
+            // Explicitly requested removal
+            updates.push('profile_photo = NULL', 'profile_pic = NULL');
+        }
+
+
+        if (!updates.length) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
 
         params.push(req.user.id);
         await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
 
+        // Fetch updated user to return
         const [rows] = await db.query(
             'SELECT id, username, email, profile_photo, profile_pic, bio, followers_count, following_count, total_likes FROM users WHERE id = ?',
             [req.user.id]
         );
-        res.json({ message: 'Profile updated!', user: rows[0] });
+
+        res.json({
+            success: true,
+            message: 'Profile updated!',
+            user: rows[0],
+            imageUrl: rows[0].profile_photo
+        });
+
     } catch (err) {
-        console.error('[User] updateProfile Error:', err.message);
-        res.status(500).json({ error: 'Update failed. Please try again.' });
+        console.error('[User] updateProfile Error:', err);
+        res.status(500).json({ success: false, error: 'Update failed. Please try again.' });
     }
 };
+
 
 // ─── UPDATE AVATAR ────────────────────────────────────────────
 exports.updateAvatar = async (req, res) => {
