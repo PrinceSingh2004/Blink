@@ -72,20 +72,8 @@ socketHandler(io); // Initialize new one-to-many live streaming signaling
     if (!fs.existsSync(fullPath)) fs.mkdirSync(fullPath, { recursive: true });
 });
 
+// Using JWT-based authentication (No express-session needed)
 app.use(compression());
-
-// Secure Sessions (Part 1.3)
-app.use(require('express-session')({
-    secret: JWT_SECRET || 'blink-prod-system-key',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        sameSite: 'strict',
-        maxAge: 1000 * 60 * 60 * 24 // 24 hours
-    }
-}));
 
 // ── Rate Limiters ─────────────────────────────────────────────
 const globalLimiter = rateLimit({
