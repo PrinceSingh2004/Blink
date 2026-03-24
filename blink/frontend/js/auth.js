@@ -183,8 +183,32 @@ function displaySearchResults(users) {
     `).join('');
 }
 
+// ─── Shared UI Helpers ─────────────────────────────────────────
+function initPasswordToggles() {
+    document.querySelectorAll('.pw-toggle').forEach(btn => {
+        btn.onclick = (e) => {
+            e.preventDefault();
+            const input = btn.parentElement.querySelector('input');
+            const icon  = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'bi bi-eye-slash-fill';
+                btn.classList.add('active');
+            } else {
+                input.type = 'password';
+                icon.className = 'bi bi-eye-fill';
+                btn.classList.remove('active');
+            }
+        };
+    });
+}
+
 // Expose globally
-Object.assign(window.Blink, { getToken, getUser, isLoggedIn, setAuth, logout, requireAuth, apiRequest, showToast, populateSidebar, initSidebar, initSocket, handleSearch });
+Object.assign(window.Blink, { 
+    getToken, getUser, isLoggedIn, setAuth, logout, requireAuth, 
+    apiRequest, showToast, populateSidebar, initSidebar, initSocket, handleSearch,
+    initPasswordToggles
+});
 
 // ── DOM Initialization ────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -198,6 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!requireAuth()) return;
     }
 
+    initPasswordToggles();
     initSidebar();
     if (isLoggedIn()) {
         populateSidebar();

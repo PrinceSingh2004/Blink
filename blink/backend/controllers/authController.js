@@ -102,11 +102,10 @@ exports.getMe = async (req, res) => {
 exports.sendOTP = async (req, res) => {
     try {
         const ip = req.ip;
-        if (!otpRequests[ip]) otpRequests[ip] = 0;
-        otpRequests[ip]++;
+        otpRequests[ip] = (otpRequests[ip] || 0) + 1;
         
         if (otpRequests[ip] > 5) {
-            return res.status(429).json({ error: 'Too many OTP requests. Try later.' });
+            return res.status(429).json({ error: 'Too many OTP requests' });
         }
 
         const { email } = req.body;
@@ -144,7 +143,11 @@ exports.sendOTP = async (req, res) => {
 exports.verifyOTP = async (req, res) => {
     try {
         const ip = req.ip;
-        if (!failedAttempts[ip]) failedAttempts[ip] = 0;
+        failedAttempts[ip] = (failedAttempts[ip] || 0) + 1;
+
+        if (failedAttempts[ip] > 5) {
+            return res.status(403).json({ error: 'Too many attempts' });
+        }
 
         const { email, otp } = req.body;
         if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
@@ -155,16 +158,8 @@ exports.verifyOTP = async (req, res) => {
             [cleanEmail, otp]
         );
 
-        if (!user.length) {
-            failedAttempts[ip]++;
-            if (failedAttempts[ip] >= 5) {
-                return res.status(403).json({ error: "Too many wrong attempts" });
-            }
-            return res.status(400).json({ error: "Invalid OTP" });
-        }
-
-        if (user[0].otp_expiry < Date.now()) {
-            return res.status(400).json({ error: "Expired OTP" });
+        if (!user.length || user[0].otp_expiry < Date.now()) {
+            return res.status(400).json({ error: "Invalid or expired OTP" });
         }
 
         // success -> reset attempts
@@ -185,25 +180,39 @@ exports.resetPassword = async (req, res) => {
         if (!email || !otp || !newPassword) return res.status(400).json({ error: 'All fields are required' });
 
         const cleanEmail = email.toLowerCase().trim();
-        const [user] = await db.query(
+        const [rows] = await db.query(
             "SELECT * FROM users WHERE email = ? AND otp = ?", 
             [cleanEmail, otp]
         );
         
-        if (!user.length || user[0].otp_expiry < Date.now()) {
+        if (rows.length === 0) {
             return res.status(400).json({ error: "Invalid or expired OTP" });
+        }
+
+        const user = rows[0];
+        if (user.otp_expiry < Date.now()) {
+            return res.status(400).json({ error: "OTP has expired. Please request a new one." });
         }
 
         if (newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
         const hashed = await bcrypt.hash(newPassword, 10);
 
+        // Update password and CLEAR OTP fields COMPLETELY
         await db.query(
-            "UPDATE users SET password_hash = ?, otp = NULL, otp_expiry = NULL WHERE email = ?",
-            [hashed, cleanEmail]
+            "UPDATE users SET password_hash = ?, otp = NULL, otp_expiry = NULL WHERE id = ?",
+            [hashed, user.id]
         );
 
-        res.json({ message: "Password reset successful" });
+        // JWT AUTO LOGIN: Return token and user so frontend can log them in immediately
+        const { password_hash, otp: _, otp_expiry, ...safeUser } = user;
+        const token = signToken(user);
+
+        res.json({ 
+            message: "Password reset successful. Logging you in...", 
+            token, 
+            user: safeUser 
+        });
 
     } catch (err) {
         console.error('[Auth] resetPassword:', err.message);

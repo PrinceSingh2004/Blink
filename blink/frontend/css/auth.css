@@ -2,6 +2,16 @@
 
 .auth-page { min-height: 100vh; display: flex; background: var(--bg-color); }
 
+/* Global click/touch fixes for production mobile UX */
+button, input, select, textarea, a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input:focus {
+  font-size: 16px; /* Prevents auto-zoom on iOS */
+}
+
 /* ── Left visual panel ───────────────────────────────────── */
 .auth-visual {
   flex: 1.2;
@@ -58,6 +68,16 @@
 .auth-feature-icon { font-size: 22px; flex-shrink: 0; color: var(--pink); }
 .auth-feature-text { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
 
+/* Password Toggle UI Fixes */
+.input-wrap { position: relative; width: 100%; }
+.pw-toggle {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  z-index: 10; padding: 8px; display: flex; align-items: center; justify-content: center;
+  transition: color var(--fast);
+}
+.pw-toggle:hover { color: var(--text-primary); }
+
 /* ── Right form panel ────────────────────────────────────── */
 .auth-form-section {
   width: 460px; min-width: 400px; display: flex; flex-direction: column;
@@ -110,10 +130,24 @@
 .auth-alert.show { display: block; }
 
 @media (max-width: 900px) {
-  .auth-page { flex-direction: column; }
-  .auth-visual { flex: none; padding: 48px 24px 32px; min-height: 260px; }
+  .auth-page { flex-direction: column; overflow-x: hidden; }
+  .auth-visual { flex: none; padding: 48px 24px 32px; min-height: 220px; border-right: none; border-bottom: 1px solid var(--glass-border); }
   .auth-features, .auth-brand-tagline { display: none; }
-  .auth-brand-name { font-size: 40px; }
-  .auth-form-section { width: 100%; min-width: auto; padding: 36px 24px 48px; border-left: none; border-top: 1px solid var(--glass-border); }
-  .auth-logo-icon { width: 60px; height: 60px; font-size: 32px; }
+  .auth-brand-name { font-size: 36px; }
+  .auth-form-section { 
+    width: 100%; min-width: auto; padding: 40px 24px 60px; border-left: none; 
+    background: var(--bg-color); /* Cleaner look on mobile */
+  }
+  .auth-logo-icon { width: 54px; height: 54px; font-size: 28px; }
+  .auth-form-title { font-size: 24px; text-align: center; }
+  .auth-form-subtitle { text-align: center; }
+  
+  /* Mobile Button Sizing */
+  .auth-submit-btn { padding: 18px; font-size: 17px; }
+}
+
+/* Specific Tablet Adjustments */
+@media (min-width: 768px) and (max-width: 1200px) {
+    .auth-visual { padding: 40px; }
+    .auth-form-section { width: 420px; padding: 40px; }
 }
