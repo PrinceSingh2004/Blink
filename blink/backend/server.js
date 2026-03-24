@@ -11,7 +11,7 @@ const { Server } = require('socket.io');
 // ── Load env FIRST ────────────────────────────────────────────
 const { PORT, JWT_SECRET, CLIENT_URL } = require('./config/env');
 const { initDatabase } = require('./config/initDB');
-const { initLiveSocket } = require('./sockets/live.socket');
+const socketHandler = require('./sockets/socket');
 const app    = express();
 const server = http.createServer(app);
 
@@ -64,7 +64,7 @@ const io = new Server(server, {
     pingInterval: 25000,
     maxHttpBufferSize: 1e6
 });
-initLiveSocket(io);
+socketHandler(io); // Initialize new one-to-many live streaming signaling
 
 // ── Environment ───────────────────────────────────────────────
 ['uploads/videos', 'uploads/avatars'].forEach(dir => {
@@ -200,6 +200,8 @@ const PAGE_MAP = {
     '/explore.html':      '/pages/index.html',
     '/live.html':         '/pages/live.html',
     '/contact.html':      '/pages/contact.html',
+    '/broadcaster.html':  '/pages/broadcaster.html',
+    '/viewer.html':       '/pages/viewer.html',
 };
 Object.entries(PAGE_MAP).forEach(([from, to]) => {
     app.get(from, (req, res) => res.redirect(302, to + (req._parsedUrl?.search || '')));
@@ -236,165 +238,12 @@ app.use((err, req, res, next) => {
 });
 
 // ══════════════════════════════════════════════════════════════
-// ── WebSocket Logic (WebRTC Signaling + Chat + Presence) ─────
+// ── Core App DB Logic ─────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════
 const db = require('./config/db');
-const ONLINE_USERS = new Map();
+// The live streaming Socket.io endpoints are completely handled by
+// ./sockets/socket.js now based on the requested refactoring.
 
-async function endLiveStream(streamId, userId, username) {
-    if (!streamId) return;
-    const room = `live_${streamId}`;
-    try {
-        await db.query('UPDATE live_streams SET status = "ended", ended_at = NOW(), viewer_count = 0 WHERE id = ?', [streamId]);
-        if (userId) await db.query('UPDATE users SET is_live = 0 WHERE id = ?', [userId]);
-        await db.query('DELETE FROM live_viewers WHERE stream_id = ?', [streamId]);
-
-        io.to(room).emit('live_ended', { by: username || 'host' });
-        io.to(room).emit('viewer_update', { count: 0 });
-        io.emit('live_discovery_update');
-        console.log(`[Socket] Stream Ended: ${streamId} by ${username}`);
-    } catch (err) {
-        console.error('[Socket] end_live_stream error:', err.message);
-    }
-}
-
-io.on('connection', (socket) => {
-    console.log(`[Socket] Connected: ${socket.id}`);
-
-    // ── Identity ─────────────────────────────────────────────
-    socket.on('identify', (userId) => {
-        if (!userId) return;
-        socket.userId = userId;
-        console.log(`[Socket] Identity: ${userId} → ${socket.id}`);
-        if (!ONLINE_USERS.has(userId)) ONLINE_USERS.set(userId, new Set());
-        ONLINE_USERS.get(userId).add(socket.id);
-        io.emit('user_status', { userId, status: 'online' });
-    });
-
-    // ── Messaging ────────────────────────────────────────────
-    socket.on('join_room', (room) => socket.join(room));
-    socket.on('send_message', (data) => io.to(data.room).emit('receive_message', data));
-
-    // ══════════════════════════════════════════════════════════
-    // ── LIVE STREAMING SIGNALING (WebRTC) ────────────────────
-    // ══════════════════════════════════════════════════════════
-
-    socket.on('join_live', async ({ streamId, userId, username, role }) => {
-        if (!streamId || !userId) return;
-        const room = `live_${streamId}`;
-        socket.join(room);
-        socket.streamId = streamId;
-        socket.userId = userId;
-        socket.username = username;
-        socket.isBroadcaster = (role === 'broadcaster');
-
-        console.log(`[Live] ${username} (${role}) joined room ${room}`);
-
-        try {
-            if (role === 'viewer') {
-                await db.query('INSERT IGNORE INTO live_viewers (stream_id, user_id) VALUES (?, ?)', [streamId, userId]);
-            }
-            const [rows] = await db.query('SELECT COUNT(*) as count FROM live_viewers WHERE stream_id = ?', [streamId]);
-            const count = rows[0].count;
-            await db.query('UPDATE live_streams SET viewer_count = ? WHERE id = ?', [count, streamId]);
-
-            // Notify everyone in the room
-            io.to(room).emit('user_joined', { userId, username, socketId: socket.id, role });
-            io.to(room).emit('viewer_update', { count });
-            io.emit('live_discovery_update');
-        } catch (err) { console.error('[Socket] join_live error:', err.message); }
-    });
-
-    socket.on('leave_live', async () => {
-        if (!socket.streamId) return;
-        const room = `live_${socket.streamId}`;
-        console.log(`[Live] ${socket.username} leaving room ${room}`);
-        try {
-            await db.query('DELETE FROM live_viewers WHERE stream_id = ? AND user_id = ?', [socket.streamId, socket.userId]);
-            const [rows] = await db.query('SELECT COUNT(*) as count FROM live_viewers WHERE stream_id = ?', [socket.streamId]);
-            io.to(room).emit('viewer_update', { count: rows[0].count });
-            socket.leave(room);
-        } catch {}
-    });
-
-    // ── WebRTC Signaling ─────────────────────────────────────
-    socket.on('request_offer', (data) => {
-        const streamId = data.streamId || socket.streamId;
-        if (!streamId) return;
-        const room = `live_${streamId}`;
-        console.log(`[Signaling] request_offer from ${socket.username || socket.id} in room ${room}`);
-        socket.to(room).emit('request_offer', { from: socket.id, username: socket.username });
-    });
-
-    socket.on('offer', (data) => {
-        if (data.to) {
-            console.log(`[Signaling] Offer ${socket.id} → ${data.to}`);
-            io.to(data.to).emit('offer', { from: socket.id, offer: data.offer });
-        }
-    });
-
-    socket.on('answer', (data) => {
-        if (data.to) {
-            console.log(`[Signaling] Answer ${socket.id} → ${data.to}`);
-            io.to(data.to).emit('answer', { from: socket.id, answer: data.answer });
-        }
-    });
-
-    socket.on('ice-candidate', (data) => {
-        if (data.to) {
-            io.to(data.to).emit('ice-candidate', { from: socket.id, candidate: data.candidate });
-        }
-    });
-
-    // ── Live Chat ────────────────────────────────────────────
-    socket.on('send_live_chat', async ({ streamId, userId, message, username }) => {
-        if (!message?.trim() || !streamId) return;
-        const room = `live_${streamId}`;
-        try {
-            await db.query('INSERT INTO live_chat (stream_id, user_id, message) VALUES (?, ?, ?)', [streamId, userId, message]);
-            socket.to(room).emit('receive_live_chat', { username, message, created_at: new Date() });
-        } catch (err) {
-            console.error('[Socket] send_live_chat error:', err.message);
-        }
-    });
-
-    // ── Reactions ────────────────────────────────────────────
-    socket.on('send_reaction', ({ streamId, emoji }) => {
-        io.to(`live_${streamId}`).emit('receive_reaction', { emoji });
-    });
-
-    // ── Profile Updates ──────────────────────────────────────
-    socket.on('profile_updated', (data) => socket.broadcast.emit('profile_updated', data));
-
-    // ── Disconnect ───────────────────────────────────────────
-    socket.on('disconnect', async () => {
-        console.log(`[Socket] Disconnected: ${socket.id}`);
-        
-        // Clean up online user tracking
-        if (socket.userId && ONLINE_USERS.has(socket.userId)) {
-            ONLINE_USERS.get(socket.userId).delete(socket.id);
-            if (ONLINE_USERS.get(socket.userId).size === 0) {
-                ONLINE_USERS.delete(socket.userId);
-                io.emit('user_status', { userId: socket.userId, status: 'offline' });
-            }
-        }
-        
-        // Auto-end stream if broadcaster disconnects
-        if (socket.streamId && socket.userId && socket.isBroadcaster && !socket.endedStream) {
-            socket.endedStream = true;
-            await endLiveStream(socket.streamId, socket.userId, socket.username);
-        }
-        
-        // Clean up viewer
-        if (socket.streamId && socket.userId && !socket.isBroadcaster) {
-            try {
-                await db.query('DELETE FROM live_viewers WHERE stream_id = ? AND user_id = ?', [socket.streamId, socket.userId]);
-                const [rows] = await db.query('SELECT COUNT(*) as count FROM live_viewers WHERE stream_id = ?', [socket.streamId]);
-                io.to(`live_${socket.streamId}`).emit('viewer_update', { count: rows[0].count });
-            } catch {}
-        }
-    });
-});
 
 app.set('io', io);
 
