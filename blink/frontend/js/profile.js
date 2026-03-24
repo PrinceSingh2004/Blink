@@ -180,54 +180,85 @@ if (document.getElementById('profilePage')) {
         });
     }
 
-    // Load videos
+    // Load videos (User fix applied)
     async function loadVideos() {
-        const grid = document.getElementById('videoGrid');
+        if (!targetId) return;
         try {
-            const data = await apiRequest(`/videos/user/${targetId}`);
-            if (!data.videos.length) {
-                grid.innerHTML = '<div class="tab-empty"><div class="icon"><i class="bi bi-camera-reels-fill"></i></div><h3>No Videos Yet</h3><p>Upload your first video!</p></div>';
+            const res = await fetch(`/api/user/${targetId}/videos`);
+            const data = await res.json();
+            
+            console.log("Videos:", data);
+
+            // Update count
+            const countEl = document.getElementById("videoCount");
+            if (countEl) countEl.innerText = data.count || 0;
+
+            // Render videos
+            const container = document.getElementById("videoGrid");
+            if (!container) return;
+            container.innerHTML = "";
+
+            if (!data.videos || data.videos.length === 0) {
+                container.innerHTML = '<div class="tab-empty" style="grid-column:1/-1;"><div class="icon"><i class="bi bi-camera-reels-fill"></i></div><h3>No Videos Yet</h3><p>Upload your first video!</p></div>';
                 return;
             }
-            grid.innerHTML = '';
-            if (isOwnProfile) {
-                const addBtn = document.createElement('div');
-                addBtn.className = 'grid-video-item grid-add-btn';
-                addBtn.innerHTML = '<i class="bi bi-plus-lg"></i><span>New Video</span>';
-                addBtn.onclick = () => window.location.href = '/pages/upload.html';
-                grid.appendChild(addBtn);
-            }
-            data.videos.forEach(v => {
-                const item = document.createElement('div');
-                item.className = 'grid-video-item';
-                item.innerHTML = `
-                    <video src="${v.video_url}" loop muted playsinline preload="none"></video>
-                    <div class="grid-play-count"><i class="bi bi-heart-fill"></i> ${fmt(v.likes_count)}</div>
+
+            data.videos.forEach(video => {
+                const div = document.createElement("div");
+                div.className = "video-card";
+
+                div.innerHTML = `
+                  <video src="${video.video_url}" muted loop playsinline></video>
                 `;
 
+                // Add delete button if viewing own profile
                 if (isOwnProfile) {
                     const delBtn = document.createElement('button');
                     delBtn.className = 'btn-grid-delete';
+                    delBtn.style.position = 'absolute';
+                    delBtn.style.top = '5px';
+                    delBtn.style.right = '5px';
+                    delBtn.style.background = 'rgba(255,0,0,0.7)';
+                    delBtn.style.color = 'white';
+                    delBtn.style.border = 'none';
+                    delBtn.style.borderRadius = '50%';
+                    delBtn.style.padding = '5px 8px';
+                    delBtn.style.cursor = 'pointer';
                     delBtn.innerHTML = '<i class="bi bi-trash3-fill"></i>';
                     delBtn.title = 'Delete Video';
-                    delBtn.addEventListener('click', async (e) => {
+                    delBtn.onclick = async (e) => {
                         e.stopPropagation();
                         if (!confirm('Are you sure you want to delete this video?')) return;
                         try {
-                            await apiRequest(`/videos/${v.id}`, { method: 'DELETE' });
-                            item.remove();
-                            showToast('Video deleted');
+                            const delRes = await fetch(`/api/videos/${video.id}`, {
+                                method: 'DELETE',
+                                headers: { 'Authorization': 'Bearer ' + getToken() }
+                            });
+                            if (delRes.ok) {
+                                div.remove();
+                                showToast('Video deleted');
+                                loadVideos(); // Reload stats
+                            } else {
+                                showToast('Failed to delete', 'error');
+                            }
                         } catch (err) { showToast(err.message, 'error'); }
-                    });
-                    item.appendChild(delBtn);
+                    };
+                    div.style.position = 'relative'; // Ensure relative positioning for child absolute
+                    div.appendChild(delBtn);
                 }
 
-                const vid = item.querySelector('video');
-                item.addEventListener('mouseenter', () => vid.play().catch(() => {}));
-                item.addEventListener('mouseleave', () => { vid.pause(); vid.currentTime = 0; });
-                grid.appendChild(item);
+                // Play on hover
+                const vid = div.querySelector('video');
+                div.addEventListener('mouseenter', () => vid.play().catch(() => {}));
+                div.addEventListener('mouseleave', () => { vid.pause(); vid.currentTime = 0; });
+
+                container.appendChild(div);
             });
-        } catch { grid.innerHTML = '<div class="tab-empty"><h3>Failed to load videos</h3></div>'; }
+        } catch (err) {
+            console.error('[loadVideos] error:', err);
+            const container = document.getElementById("videoGrid");
+            if (container) container.innerHTML = '<div class="tab-empty" style="grid-column:1/-1;"><h3>Failed to load videos</h3></div>';
+        }
     }
 
     // Tabs

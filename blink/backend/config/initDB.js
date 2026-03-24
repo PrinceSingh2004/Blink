@@ -106,6 +106,9 @@ async function initDatabase() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
+    await addCol('users', 'otp', 'VARCHAR(10) DEFAULT NULL');
+    await addCol('users', 'otp_expiry', 'BIGINT DEFAULT NULL');
+
     await db.query(`
         CREATE TABLE IF NOT EXISTS videos (
             id             INT AUTO_INCREMENT PRIMARY KEY,

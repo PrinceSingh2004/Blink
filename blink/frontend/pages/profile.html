@@ -39,6 +39,23 @@
   @media (max-width: 960px) {
     .mobile-logout-btn { display: flex; }
   }
+
+  /* 6. FIX MOBILE UI (GRID) */
+  .video-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+  }
+  @media (max-width: 768px) {
+    .video-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  .video-card video {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+  }
 </style>
 </head>
 <body>
@@ -127,7 +144,7 @@
         <!-- 2. Stats Section (Videos | Followers | Following) -->
         <div class="profile-stats">
           <div class="stat-item">
-            <div class="stat-val" id="statVideos">0</div>
+            <div class="stat-val" id="videoCount">0</div>
             <div class="stat-lbl">Videos</div>
           </div>
           <div class="stat-item">
@@ -180,12 +197,7 @@
 <script src="../js/auth.js"></script>
 <script src="../js/profile.js"></script>
 <script>
-// Set video count when videos load
-const origLoadVideos = window.__loadVideos;
-document.getElementById('videoGrid')?.addEventListener('DOMNodeInserted', ()=>{
-    const count = document.querySelectorAll('.grid-video-item:not(.grid-add-btn)').length;
-    document.getElementById('statVideos').textContent = count;
-});
+// Set video count when videos load (removed previous mutation observer, as the fetch handles it)
 </script>
 </body>
 </html>

@@ -187,6 +187,25 @@ app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/live',     require('./routes/liveRoutes'));
 app.use('/api/contact',  require('./routes/contactRoutes'));
 
+// Requested fix for User Videos endpoint
+app.get('/api/user/:id/videos', async (req, res) => {
+    const userId = req.params.id;
+    try {
+        const db = require('./config/db');
+        const [videos] = await db.query(
+            "SELECT * FROM videos WHERE user_id = ? ORDER BY created_at DESC",
+            [userId]
+        );
+        res.json({
+            videos,
+            count: videos.length
+        });
+    } catch (err) {
+        console.error('[Video API] error:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── Convenience Short Redirects ───────────────────────────────
 const PAGE_MAP = {
     '/login.html':        '/pages/login.html',
