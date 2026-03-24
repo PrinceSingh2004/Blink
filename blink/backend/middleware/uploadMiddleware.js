@@ -2,23 +2,19 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 // ── Cloudinary Config ─────────────────────────────────────────
-// Using existing env names if they exist, or the ones requested by user
 cloudinary.config({
     cloud_name: process.env.CLOUD_NAME,
-    api_key: process.env.API_KEY || process.env.CLOUD_KEY,
-    api_secret: process.env.API_SECRET || process.env.CLOUD_SECRET
+    api_key: process.env.CLOUD_KEY,
+    api_secret: process.env.CLOUD_SECRET
 });
 
 const videoDir = path.join(__dirname, '../uploads/videos');
-// No longer need local avatarDir for CloudinaryStorage
 
 if (!fs.existsSync(videoDir)) fs.mkdirSync(videoDir, { recursive: true });
 
-// ── Video Storage (Keep as is for now, or move to Cloudinary? User only asked for profile photos)
-// The user said Render does not store local files permanently. So all uploads should go to Cloudinary.
+// ── Video Storage (Keep as is for now)
 const videoStorage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, videoDir),
     filename: (req, file, cb) => {
@@ -33,15 +29,8 @@ const videoFilter = (req, file, cb) => {
     else cb(new Error('Only video files are allowed (mp4, mov)'), false);
 };
 
-// ── Avatar Storage (Cloudinary) ────────────────────────────────
-const avatarStorage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'profile_photos',
-        allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-        transformation: [{ width: 500, height: 500, crop: 'limit' }]
-    }
-});
+// ── Avatar Storage (Memory Storage for Stream-based upload to Cloudinary)
+const avatarStorage = multer.memoryStorage();
 
 const avatarFilter = (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -59,6 +48,7 @@ module.exports.uploadVideo = multer({
 module.exports.uploadAvatar = multer({
     storage: avatarStorage,
     fileFilter: avatarFilter,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10 MB
-}).single('photo'); // The user's frontend snippet uses 'photo' as the field name
+    limits: { fileSize: 5 * 1024 * 1024 } // 5 MB as requested
+}).single('photo');
+
 

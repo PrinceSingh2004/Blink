@@ -6,6 +6,7 @@ const { uploadAvatar } = require('../middleware/uploadMiddleware');
 router.get('/search',           requireAuth, uc.searchUsers);
 router.get('/profile',          requireAuth, (req,res) => { req.params.id = req.user.id; uc.getProfile(req,res); });
 router.post('/upload-profile',   requireAuth, uploadAvatar, uc.updateAvatar);
+router.post('/update-profile',   requireAuth, uploadAvatar, uc.updateProfile);
 router.get('/:id',              uc.getProfile);
 
 // Production-level updates (Part 2)

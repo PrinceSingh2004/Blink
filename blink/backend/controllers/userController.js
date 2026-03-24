@@ -3,11 +3,12 @@ const bcrypt = require('bcrypt');
 const path   = require('path');
 const fs     = require('fs');
 const cloudinary = require('cloudinary').v2;
+const streamifier = require('streamifier');
 
 cloudinary.config({
     cloud_name: process.env.CLOUD_NAME,
-    api_key: process.env.API_KEY || process.env.CLOUD_KEY,
-    api_secret: process.env.API_SECRET || process.env.CLOUD_SECRET
+    api_key: process.env.CLOUD_KEY,
+    api_secret: process.env.CLOUD_SECRET
 });
 
 
@@ -45,7 +46,28 @@ exports.searchUsers = async (req, res) => {
 exports.updateProfile = async (req, res) => {
     try {
         const { username, bio } = req.body;
-        let imageUrl = req.file ? req.file.path : null;
+        let imageUrl = null;
+
+        // Use Streamifier to upload to Cloudinary from memory buffer
+        if (req.file) {
+            const uploadFromBuffer = () => {
+                return new Promise((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                        { 
+                            folder: "profile_photos",
+                            transformation: [{ width: 500, height: 500, crop: 'limit' }]
+                        },
+                        (error, result) => {
+                            if (result) resolve(result);
+                            else reject(error);
+                        }
+                    );
+                    streamifier.createReadStream(req.file.buffer).pipe(stream);
+                });
+            };
+            const result = await uploadFromBuffer();
+            imageUrl = result.secure_url;
+        }
 
         const updates = [];
         const params  = [];
@@ -78,7 +100,6 @@ exports.updateProfile = async (req, res) => {
             // Explicitly requested removal
             updates.push('profile_photo = NULL', 'profile_pic = NULL');
         }
-
 
         if (!updates.length) {
             return res.status(400).json({ error: 'No fields to update' });
