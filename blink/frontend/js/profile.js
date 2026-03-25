@@ -65,12 +65,14 @@ if (document.getElementById('profilePage')) {
             const avatarEl = document.getElementById('profilePhoto');
             const initialEl = document.getElementById('profileAvatarInitial');
             
-            if (u.profile_photo) {
-                avatarEl.src = u.profile_photo + (u.profile_photo.includes('?') ? '&' : '?') + 't=' + Date.now();
+            // Use profile_pic or profile_photo interchangeably
+            const photoUrl = u.profile_pic || u.profile_photo;
+            
+            if (photoUrl) {
+                avatarEl.src = photoUrl + (photoUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
                 avatarEl.style.display = 'block';
                 if (initialEl) initialEl.style.display = 'none';
             } else {
-
                 avatarEl.style.display = 'none';
                 if (initialEl) {
                     initialEl.style.display = 'block';
@@ -81,10 +83,52 @@ if (document.getElementById('profilePage')) {
             // Make avatar clickable to edit if it's my profile
             if (isOwnProfile) {
                 const wrap = document.getElementById('profileAvatarWrap');
-                if (wrap) {
+                const fileInput = document.getElementById('fileInput');
+
+                if (wrap && fileInput) {
                     wrap.style.cursor = 'pointer';
                     wrap.title = 'Click to change profile photo';
-                    wrap.addEventListener('click', () => window.location.href = 'edit-profile.html');
+                    
+                    // Instagram-like click to change
+                    wrap.addEventListener('click', () => fileInput.click());
+
+                    fileInput.addEventListener('change', async function() {
+                        const file = this.files[0];
+                        if (!file) return;
+
+                        const formData = new FormData();
+                        formData.append('profile', file); // 'profile' matches our backend middleware field name
+
+                        try {
+                            showToast('Uploading profile photo...');
+                            const res = await fetch('/api/upload-profile', {
+                                method: 'POST',
+                                headers: { 'Authorization': 'Bearer ' + getToken() },
+                                body: formData
+                            });
+                            const data = await res.json();
+
+                            if (data.success || data.imageUrl) {
+                                const newUrl = (data.imageUrl || data.profile_pic) + "?t=" + Date.now();
+                                avatarEl.src = newUrl;
+                                avatarEl.style.display = 'block';
+                                if (initialEl) initialEl.style.display = 'none';
+                                showToast('Profile photo updated!', 'success');
+                                
+                                // Sync local storage
+                                const userToken = getUser();
+                                userToken.profile_pic = data.imageUrl || data.profile_pic;
+                                localStorage.setItem('blink_user', JSON.stringify(userToken));
+                                
+                                // Update sidebar too
+                                populateSidebar();
+                            } else {
+                                throw new Error(data.error || 'Upload failed');
+                            }
+                        } catch (err) {
+                            showToast(err.message, 'error');
+                        }
+                    });
                 }
                 document.getElementById('editProfileBtn')?.classList.remove('hidden');
                 document.getElementById('goLiveProfileBtn')?.classList.remove('hidden');
@@ -401,11 +445,11 @@ if (document.getElementById('editProfilePage')) {
         const btn = document.getElementById('uploadAvatarBtn');
         btn.disabled = true;
         const formData = new FormData();
-        formData.append('photo', croppedBlob, 'avatar.jpg');
+        formData.append('profile', croppedBlob, 'avatar.jpg');
 
         try {
             // Production Endpoint: Always uses the root-level upload route
-            const res  = await fetch('/upload-profile', { 
+            const res  = await fetch('/api/upload-profile', { 
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${getToken()}` }, 
                 body: formData 

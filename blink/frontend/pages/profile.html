@@ -124,8 +124,9 @@
         <!-- 1. Profile Header (Avatar Left, Info Right) -->
         <div class="profile-main-header">
           <div class="profile-avatar-wrap" id="profileAvatarWrap">
-            <div class="profile-avatar-inner">
-              <img id="profilePhoto" alt="avatar" style="display:none">
+            <div class="profile-avatar-inner" id="profileImageClick">
+              <input type="file" id="fileInput" accept="image/*" style="display:none" />
+              <img id="profilePhoto" src="/default-avatar.png" alt="avatar" style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
               <span id="profileAvatarInitial">?</span>
             </div>
             <div class="profile-verified-badge"><i class="bi bi-patch-check-fill"></i></div>

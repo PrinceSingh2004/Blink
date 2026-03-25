@@ -7,9 +7,25 @@ const streamifier = require('streamifier');
 
 cloudinary.config({
     cloud_name: process.env.CLOUD_NAME,
-    api_key: process.env.CLOUD_KEY,
-    api_secret: process.env.CLOUD_SECRET
+    api_key: process.env.API_KEY,      // Consistent with .env
+    api_secret: process.env.API_SECRET  // Consistent with .env
 });
+
+// ─── GET LOGGED IN USER (Convenience) ───────────────────────
+exports.getCurrentUser = async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `SELECT id, username, email, profile_photo, profile_pic, bio,
+                    followers_count, following_count, total_likes, is_live, created_at
+             FROM users WHERE id = ?`,
+            [req.user.id]
+        );
+        if (!rows.length) return res.status(404).json({ error: 'User not found' });
+        res.json(rows[0]); // Return the user object directly
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+};
 
 
 // ─── GET PUBLIC PROFILE ───────────────────────────────────────
@@ -133,32 +149,20 @@ exports.updateAvatar = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image provided' });
 
-        console.log('[User] Uploading avatar to Cloudinary...');
-
-        // Upload to Cloudinary with strict optimizations
-        const cloudResult = await cloudinary.uploader.upload(req.file.path, {
-            folder: "blink_avatars",
-            resource_type: "image",
-            // Center crop on the user's face at standard 300x300, and autocompress
-            eager: [{ width: 300, height: 300, crop: "fill", gravity: "face", quality: "auto", format: "auto" }]
-        });
+        console.log('[User] Avatar uploaded to Cloudinary:', req.file.path);
         
-        // Grab the optimized avatar
-        const avatarUrl = cloudResult.eager ? cloudResult.eager[0].secure_url : cloudResult.secure_url;
+        const avatarUrl = req.file.path; // Cloudinary URL from multer-storage-cloudinary
 
-        // Cleanup local ephemeral file from node memory
-        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) {}
-
-        // Store secure URL securely in both columns
+        // Store URL in both columns for backward compatibility
         await db.query('UPDATE users SET profile_photo = ?, profile_pic = ? WHERE id = ?', [avatarUrl, avatarUrl, req.user.id]);
         
-        // Return latest user context immediately for instant UI
-        const [rows] = await db.query(
-            'SELECT id, username, email, profile_photo, profile_pic, bio, followers_count, following_count, total_likes FROM users WHERE id = ?', 
-            [req.user.id]
-        );
-        
-        res.json({ message: 'Avatar updated!', profile_photo: avatarUrl, profile_pic: avatarUrl, user: rows[0] });
+        res.json({ 
+            success: true, 
+            message: 'Avatar updated!', 
+            imageUrl: avatarUrl, // Match user snippet
+            profile_photo: avatarUrl,
+            profile_pic: avatarUrl 
+        });
     } catch (err) {
         console.error('[User] avatar upload failed:', err.message);
         res.status(500).json({ error: 'Failed to update avatar' });

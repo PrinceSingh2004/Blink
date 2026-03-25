@@ -108,9 +108,8 @@ const { requireAuth } = require('./middleware/authMiddleware');
 const { uploadAvatar } = require('./middleware/uploadMiddleware');
 const uc = require('./controllers/userController');
 
-app.post('/upload-profile', authLimiter, requireAuth, uploadAvatar, uc.updateAvatar);
-app.post('/api/user/update-profile', authLimiter, requireAuth, uploadAvatar, uc.updateProfile);
-app.get('/user/profile', requireAuth, (req,res) => { req.params.id = req.user.id; uc.getProfile(req,res); });
+app.post('/api/upload-profile', authLimiter, requireAuth, uploadAvatar, uc.updateAvatar);
+app.get('/api/user', requireAuth, uc.getCurrentUser);
 app.get('/api/user/profile', requireAuth, (req,res) => { req.params.id = req.user.id; uc.getProfile(req,res); });
 
 
