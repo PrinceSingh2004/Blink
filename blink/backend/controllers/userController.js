@@ -11,6 +11,24 @@ cloudinary.config({
     api_secret: process.env.API_SECRET  // Consistent with .env
 });
 
+// ─── HELPER: UPLOAD TO CLOUDINARY ───────────────────────────
+const uploadToCloudinary = (fileBuffer) => {
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            {
+                folder: 'blink_profile',
+                transformation: [{ width: 500, height: 500, crop: 'limit', quality: 'auto' }],
+                resource_type: 'auto'
+            },
+            (error, result) => {
+                if (result) resolve(result);
+                else reject(error);
+            }
+        );
+        streamifier.createReadStream(fileBuffer).pipe(stream);
+    });
+};
+
 // ─── GET LOGGED IN USER (Convenience) ───────────────────────
 exports.getCurrentUser = async (req, res) => {
     try {
@@ -26,7 +44,6 @@ exports.getCurrentUser = async (req, res) => {
         res.status(500).json({ error: 'Server error' });
     }
 };
-
 
 // ─── GET PUBLIC PROFILE ───────────────────────────────────────
 exports.getProfile = async (req, res) => {
@@ -64,24 +81,8 @@ exports.updateProfile = async (req, res) => {
         const { username, bio } = req.body;
         let imageUrl = null;
 
-        // Use Streamifier to upload to Cloudinary from memory buffer
         if (req.file) {
-            const uploadFromBuffer = () => {
-                return new Promise((resolve, reject) => {
-                    const stream = cloudinary.uploader.upload_stream(
-                        { 
-                            folder: "profile_photos",
-                            transformation: [{ width: 500, height: 500, crop: 'limit' }]
-                        },
-                        (error, result) => {
-                            if (result) resolve(result);
-                            else reject(error);
-                        }
-                    );
-                    streamifier.createReadStream(req.file.buffer).pipe(stream);
-                });
-            };
-            const result = await uploadFromBuffer();
+            const result = await uploadToCloudinary(req.file.buffer);
             imageUrl = result.secure_url;
         }
 
@@ -143,15 +144,13 @@ exports.updateProfile = async (req, res) => {
     }
 };
 
-
-// ─── UPDATE AVATAR ────────────────────────────────────────────
+// ─── UPDATE AVATAR (Direct Endpoint) ──────────────────────────
 exports.updateAvatar = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No image provided' });
 
-        console.log('[User] Avatar uploaded to Cloudinary:', req.file.path);
-        
-        const avatarUrl = req.file.path; // Cloudinary URL from multer-storage-cloudinary
+        const result = await uploadToCloudinary(req.file.buffer);
+        const avatarUrl = result.secure_url;
 
         // Store URL in both columns for backward compatibility
         await db.query('UPDATE users SET profile_photo = ?, profile_pic = ? WHERE id = ?', [avatarUrl, avatarUrl, req.user.id]);
@@ -159,13 +158,13 @@ exports.updateAvatar = async (req, res) => {
         res.json({ 
             success: true, 
             message: 'Avatar updated!', 
-            imageUrl: avatarUrl, // Match user snippet
+            imageUrl: avatarUrl,
             profile_photo: avatarUrl,
             profile_pic: avatarUrl 
         });
     } catch (err) {
         console.error('[User] avatar upload failed:', err.message);
-        res.status(500).json({ error: 'Failed to update avatar' });
+        res.status(500).json({ success: false, error: 'Failed to update avatar' });
     }
 };
 

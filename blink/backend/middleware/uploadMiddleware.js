@@ -1,22 +1,11 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// ── Cloudinary Config ─────────────────────────────────────────
-// Using the exact keys from the provided .env: CLOUD_NAME, API_KEY, API_SECRET
-cloudinary.config({
-    cloud_name: process.env.CLOUD_NAME,
-    api_key: process.env.API_KEY,      // Consistent with .env
-    api_secret: process.env.API_SECRET  // Consistent with .env
-});
-
+// ── Local Storage for Videos ──────────────────────────────────
 const videoDir = path.join(__dirname, '../uploads/videos');
-
 if (!fs.existsSync(videoDir)) fs.mkdirSync(videoDir, { recursive: true });
 
-// ── Video Storage (Local for now, can be Cloudinary later)
 const videoStorage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, videoDir),
     filename: (req, file, cb) => {
@@ -28,18 +17,17 @@ const videoStorage = multer.diskStorage({
 const videoFilter = (req, file, cb) => {
     const allowed = ['video/mp4', 'video/quicktime', 'video/webm'];
     if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Only video files are allowed (mp4, mov)'), false);
+    else cb(new Error('Only video files are allowed (mp4, mov, webm)'), false);
 };
 
-// ── Cloudinary Profile Image Storage ──────────────────────────
-const profileStorage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-        folder: 'blink_profile',
-        allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-        transformation: [{ width: 400, height: 400, crop: 'limit' }]
-    }
-});
+// ── Profile Image Storage (Memory for Cloudinary Upload Stream) ──
+const profileStorage = multer.memoryStorage();
+
+const imageFilter = (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only image files are allowed (jpg, png, webp)'), false);
+};
 
 // ── Exports ───────────────────────────────────────────────────
 module.exports.uploadVideo = multer({
@@ -50,8 +38,9 @@ module.exports.uploadVideo = multer({
 
 module.exports.uploadAvatar = multer({
     storage: profileStorage,
+    fileFilter: imageFilter,
     limits: { fileSize: 5 * 1024 * 1024 } // 5 MB
-}).single('profile'); // Renamed to 'profile' to match user snippet
+}).single('profile'); // Field name 'profile' match user client request
 
 
 
