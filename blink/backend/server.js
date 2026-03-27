@@ -241,11 +241,23 @@ app.use((req, res, next) => {
 
 // ── Global Error Handler ──────────────────────────────────────
 app.use((err, req, res, next) => {
+    // Handle multer errors (file too large, wrong type)
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ success: false, error: 'File is too large. Maximum size is 10MB.' });
+    }
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ success: false, error: 'Unexpected file field. Use "avatar" as the form field name.' });
+    }
+    if (err.message && (err.message.includes('Only image files') || err.message.includes('Only video files'))) {
+        return res.status(415).json({ success: false, error: err.message });
+    }
+
     const status = err.status || err.statusCode || 500;
     const message = err.expose ? err.message : 'Internal Server Error';
     console.error(`[Error] ${status} ${req.method} ${req.path}:`, err.message);
     res.status(status).json({ error: message });
 });
+
 
 // ══════════════════════════════════════════════════════════════
 // ── Core App DB Logic ─────────────────────────────────────────

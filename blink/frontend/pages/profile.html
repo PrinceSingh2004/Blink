@@ -123,11 +123,20 @@
       <div class="profile-body">
         <!-- 1. Profile Header (Avatar Left, Info Right) -->
         <div class="profile-main-header">
-          <div class="profile-avatar-wrap" id="profileAvatarWrap">
+          <div class="profile-avatar-wrap" id="profileAvatarWrap" role="button" aria-label="Change profile photo" tabindex="0">
             <div class="profile-avatar-inner" id="profileImageClick">
-              <input type="file" id="fileInput" accept="image/*" style="display:none" />
-              <img id="profilePhoto" src="/default-avatar.png" alt="avatar" style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+              <input type="file" id="fileInput" accept="image/*" style="display:none" aria-label="Upload profile photo" />
+              <img id="profilePhoto" src="" alt="Profile photo" style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
               <span id="profileAvatarInitial">?</span>
+              <!-- Camera icon overlay (visible on hover for own profile) -->
+              <div class="avatar-camera-overlay" id="avatarCameraOverlay">
+                <i class="bi bi-camera-fill"></i>
+              </div>
+            </div>
+            <!-- Loading spinner overlay -->
+            <div class="avatar-loading-overlay" id="avatarLoadingOverlay">
+              <div class="avatar-spinner"></div>
+              <span class="avatar-loading-text">Uploading...</span>
             </div>
             <div class="profile-verified-badge"><i class="bi bi-patch-check-fill"></i></div>
           </div>

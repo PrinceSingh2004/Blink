@@ -94,7 +94,8 @@ async function initDatabase() {
             email           VARCHAR(100) UNIQUE NOT NULL,
             password_hash   VARCHAR(255) NOT NULL,
             profile_photo   VARCHAR(500) DEFAULT NULL,
-            profile_pic     VARCHAR(500) DEFAULT NULL, -- Literal requirement alias
+            profile_pic     VARCHAR(500) DEFAULT NULL,
+            avatar_public_id VARCHAR(255) DEFAULT NULL,
             bio             TEXT         DEFAULT NULL,
             followers_count INT          DEFAULT 0,
             following_count INT          DEFAULT 0,
@@ -108,6 +109,7 @@ async function initDatabase() {
 
     await addCol('users', 'otp', 'VARCHAR(10) DEFAULT NULL');
     await addCol('users', 'otp_expiry', 'BIGINT DEFAULT NULL');
+    await addCol('users', 'avatar_public_id', 'VARCHAR(255) DEFAULT NULL');
 
     await db.query(`
         CREATE TABLE IF NOT EXISTS videos (

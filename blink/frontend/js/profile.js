@@ -4,7 +4,6 @@ const { getToken, getUser, requireAuth, apiRequest, showToast, populateSidebar }
 
 await populateSidebar();
 
-
 // ── Helpers ───────────────────────────────────────────────────
 function fmt(n) {
     const v = parseInt(n) || 0;
@@ -19,6 +18,82 @@ function timeAgo(dateStr) {
     if (sec < 3600) return Math.floor(sec/60)  + 'm ago';
     if (sec < 86400)return Math.floor(sec/3600) + 'h ago';
     return Math.floor(sec/86400) + 'd ago';
+}
+
+/**
+ * Validate an image file before upload.
+ * Returns { valid: boolean, error: string }
+ */
+function validateImageFile(file) {
+    if (!file) return { valid: false, error: 'No file selected' };
+
+    // Check type
+    const allowedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+        'image/gif', 'image/heic', 'image/heif', 'image/bmp'
+    ];
+    const isImage = allowedTypes.includes(file.type) || file.type.startsWith('image/');
+    if (!isImage) {
+        return { valid: false, error: 'Please select an image file (JPG, PNG, or WebP)' };
+    }
+
+    // Check size (10MB client limit — server will resize)
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+        return { valid: false, error: `Image too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 10MB.` };
+    }
+
+    // Warn about very large files (mobile)
+    if (file.size > 5 * 1024 * 1024) {
+        console.log('[Upload] Large file detected:', (file.size / 1024 / 1024).toFixed(1) + 'MB — server will compress');
+    }
+
+    return { valid: true, error: '' };
+}
+
+/**
+ * Add cache-bust parameter to a URL
+ */
+function bustCache(url) {
+    if (!url) return url;
+    const separator = url.includes('?') ? '&' : '?';
+    return url + separator + 'v=' + Date.now();
+}
+
+/**
+ * Update ALL avatar images on the page to show the new URL
+ */
+function setAvatarSrc(url) {
+    const ids = ['profilePhoto'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && url) {
+            el.src = bustCache(url);
+            el.style.display = 'block';
+        }
+    });
+    // Update sidebar avatar too
+    populateSidebar();
+}
+
+/**
+ * Show upload loading spinner on avatar
+ */
+function showAvatarLoading() {
+    const overlay = document.getElementById('avatarLoadingOverlay');
+    if (overlay) overlay.classList.add('active');
+    const wrap = document.getElementById('profileAvatarWrap');
+    if (wrap) wrap.style.pointerEvents = 'none';
+}
+
+/**
+ * Hide upload loading spinner
+ */
+function hideAvatarLoading() {
+    const overlay = document.getElementById('avatarLoadingOverlay');
+    if (overlay) overlay.classList.remove('active');
+    const wrap = document.getElementById('profileAvatarWrap');
+    if (wrap) wrap.style.pointerEvents = '';
 }
 
 // ═══ PROFILE PAGE ════════════════════════════════════════════
@@ -53,11 +128,9 @@ if (document.getElementById('profilePage')) {
             const statusEl = document.getElementById('profileOnlineStatus');
             if (statusEl) {
                 statusEl.setAttribute('data-online-user-id', u.id);
-                // Check status via socket if it's already connected
                 if (window.Blink.socket) {
                     window.Blink.socket.emit('check_status', u.id);
                 } else {
-                    // Try again in a bit if socket is still connecting
                     setTimeout(() => window.Blink.socket?.emit('check_status', u.id), 1000);
                 }
             }
@@ -65,11 +138,11 @@ if (document.getElementById('profilePage')) {
             const avatarEl = document.getElementById('profilePhoto');
             const initialEl = document.getElementById('profileAvatarInitial');
             
-            // Use profile_pic or profile_photo interchangeably
+            // Use profile_pic or profile_photo — server now returns both via COALESCE
             const photoUrl = u.profile_pic || u.profile_photo;
             
             if (photoUrl) {
-                avatarEl.src = photoUrl + (photoUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+                avatarEl.src = bustCache(photoUrl);
                 avatarEl.style.display = 'block';
                 if (initialEl) initialEl.style.display = 'none';
             } else {
@@ -90,48 +163,107 @@ if (document.getElementById('profilePage')) {
                     wrap.title = 'Click to change profile photo';
                     
                     // Instagram-like click to change
-                    wrap.addEventListener('click', () => fileInput.click());
+                    wrap.addEventListener('click', (e) => {
+                        // Don't trigger if clicking the loading overlay
+                        if (e.target.closest('#avatarLoadingOverlay')) return;
+                        fileInput.click();
+                    });
 
-                    // Ensure mobile support for camera
-                    fileInput.setAttribute('capture', 'environment');
+                    // ═══════════════════════════════════════════════════
+                    // MOBILE FIX: DO NOT use capture="environment"
+                    // capture forces camera-only mode — user can't pick
+                    // existing photos from gallery. accept="image/*" alone
+                    // lets the user choose camera OR gallery on all devices.
+                    // ═══════════════════════════════════════════════════
+                    fileInput.removeAttribute('capture');
                     fileInput.setAttribute('accept', 'image/*');
 
                     fileInput.addEventListener('change', async function() {
                         const file = this.files[0];
                         if (!file) return;
 
+                        // ── Client-side validation ───────────────────
+                        const validation = validateImageFile(file);
+                        if (!validation.valid) {
+                            showToast(validation.error, 'error');
+                            this.value = ''; // Reset file input
+                            return;
+                        }
+
+                        // ── Build FormData ────────────────────────────
+                        // CRITICAL: field name MUST be 'avatar' — matches multer .single('avatar')
                         const formData = new FormData();
-                        formData.append('profile', file); // Try both to be safe
-                        formData.append('avatar', file);  // Matches user requested snippet
+                        formData.append('avatar', file);
+
+                        // ── Show loading state ───────────────────────
+                        showAvatarLoading();
+                        showToast('Uploading profile photo...', 'info');
+
+                        // ── Upload with timeout ──────────────────────
+                        const controller = new AbortController();
+                        const timeout = setTimeout(() => {
+                            controller.abort();
+                            showToast('Upload timed out. Please try again.', 'error');
+                        }, 30000); // 30 second timeout
+
+                        // Show "still uploading" message after 10s
+                        const slowTimer = setTimeout(() => {
+                            showToast('Still uploading... please wait', 'info');
+                        }, 10000);
 
                         try {
-                            showToast('Uploading profile photo...');
                             const res = await fetch('/api/upload-avatar', {
                                 method: 'POST',
                                 headers: { 'Authorization': 'Bearer ' + getToken() },
-                                body: formData
+                                body: formData,
+                                signal: controller.signal,
                             });
+
+                            clearTimeout(timeout);
+                            clearTimeout(slowTimer);
+
                             const data = await res.json();
 
-                            if (data.success || data.imageUrl) {
-                                const newUrl = (data.imageUrl || data.profile_pic || data.profile_photo) + "?t=" + Date.now();
-                                avatarEl.src = newUrl;
-                                avatarEl.style.display = 'block';
+                            if (!res.ok) {
+                                throw new Error(data.error || `Upload failed (${res.status})`);
+                            }
+
+                            if (data.success) {
+                                // Get the new URL from the response
+                                const newUrl = data.imageUrl || data.profile_pic || data.profile_photo || data.url;
+                                
+                                // Update avatar image immediately
+                                setAvatarSrc(newUrl);
+                                
+                                // Hide initial letter if showing
                                 if (initialEl) initialEl.style.display = 'none';
-                                showToast('Profile photo updated!', 'success');
                                 
-                                // Sync local storage & Sidebar
+                                // Sync localStorage
                                 const userToken = getUser();
-                                userToken.profile_pic = data.imageUrl || data.profile_pic || data.profile_photo;
-                                userToken.profile_photo = userToken.profile_pic;
-                                localStorage.setItem('blink_user', JSON.stringify(userToken));
+                                if (userToken) {
+                                    userToken.profile_pic = newUrl;
+                                    userToken.profile_photo = newUrl;
+                                    localStorage.setItem('blink_user', JSON.stringify(userToken));
+                                }
                                 
+                                showToast('Profile photo updated! ✨', 'success');
                                 populateSidebar();
                             } else {
                                 throw new Error(data.error || 'Upload failed');
                             }
                         } catch (err) {
-                            showToast(err.message, 'error');
+                            clearTimeout(timeout);
+                            clearTimeout(slowTimer);
+
+                            if (err.name === 'AbortError') {
+                                showToast('Upload timed out. Check your connection.', 'error');
+                            } else {
+                                showToast(err.message, 'error');
+                            }
+                            console.error('[Profile] Avatar upload error:', err);
+                        } finally {
+                            hideAvatarLoading();
+                            this.value = ''; // Reset file input for re-upload
                         }
                     });
                 }
@@ -195,11 +327,9 @@ if (document.getElementById('profilePage')) {
     const confirmLogoutBtn = document.getElementById('confirmLogoutBtn');
 
     if (logoutConfirmModal) {
-        // Only show floating button if browsing your OWN profile
         if (isOwnProfile && mobileLogoutBtn) {
             mobileLogoutBtn.classList.remove('hidden');
         }
-        // Only show row button if browsing your OWN profile
         if (isOwnProfile && rowLogoutBtn) {
             rowLogoutBtn.classList.remove('hidden');
         }
@@ -213,7 +343,6 @@ if (document.getElementById('profilePage')) {
             logoutConfirmModal.classList.remove('open');
         });
 
-        // Close on backdrop click
         logoutConfirmModal.addEventListener('click', (e) => {
             if (e.target === logoutConfirmModal) {
                 logoutConfirmModal.classList.remove('open');
@@ -222,7 +351,6 @@ if (document.getElementById('profilePage')) {
 
         confirmLogoutBtn?.addEventListener('click', () => {
             logoutConfirmModal.classList.remove('open');
-            // Execute logout
             localStorage.removeItem('blink_token');
             localStorage.removeItem('blink_user');
             sessionStorage.clear();
@@ -230,7 +358,7 @@ if (document.getElementById('profilePage')) {
         });
     }
 
-    // Load videos (User fix applied)
+    // Load videos
     async function loadVideos() {
         if (!targetId) return;
         try {
@@ -239,11 +367,9 @@ if (document.getElementById('profilePage')) {
             
             console.log("Videos:", data);
 
-            // Update count
             const countEl = document.getElementById("videoCount");
             if (countEl) countEl.innerText = data.count || 0;
 
-            // Render videos
             const container = document.getElementById("videoGrid");
             if (!container) return;
             container.innerHTML = "";
@@ -261,7 +387,6 @@ if (document.getElementById('profilePage')) {
                   <video src="${video.video_url}" muted loop playsinline></video>
                 `;
 
-                // Add delete button if viewing own profile
                 if (isOwnProfile) {
                     const delBtn = document.createElement('button');
                     delBtn.className = 'btn-grid-delete';
@@ -287,17 +412,16 @@ if (document.getElementById('profilePage')) {
                             if (delRes.ok) {
                                 div.remove();
                                 showToast('Video deleted');
-                                loadVideos(); // Reload stats
+                                loadVideos();
                             } else {
                                 showToast('Failed to delete', 'error');
                             }
                         } catch (err) { showToast(err.message, 'error'); }
                     };
-                    div.style.position = 'relative'; // Ensure relative positioning for child absolute
+                    div.style.position = 'relative';
                     div.appendChild(delBtn);
                 }
 
-                // Play on hover
                 const vid = div.querySelector('video');
                 div.addEventListener('mouseenter', () => vid.play().catch(() => {}));
                 div.addEventListener('mouseleave', () => { vid.pause(); vid.currentTime = 0; });
@@ -333,7 +457,6 @@ if (document.getElementById('profilePage')) {
             const data = await apiRequest('/live/now');
             const streams = data.streams || [];
             
-            // Filter out the current user if they are live
             const otherStreams = streams.filter(s => parseInt(s.user_id) !== parseInt(me.id));
 
             if (otherStreams.length) {
@@ -387,8 +510,8 @@ if (document.getElementById('editProfilePage')) {
             document.getElementById('editUsername').value = u.username || '';
             document.getElementById('editBio').value      = u.bio   || '';
             const prev = document.getElementById('avatarPreview');
-            if (u.profile_photo) { 
-                prev.src = u.profile_photo; 
+            if (u.profile_photo || u.profile_pic) { 
+                prev.src = u.profile_photo || u.profile_pic; 
                 prev.style.display = 'block'; 
                 document.getElementById('avatarInitial').style.display = 'none'; 
             } else { 
@@ -432,7 +555,6 @@ if (document.getElementById('editProfilePage')) {
         const canvas = cropper.getCroppedCanvas({ width: 300, height: 300 });
         canvas.toBlob(blob => {
             croppedBlob = blob;
-            // Show preview
             const reader = new FileReader();
             reader.onload = e => {
                 const prev = document.getElementById('avatarPreview');
@@ -450,10 +572,9 @@ if (document.getElementById('editProfilePage')) {
         const btn = document.getElementById('uploadAvatarBtn');
         btn.disabled = true;
         const formData = new FormData();
-        formData.append('profile', croppedBlob, 'avatar.jpg');
+        formData.append('avatar', croppedBlob, 'avatar.jpg');
 
         try {
-            // Production Endpoint: Always uses the root-level upload route
             const res  = await fetch('/api/upload-profile', { 
                 method: 'POST', 
                 headers: { 'Authorization': `Bearer ${getToken()}` }, 
@@ -462,11 +583,11 @@ if (document.getElementById('editProfilePage')) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
             const user = window.Blink.getUser();
-            user.profile_photo = data.profile_photo;
+            user.profile_photo = data.profile_photo || data.imageUrl;
+            user.profile_pic = user.profile_photo;
             localStorage.setItem('blink_user', JSON.stringify(user));
             await window.Blink.populateSidebar();
             
-            // Broadcast the update via socket
             if (window.Blink.socket) {
                 window.Blink.socket.emit('profile_updated', { userId: user.id });
             }

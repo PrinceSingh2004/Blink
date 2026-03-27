@@ -18,13 +18,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const editBio = document.getElementById('editBio');
     const editForm = document.getElementById('editProfileForm');
 
-    // Pre-fill
+    // Pre-fill from localStorage (instant) then refresh from server
     function initUI() {
         editUsername.value = me.username || '';
         editBio.value = me.bio || '';
         
-        // Fix: Check both common keys used in DB
-        const photo = me.profile_photo || me.profile_pic;
+        const photo = me.profile_pic || me.profile_photo;
         if (photo) {
             currentAvatar.src = photo;
             currentAvatar.onload = () => {
@@ -39,15 +38,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     initUI();
 
-    // 1. Avatar Update Logic
+    // Refresh from server to get latest data (profile_pic may have changed)
+    try {
+        const data = await apiRequest(`/users/${me.id}`);
+        if (data?.user) {
+            const u = data.user;
+            const photo = u.profile_pic || u.profile_photo;
+            if (photo) {
+                currentAvatar.src = photo + (photo.includes('?') ? '&' : '?') + 't=' + Date.now();
+                currentAvatar.onload = () => {
+                    currentAvatar.style.display = 'block';
+                    initialsEl.style.display = 'none';
+                };
+            }
+            if (u.username) editUsername.value = u.username;
+            if (u.bio !== undefined) editBio.value = u.bio || '';
+        }
+    } catch {}
+
+    // ── Avatar Update Logic ──────────────────────────────────────
     let pendingAvatarBlob = null;
 
-    avatarInput.addEventListener('change', (e) => {
+    // MOBILE FIX: Remove capture attribute if present
+    if (avatarInput) {
+        avatarInput.removeAttribute('capture');
+        avatarInput.setAttribute('accept', 'image/*');
+    }
+
+    avatarInput?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        if (file.size > 5 * 1024 * 1024) { // Increased to 5MB for better user exp, backend will handle it
-            showToast('Image too large (Max 5MB)', 'error');
+        // Client-side validation
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+                              'image/heic', 'image/heif', 'image/bmp'];
+        const isImage = allowedTypes.includes(file.type) || file.type.startsWith('image/');
+        if (!isImage) {
+            showToast('Please select an image file (JPG, PNG, or WebP)', 'error');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            showToast('Image too large (Max 10MB)', 'error');
             return;
         }
 
@@ -67,14 +99,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         reader.readAsDataURL(file);
     });
 
-    document.getElementById('cancelCropBtn').addEventListener('click', () => {
+    document.getElementById('cancelCropBtn')?.addEventListener('click', () => {
         cropModal.style.display = 'none';
         if (cropper) cropper.destroy();
         avatarInput.value = '';
     });
 
-    document.getElementById('confirmCropBtn').addEventListener('click', () => {
-        // High quality crop for Cloudinary to handle optimization
+    document.getElementById('confirmCropBtn')?.addEventListener('click', () => {
         const canvas = cropper.getCroppedCanvas({ width: 500, height: 500 });
         canvas.toBlob((blob) => {
             pendingAvatarBlob = blob;
@@ -91,17 +122,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 'image/jpeg', 0.9);
     });
 
-    document.getElementById('removeAvatarBtn').addEventListener('click', () => {
+    document.getElementById('removeAvatarBtn')?.addEventListener('click', () => {
         if (!confirm('Remove profile photo?')) return;
-        pendingAvatarBlob = 'REMOVE'; // Special flag
+        pendingAvatarBlob = 'REMOVE';
         currentAvatar.style.display = 'none';
         initialsEl.style.display = 'flex';
         initialsEl.textContent = (editUsername.value || 'U')[0].toUpperCase();
         showToast('Photo marked for removal', 'info');
     });
 
-    // 2. Profile Info Logic (Unified)
-    editForm.addEventListener('submit', async (e) => {
+    // ── Save Profile (unified: avatar + username + bio) ──────────
+    editForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const saveBtn = document.getElementById('saveProfileBtn');
         const originalText = saveBtn.textContent;
@@ -110,70 +141,71 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveBtn.innerHTML = '<div class="spinner-small"></div> Saving...';
 
         try {
-            const formData = new FormData();
-            formData.append('username', editUsername.value.trim());
-            formData.append('bio', editBio.value.trim());
-
+            // ── If avatar was changed, upload it FIRST ──────────
             if (pendingAvatarBlob instanceof Blob) {
-                formData.append('avatar', pendingAvatarBlob, 'avatar.jpg');
+                const avatarForm = new FormData();
+                // CRITICAL: field name must be 'avatar' to match multer .single('avatar')
+                avatarForm.append('avatar', pendingAvatarBlob, 'avatar.jpg');
+
+                const avatarRes = await fetch(window.location.origin + '/api/upload-avatar', {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: avatarForm,
+                });
+
+                const avatarData = await avatarRes.json();
+                if (!avatarRes.ok) throw new Error(avatarData.error || 'Avatar upload failed');
+
+                // Sync avatar URL to localStorage immediately
+                const newUrl = avatarData.imageUrl || avatarData.profile_pic || avatarData.profile_photo;
+                const userData = getUser();
+                if (userData && newUrl) {
+                    userData.profile_pic = newUrl;
+                    userData.profile_photo = newUrl;
+                    localStorage.setItem('blink_user', JSON.stringify(userData));
+                }
             } else if (pendingAvatarBlob === 'REMOVE') {
-                formData.append('profile_pic', ''); // Send empty to clear
+                // TODO: Implement avatar removal endpoint if needed
+                // For now, user can upload a new one to replace
             }
 
-            const res = await fetch(window.location.origin + '/api/upload-avatar', {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${getToken()}` 
-                    // Note: Do NOT set Content-Type, browser will set multipart/form-data + boundary
-                },
-                body: formData
-            });
+            // ── Then update username + bio ────────────────────────
+            const username = editUsername.value.trim();
+            const bio = editBio.value.trim();
 
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Update failed');
+            if (username) {
+                const profileRes = await apiRequest('/users/profile/update', {
+                    method: 'PUT',
+                    body: JSON.stringify({ username, bio })
+                });
 
-            // Success -> Update local state and redirect
-            // Sync all possible photo keys for persistence
-            const userData = data.user;
-            userData.profile_pic = data.imageUrl || data.profile_pic || data.profile_photo;
-            userData.profile_photo = userData.profile_pic;
-            setAuth(getToken(), userData);
-            
-            // Aggressively update all avatar elements on the current page
-            const newUrl = userData.profile_pic ? (userData.profile_pic + '?t=' + Date.now()) : null;
-            const avatars = ['profileImg', 'currentAvatar'];
-            avatars.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    if (newUrl) {
-                        el.src = newUrl;
-                        el.style.display = 'block';
-                        if (initialsEl) initialsEl.style.display = 'none';
-                    } else {
-                        el.style.display = 'none';
-                        if (initialsEl) {
-                            initialsEl.style.display = 'flex';
-                            initialsEl.textContent = (data.user.username || 'U')[0].toUpperCase();
-                        }
-                    }
+                // Sync updated user data
+                const curUser = getUser();
+                if (curUser && profileRes?.user) {
+                    Object.assign(curUser, { 
+                        username: profileRes.user.username, 
+                        bio: profileRes.user.bio 
+                    });
+                    localStorage.setItem('blink_user', JSON.stringify(curUser));
                 }
-            });
+            }
 
             showToast('Profile updated successfully!', 'success');
             await populateSidebar();
+            pendingAvatarBlob = null;
 
-            
             setTimeout(() => {
                 window.location.href = 'profile.html';
             }, 1000);
 
         } catch (err) {
-            console.error('[Update] Error:', err);
+            console.error('[EditProfile] Error:', err);
             showToast(err.message, 'error');
             saveBtn.disabled = false;
             saveBtn.textContent = originalText;
         }
     });
-
 
 }, false);

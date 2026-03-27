@@ -89,12 +89,17 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
     try {
         const [rows] = await db.query(
-            'SELECT id, username, email, profile_photo, profile_pic, bio, followers_count, following_count, total_likes, created_at FROM users WHERE id = ?',
+            `SELECT id, username, email, 
+                    COALESCE(profile_pic, profile_photo) AS profile_pic,
+                    COALESCE(profile_pic, profile_photo) AS profile_photo,
+                    bio, followers_count, following_count, total_likes, created_at 
+             FROM users WHERE id = ?`,
             [req.user.id]
         );
         if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
         res.json({ user: rows[0] });
     } catch (err) {
+        console.error('[Auth] getMe:', err.message);
         res.status(500).json({ error: 'Server error' });
     }
 };
