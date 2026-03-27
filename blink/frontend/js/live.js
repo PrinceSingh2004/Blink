@@ -100,12 +100,17 @@ console.log('[Live] Script loaded — starting initialization');
             // Send ICE candidates to viewer
             pc.onicecandidate = (event) => {
                 if (event.candidate && socket) {
+                    dbg(`ICE candidate [Broadcaster → ${viewerSocketId}]`);
                     socket.emit('ice-candidate', { to: viewerSocketId, candidate: event.candidate });
                 }
             };
 
+            pc.onicegatheringstatechange = () => {
+                dbg(`ICE Gathering state [${viewerSocketId}]:`, pc.iceGatheringState);
+            };
+
             pc.onconnectionstatechange = () => {
-                dbg(`Broadcaster→Viewer[${viewerSocketId}] state:`, pc.connectionState);
+                dbg(`📡 Broadcaster→Viewer [${viewerSocketId}] Connection State:`, pc.connectionState);
                 if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
                     pc.close();
                     delete peerConnections[viewerSocketId];
@@ -191,52 +196,72 @@ console.log('[Live] Script loaded — starting initialization');
         // ═══════════════════════════════════════════════════════
         function initSocket(streamId, role) {
             if (socket) socket.disconnect();
-            socket = io();
+            
+            // Render optimization: prefer websocket over polling
+            socket = io({
+                transports: ['websocket'],
+                upgrade: false
+            });
+            
             const user = getCurrentUser();
 
             socket.on('connect', () => {
-                dbg('Socket connected:', socket.id);
+                dbg('Socket connected:', socket.id, 'Role:', role);
                 socket.emit('join_live', { streamId, userId: user.id, username: user.username, role });
             });
 
-            // Viewer count updates
+            socket.on('connect_error', (err) => {
+                dbg('Socket connection error:', err.message);
+                showToast('Connection error. Retrying...', 'error');
+            });
+
+            // If I am the broadcaster and I just joined/reconnected, 
+            // the server tells me who is already in the room.
+            socket.on('broadcaster-ready', async ({ viewers }) => {
+                if (!isBroadcaster || !localStream) return;
+                dbg('Broadcaster ready. Viewers in room:', viewers);
+                for (const viewerId of viewers) {
+                    await initiateBroadcasterPc(viewerId);
+                }
+            });
+
             socket.on('viewer_update', ({ count }) => {
                 if (viewCount) viewCount.textContent = count;
             });
 
-            // When a new user joins the room
             socket.on('user_joined', async (data) => {
-                dbg('User joined:', data.username, '(' + data.role + ') socketId:', data.socketId);
-                // Broadcaster creates a PC for each new viewer
+                dbg('👤 User joined:', data.username, '(' + data.role + ') socketId:', data.socketId);
                 if (isBroadcaster && data.role === 'viewer' && localStream) {
+                    dbg('Sending offer to NEW viewer:', data.socketId);
                     await initiateBroadcasterPc(data.socketId);
                 }
             });
 
-            // Viewer requests an offer (re-negotiation)
             socket.on('request_offer', async (data) => {
                 if (isBroadcaster && localStream) {
-                    dbg('Offer requested by:', data.from);
+                    dbg('Offer manually requested by:', data.from);
                     await initiateBroadcasterPc(data.from);
                 }
             });
 
-            // Viewer receives offer
             socket.on('offer', async (data) => {
                 if (!isBroadcaster) {
+                    dbg('🎬 Received offer from broadcaster:', data.from);
                     await handleOffer(data.from, data.offer);
                 }
             });
 
-            // Broadcaster receives answer
             socket.on('answer', async (data) => {
-                dbg('Answer received from:', data.from);
+                dbg('✅ Answer received from viewer:', data.from);
                 const pc = peerConnections[data.from];
                 if (isBroadcaster && pc) {
                     try {
                         await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                        // Flush pending ICE
+                        dbg('Broadcaster set remote description for viewer:', data.from);
+                        
+                        // Flush pending ICE candidates for this specific viewer
                         if (pendingIceBroadcaster[data.from]) {
+                            dbg('Flushing', pendingIceBroadcaster[data.from].length, 'ICE candidates for viewer');
                             for (const cand of pendingIceBroadcaster[data.from]) {
                                 await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {});
                             }
@@ -248,34 +273,42 @@ console.log('[Live] Script loaded — starting initialization');
                 }
             });
 
-            // ICE candidate exchange
             socket.on('ice-candidate', async (data) => {
                 const pc = isBroadcaster ? peerConnections[data.from] : viewerPc;
-                if (pc && pc.remoteDescription) {
-                    await pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(() => {});
-                } else {
-                    // Queue if remote description not set yet
-                    if (isBroadcaster) {
-                        if (!pendingIceBroadcaster[data.from]) pendingIceBroadcaster[data.from] = [];
-                        pendingIceBroadcaster[data.from].push(data.candidate);
+                if (pc) {
+                    if (pc.remoteDescription && pc.remoteDescription.type) {
+                        await pc.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(e => dbg('ICE add error:', e.message));
                     } else {
-                        pendingIce.push(data.candidate);
+                        // Queue if remote description not set yet
+                        if (isBroadcaster) {
+                            if (!pendingIceBroadcaster[data.from]) pendingIceBroadcaster[data.from] = [];
+                            pendingIceBroadcaster[data.from].push(data.candidate);
+                        } else {
+                            pendingIce.push(data.candidate);
+                        }
                     }
                 }
             });
 
-            // Chat
+            socket.on('viewer-disconnected', ({ viewerId }) => {
+                dbg('Viewer disconnected:', viewerId);
+                if (peerConnections[viewerId]) {
+                    peerConnections[viewerId].close();
+                    delete peerConnections[viewerId];
+                }
+            });
+
             socket.on('receive_live_chat', (data) => {
                 appendComment(data.username, data.message, data.username === user.username);
             });
 
-            // Reactions
             socket.on('receive_reaction', ({ emoji }) => spawnFloatingEmoji(emoji));
 
-            // Stream ended
-            socket.on('live_ended', () => handleStreamEnded());
+            socket.on('live_ended', () => {
+                dbg('🔴 Stream ended signal received');
+                handleStreamEnded();
+            });
 
-            // Discovery refresh
             socket.on('live_discovery_update', () => {
                 if (!isBroadcaster && !currentStreamId) loadDiscovery();
             });
@@ -289,10 +322,21 @@ console.log('[Live] Script loaded — starting initialization');
             if (!commentsEl) return;
             const div = document.createElement('div');
             div.className = 'chat-message';
-            div.style.cssText = `padding:10px 14px;margin-bottom:8px;border-radius:14px;font-size:13px;
-                background:${isSelf ? 'rgba(255,45,110,0.15)' : 'rgba(255,255,255,0.06)'};
-                border:1px solid ${isSelf ? 'rgba(255,45,110,0.25)' : 'rgba(255,255,255,0.08)'}`;
-            div.innerHTML = `<strong style="color:${isSelf ? 'var(--pink)' : '#eee'};font-weight:700">@${username}:</strong> <span style="color:#fff">${message}</span>`;
+            div.style.cssText = `padding:8px 12px;margin-bottom:6px;border-radius:12px;font-size:13px;line-height:1.4;
+                background:${isSelf ? 'rgba(255,45,110,0.12)' : 'rgba(255,255,255,0.05)'};
+                border:1px solid ${isSelf ? 'rgba(255,45,110,0.2)' : 'rgba(255,255,255,0.08)'}`;
+            
+            const nameSpan = document.createElement('strong');
+            nameSpan.style.color = isSelf ? 'var(--pink)' : '#ddd';
+            nameSpan.style.marginRight = '6px';
+            nameSpan.textContent = `@${username}:`;
+            
+            const msgSpan = document.createElement('span');
+            msgSpan.style.color = '#fff';
+            msgSpan.textContent = message;
+            
+            div.appendChild(nameSpan);
+            div.appendChild(msgSpan);
             commentsEl.appendChild(div);
             commentsEl.scrollTop = commentsEl.scrollHeight;
         }

@@ -92,16 +92,21 @@ if (document.getElementById('profilePage')) {
                     // Instagram-like click to change
                     wrap.addEventListener('click', () => fileInput.click());
 
+                    // Ensure mobile support for camera
+                    fileInput.setAttribute('capture', 'environment');
+                    fileInput.setAttribute('accept', 'image/*');
+
                     fileInput.addEventListener('change', async function() {
                         const file = this.files[0];
                         if (!file) return;
 
                         const formData = new FormData();
-                        formData.append('profile', file); // 'profile' matches our backend middleware field name
+                        formData.append('profile', file); // Try both to be safe
+                        formData.append('avatar', file);  // Matches user requested snippet
 
                         try {
                             showToast('Uploading profile photo...');
-                            const res = await fetch('/api/upload-profile', {
+                            const res = await fetch('/api/upload-avatar', {
                                 method: 'POST',
                                 headers: { 'Authorization': 'Bearer ' + getToken() },
                                 body: formData
@@ -109,18 +114,18 @@ if (document.getElementById('profilePage')) {
                             const data = await res.json();
 
                             if (data.success || data.imageUrl) {
-                                const newUrl = (data.imageUrl || data.profile_pic) + "?t=" + Date.now();
+                                const newUrl = (data.imageUrl || data.profile_pic || data.profile_photo) + "?t=" + Date.now();
                                 avatarEl.src = newUrl;
                                 avatarEl.style.display = 'block';
                                 if (initialEl) initialEl.style.display = 'none';
                                 showToast('Profile photo updated!', 'success');
                                 
-                                // Sync local storage
+                                // Sync local storage & Sidebar
                                 const userToken = getUser();
-                                userToken.profile_pic = data.imageUrl || data.profile_pic;
+                                userToken.profile_pic = data.imageUrl || data.profile_pic || data.profile_photo;
+                                userToken.profile_photo = userToken.profile_pic;
                                 localStorage.setItem('blink_user', JSON.stringify(userToken));
                                 
-                                // Update sidebar too
                                 populateSidebar();
                             } else {
                                 throw new Error(data.error || 'Upload failed');

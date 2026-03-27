@@ -1,115 +1,144 @@
-// backend/sockets/socket.js
-/**
- * Socket.io Signaling Server
- * One-to-many model: Broadcaster to multiple viewers
- */
+const db = require('../config/db');
 
 module.exports = function(io) {
-    const rooms = new Map(); // Global state for rooms
+    const rooms = new Map(); // Global state: { roomId: { broadcaster: socketId, viewers: Set(socketIds) } }
 
     io.on('connection', (socket) => {
         console.log(`[Socket] New connection: ${socket.id}`);
 
-        socket.on('join-room', ({ roomId, role }) => {
-            if (!roomId || !role) return;
+        // ── 1. JOIN LIVE ROOM ──────────────────────────────────────
+        socket.on('join_live', async ({ streamId, userId, username, role }) => {
+            if (!streamId) return;
 
+            const roomId = `live_${streamId}`;
             socket.join(roomId);
             socket.roomId = roomId;
-            socket.role = role; // "broadcaster" or "viewer"
+            socket.streamId = streamId;
+            socket.userId = userId;
+            socket.username = username;
+            socket.role = role || 'viewer';
 
             if (!rooms.has(roomId)) {
-                // max viewers could be configured here, currently tracking state
                 rooms.set(roomId, { broadcaster: null, viewers: new Set() });
             }
-
             const roomState = rooms.get(roomId);
 
-            if (role === 'broadcaster') {
-                // Prevent duplicate broadcasters
-                if (roomState.broadcaster && roomState.broadcaster !== socket.id) {
-                    console.log(`[Socket] Multiple broadcasters attempted in room ${roomId}. Rejecting.`);
-                    socket.emit('error', 'A broadcaster is already in this room.');
-                    return;
-                }
+            if (socket.role === 'broadcaster') {
                 roomState.broadcaster = socket.id;
-                console.log(`[Socket] Broadcaster joined room: ${roomId}`);
-                
-                // If there are already viewers waiting, notify them
+                console.log(`[Socket] Broadcaster ${username} joined ${roomId}`);
+                // Notify waiting viewers if any
                 socket.emit('broadcaster-ready', { viewers: Array.from(roomState.viewers) });
-            } else if (role === 'viewer') {
-                if (roomState.viewers.size >= 50) { // Configurable limits
-                    socket.emit('error', 'Room is full (max 50 viewers).');
-                    return;
-                }
-                
+            } else {
                 roomState.viewers.add(socket.id);
-                console.log(`[Socket] Viewer joined room: ${roomId} (${roomState.viewers.size} viewers total)`);
-
-                // Notify broadcaster to create an offer for this specific viewer
-                if (roomState.broadcaster) {
-                    io.to(roomState.broadcaster).emit('viewer-joined', { viewerId: socket.id });
-                }
+                console.log(`[Socket] Viewer ${username} joined ${roomId}`);
+                
+                // Track viewer in DB
+                await db.query('INSERT IGNORE INTO live_viewers (stream_id, user_id) VALUES (?, ?)', [streamId, userId || 0]).catch(()=>{});
+                // Increment viewer count
+                await db.query('UPDATE live_streams SET viewer_count = viewer_count + 1, peak_viewers = GREATEST(peak_viewers, viewer_count + 1) WHERE id = ?', [streamId]).catch(()=>{});
             }
 
-            // Provide counts to all users in the room
-            io.to(roomId).emit('room-update', { 
-                viewersCount: roomState.viewers.size,
-                broadcasterConnected: !!roomState.broadcaster 
+            // Notify broadcasters of the new viewer
+            if (socket.role === 'viewer' && roomState.broadcaster) {
+                io.to(roomState.broadcaster).emit('viewer-joined', { viewerId: socket.id });
+            }
+
+            // Update all viewers in the room about the new status
+            io.to(roomId).emit('viewer_update', { count: roomState.viewers.size });
+        });
+
+        // ── 2. REAL-TIME CHAT ───────────────────────────────────────
+        socket.on('send_live_chat', async (data) => {
+            const { streamId, userId, username, message } = data;
+            if (!message || !streamId) return;
+
+            console.log(`[Chat] ${username} in ${streamId}: ${message}`);
+
+            const roomId = `live_${streamId}`;
+            
+            // Broadcast instantly to the room (to EVERYONE including sender for sync if needed, 
+            // but the frontend handles self-append locally too).
+            // Usually io.to(roomId) is better for chat.
+            socket.to(roomId).emit('receive_live_chat', {
+                username,
+                message,
+                userId,
+                timestamp: new Date()
             });
+
+            // Persist to DB asynchronously
+            try {
+                await db.query(
+                    'INSERT INTO live_chat (stream_id, user_id, message) VALUES (?, ?, ?)',
+                    [streamId, userId || null, message]
+                );
+            } catch (err) {
+                console.error('[Socket] Chat persistence error:', err.message);
+            }
         });
 
-        // ── Signaling Exchange ───────────────────────────────────────
-        socket.on('offer', ({ viewerId, offer }) => {
-            // Forward offer from broadcaster to specific viewer
-            console.log(`[Socket] Forwarding offer from ${socket.id} to viewer ${viewerId}`);
-            io.to(viewerId).emit('offer', { broadcasterId: socket.id, offer });
+        // ── 3. REACTIONS ───────────────────────────────────────────
+        socket.on('send_reaction', ({ streamId, emoji }) => {
+            if (!streamId || !emoji) return;
+            socket.to(`live_${streamId}`).emit('receive_reaction', { emoji });
         });
 
-        socket.on('answer', ({ broadcasterId, answer }) => {
-            // Forward answer from viewer to broadcaster
-            console.log(`[Socket] Forwarding answer from viewer ${socket.id} to broadcaster ${broadcasterId}`);
-            io.to(broadcasterId).emit('answer', { viewerId: socket.id, answer });
+        // ── 4. WebRTC SIGNALING ─────────────────────────────────────
+        socket.on('request_offer', (data) => {
+            const roomId = `live_${data.streamId}`;
+            const roomState = rooms.get(roomId);
+            if (roomState?.broadcaster) {
+                io.to(roomState.broadcaster).emit('request_offer', { from: socket.id });
+            }
         });
 
-        socket.on('ice-candidate', ({ targetId, candidate }) => {
-            // Forward ICE candidate to the specific peer (broadcaster or viewer)
-            // console.log(`[Socket] Forwarding ICE candidate from ${socket.id} to ${targetId}`);
-            io.to(targetId).emit('ice-candidate', { senderId: socket.id, candidate });
+        socket.on('offer', (data) => {
+            io.to(data.to).emit('offer', { from: socket.id, offer: data.offer });
         });
 
-        // ── Disconnection Handling ───────────────────────────────────
-        socket.on('disconnect', () => {
-            console.log(`[Socket] Disconnected: ${socket.id}`);
+        socket.on('answer', (data) => {
+            io.to(data.to).emit('answer', { from: socket.id, answer: data.answer });
+        });
+
+        socket.on('ice-candidate', (data) => {
+            io.to(data.to).emit('ice-candidate', { from: socket.id, candidate: data.candidate });
+        });
+
+        // ── 5. DISCONNECT / LEAVE ──────────────────────────────────
+        const handleLeave = async () => {
             if (!socket.roomId) return;
-
-            const roomState = rooms.get(socket.roomId);
+            const roomId = socket.roomId;
+            const roomState = rooms.get(roomId);
             if (!roomState) return;
 
             if (socket.role === 'broadcaster') {
                 roomState.broadcaster = null;
-                console.log(`[Socket] Broadcaster left room: ${socket.roomId}`);
-                io.to(socket.roomId).emit('broadcaster-disconnected');
+                io.to(roomId).emit('live_ended');
+                console.log(`[Socket] Stream ended in ${roomId}`);
             } else if (socket.role === 'viewer') {
                 roomState.viewers.delete(socket.id);
-                console.log(`[Socket] Viewer ${socket.id} left room: ${socket.roomId}`);
+                // Decrement viewer count in DB
+                if (socket.streamId) {
+                    await db.query('DELETE FROM live_viewers WHERE stream_id = ? AND user_id = ?', [socket.streamId, socket.userId || 0]).catch(()=>{});
+                    await db.query('UPDATE live_streams SET viewer_count = GREATEST(0, viewer_count - 1) WHERE id = ?', [socket.streamId]).catch(()=>{});
+                }
+                io.to(roomId).emit('viewer_update', { count: roomState.viewers.size });
                 
-                // Let broadcaster know to clean up peer connection
+                // Notify broadcaster if still present
                 if (roomState.broadcaster) {
                     io.to(roomState.broadcaster).emit('viewer-disconnected', { viewerId: socket.id });
                 }
             }
 
-            // Cleanup empty rooms
             if (!roomState.broadcaster && roomState.viewers.size === 0) {
-                rooms.delete(socket.roomId);
-                console.log(`[Socket] Room ${socket.roomId} cleaned up.`);
-            } else {
-                // Update viewer counts
-                io.to(socket.roomId).emit('room-update', { 
-                    viewersCount: roomState.viewers.size,
-                    broadcasterConnected: !!roomState.broadcaster 
-                });
+                rooms.delete(roomId);
             }
-        });
+
+            // Notify everyone of general discovery refresh
+            io.emit('live_discovery_update');
+        };
+
+        socket.on('leave_live', handleLeave);
+        socket.on('disconnect', handleLeave);
     });
 };

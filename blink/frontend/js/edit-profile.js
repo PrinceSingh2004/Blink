@@ -115,12 +115,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             formData.append('bio', editBio.value.trim());
 
             if (pendingAvatarBlob instanceof Blob) {
-                formData.append('photo', pendingAvatarBlob, 'avatar.jpg');
+                formData.append('avatar', pendingAvatarBlob, 'avatar.jpg');
             } else if (pendingAvatarBlob === 'REMOVE') {
                 formData.append('profile_pic', ''); // Send empty to clear
             }
 
-            const res = await fetch(window.location.origin + '/api/user/update-profile', {
+            const res = await fetch(window.location.origin + '/api/upload-avatar', {
                 method: 'POST',
                 headers: { 
                     'Authorization': `Bearer ${getToken()}` 
@@ -133,10 +133,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!res.ok) throw new Error(data.error || 'Update failed');
 
             // Success -> Update local state and redirect
-            setAuth(getToken(), data.user);
+            // Sync all possible photo keys for persistence
+            const userData = data.user;
+            userData.profile_pic = data.imageUrl || data.profile_pic || data.profile_photo;
+            userData.profile_photo = userData.profile_pic;
+            setAuth(getToken(), userData);
             
             // Aggressively update all avatar elements on the current page
-            const newUrl = data.imageUrl ? (data.imageUrl + '?t=' + Date.now()) : null;
+            const newUrl = userData.profile_pic ? (userData.profile_pic + '?t=' + Date.now()) : null;
             const avatars = ['profileImg', 'currentAvatar'];
             avatars.forEach(id => {
                 const el = document.getElementById(id);

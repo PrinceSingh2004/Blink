@@ -40,7 +40,7 @@ module.exports.uploadAvatar = multer({
     storage: profileStorage,
     fileFilter: imageFilter,
     limits: { fileSize: 5 * 1024 * 1024 } // 5 MB
-}).single('profile'); // Field name 'profile' match user client request
+}).single('avatar'); // Match user's requested field name 'avatar' in FormData
 
 
 

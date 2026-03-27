@@ -153,14 +153,22 @@ exports.updateAvatar = async (req, res) => {
         const avatarUrl = result.secure_url;
 
         // Store URL in both columns for backward compatibility
-        await db.query('UPDATE users SET profile_photo = ?, profile_pic = ? WHERE id = ?', [avatarUrl, avatarUrl, req.user.id]);
+        await db.query('UPDATE users SET profile_photo = ?, profile_pic = ? WHERE id = ?', 
+            [avatarUrl, avatarUrl, req.user.id]);
         
+        // Fetch full updated user to return for frontend sync
+        const [rows] = await db.query(
+            'SELECT id, username, email, profile_photo, profile_pic, bio, followers_count, following_count, total_likes FROM users WHERE id = ?',
+            [req.user.id]
+        );
+
         res.json({ 
             success: true, 
             message: 'Avatar updated!', 
             imageUrl: avatarUrl,
             profile_photo: avatarUrl,
-            profile_pic: avatarUrl 
+            profile_pic: avatarUrl,
+            user: rows[0]
         });
     } catch (err) {
         console.error('[User] avatar upload failed:', err.message);

@@ -109,7 +109,9 @@ const { uploadAvatar } = require('./middleware/uploadMiddleware');
 const uc = require('./controllers/userController');
 
 app.post('/api/upload-profile', authLimiter, requireAuth, uploadAvatar, uc.updateAvatar);
+app.post('/api/upload-avatar',  authLimiter, requireAuth, uploadAvatar, uc.updateAvatar); // Requested alias
 app.get('/api/user', requireAuth, uc.getCurrentUser);
+app.get('/api/user/:id', uc.getProfile); // Requested profile fetch
 app.get('/api/user/profile', requireAuth, (req,res) => { req.params.id = req.user.id; uc.getProfile(req,res); });
 
 
