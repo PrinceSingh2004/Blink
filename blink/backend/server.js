@@ -16,6 +16,15 @@ const fs      = require('fs');
 require('dotenv').config();
 
 const { PORT = 4000, FRONTEND_URL = "*" } = process.env;
+
+// 🧪 Database Connection Test (Railway MySQL)
+const db = require('./config/db');
+(async () => {
+    const test = await db.testConnection();
+    if (test.success) console.log(`[DB] 🚀 ${test.message} (Railway SSL Enabled)`);
+    else console.error(`[DB ERROR] ❌ Connection Failed: ${test.message}`);
+})();
+
 const app    = express();
 const server = http.createServer(app);
 const io     = socketIo(server, {
