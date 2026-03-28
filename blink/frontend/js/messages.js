@@ -20,29 +20,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     let socket = null;
     let currentRoomId = null;
 
+    const typingIndicator = document.getElementById('typingIndicator');
+    let typingTimer;
+
     // ── 2. SOCKET.IO SETUP ─────────────────────────────────────
     const setupSocket = () => {
-        // Assume io is available from CDN or pre-loaded in HTML
-        socket = io();
+        const socketUrl = window.BlinkConfig ? window.BlinkConfig.SOCKET_URL : window.location.origin;
+        socket = io(socketUrl, { reconnection: true, reconnectionAttempts: 10 });
 
-        socket.on('connect', () => console.log('[Chat] Socket connected!', socket.id));
-
-        // CRITICAL FIX: Receive message instantly and append to UI
         socket.on('receiveMessage', (data) => {
-            console.log('[Chat] New message received:', data);
-            
-            // Optional: Block duplicates
-            if (document.getElementById(`msg-${data.id}`)) return;
-
             appendMessage(data);
             autoScroll();
+            // Mark as seen immediately if active
+            if (currentRoomId === data.roomId) {
+                socket.emit('markSeen', { roomId: currentRoomId, userId: me.id });
+            }
         });
 
-        socket.on('connect_error', (err) => {
-            console.error('[Chat] Connection Error:', err.message);
-            showToast('Chat connection unstable...', 'error');
+        socket.on('userTyping', (data) => {
+            if (typingIndicator) {
+                typingIndicator.textContent = data.typing ? `${data.username} is typing...` : '';
+                typingIndicator.style.display = data.typing ? 'block' : 'none';
+            }
+        });
+
+        socket.on('msgSeen', (data) => {
+            // Update UI to show 'Seen' badge for last sent message
+            const lastSent = document.querySelectorAll('.msg-bubble.sent').pop();
+            if (lastSent && !lastSent.querySelector('.seen-status')) {
+                const seen = document.createElement('span');
+                seen.className = 'seen-status';
+                seen.innerHTML = '<i class="bi bi-check-all text-primary"></i> Seen';
+                lastSent.appendChild(seen);
+            }
         });
     };
+
+    // ── 3. TYPING LOGIC ─────────────────────────────────────────
+    input?.addEventListener('input', () => {
+        socket.emit('typing', { roomId: currentRoomId, username: me.username, isTyping: true });
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => {
+            socket.emit('typing', { roomId: currentRoomId, username: me.username, isTyping: false });
+        }, 2000);
+    });
 
     // ── 3. SEND MESSAGE ────────────────────────────────────────
     const sendMessage = () => {

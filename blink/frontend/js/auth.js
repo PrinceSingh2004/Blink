@@ -1,8 +1,6 @@
-/* auth.js – Robust shared auth utilities */
-window.Blink = window.Blink || {};
-
-// Automatically adopt the current host origin (e.g., https://blink-api.onrender.com)
-const API = window.location.origin + '/api';
+// ── Configuration ─────────────────────────────────────────────
+const BASE = window.BlinkConfig ? window.BlinkConfig.API_BASE : window.location.origin;
+const API  = `${BASE}/api`;
 const TOKEN = 'blink_token';
 const USER  = 'blink_user';
 
@@ -22,14 +20,14 @@ function logout() {
     localStorage.removeItem(TOKEN);
     localStorage.removeItem(USER);
     sessionStorage.clear();
-    window.location.href = '/pages/login.html';
+    window.location.href = '/login.html';
 }
 
 // ── Page Protection ───────────────────────────────────────────
 function requireAuth() {
     if (!isLoggedIn()) {
         console.warn('[Auth] Access denied. Redirecting to login...');
-        window.location.href = '/pages/login.html';
+        window.location.href = '/login.html';
         return false;
     }
     return true;
@@ -172,7 +170,7 @@ function displaySearchResults(users) {
     }
 
     container.innerHTML = users.map(user => `
-        <div class="search-item" onclick="window.location.href='/pages/profile.html?id=${user.id}'">
+        <div class="search-item" onclick="window.location.href='/profile.html?id=${user.id}'">
             <div class="search-avatar">
                 ${user.profile_photo ? `<img src="${user.profile_photo}">` : user.username[0].toUpperCase()}
             </div>
@@ -216,11 +214,11 @@ Object.assign(window.Blink, {
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
     
-    // Auto-protect pages starting with /pages/ or known protected paths
+    // Auto-protect pages starting with / or known protected paths
     const publicPages = ['login.html', 'register.html', 'forgot-password.html', 'contact.html'];
     const isPublic = publicPages.some(p => path.includes(p));
 
-    if (path.includes('/pages/') && !isPublic) {
+    if (path.includes('/') && !isPublic) {
         if (!requireAuth()) return;
     }
 
@@ -301,7 +299,7 @@ if (loginForm) {
             const data = await apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ identifier, password }) });
             if (data?.token) {
                 setAuth(data.token, data.user);
-                window.location.href = '/pages/index.html';
+                window.location.href = '/index.html';
             }
         } catch (err) {
             showToast(err.message, 'error');
@@ -339,7 +337,7 @@ if (registerForm) {
             });
             if (data?.token) {
                 setAuth(data.token, data.user);
-                window.location.href = '/pages/index.html';
+                window.location.href = '/index.html';
             }
         } catch (err) {
             showToast(err.message, 'error');
@@ -370,7 +368,7 @@ if (registerForm) {
     window.addEventListener('popstate', (e) => {
         if (!isHomePage) {
             // Not on Home -> Force redirect to Home seamlessly
-            window.location.replace('/pages/index.html');
+            window.location.replace('/index.html');
             return;
         }
 

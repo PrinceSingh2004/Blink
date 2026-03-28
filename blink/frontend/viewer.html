@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blink | Watch Live</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        .live-container { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        
+        /* Remote video must not be muted implicitly if user tapped, but mobile reqs gesture */
+        #remoteVideo { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        .overlay { position: absolute; z-index: 10; width: 100%; padding: 20px; box-sizing: border-box; display: flex; justify-content: space-between; top: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none; }
+        
+        /* Loading & Reconnect */
+        #loadingSpinner { position: absolute; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); inset: 0; }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #ff2d6e; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        #reconnectBtn { display: none; position: absolute; z-index: 60; background: #ff2d6e; color: white; padding: 12px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        
+        /* Play Overlay for autoplay policy */
+        #playOverlay { display: none; position: absolute; z-index: 60; background: rgba(0,0,0,0.8); inset: 0; align-items: center; justify-content: center; flex-direction: column; cursor: pointer; }
+        .play-btn { width: 80px; height: 80px; background: #ff2d6e; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 0 20px rgba(255,45,110,0.5); }
+        .play-btn:after { content: ''; width: 0; height: 0; border-top: 15px solid transparent; border-bottom: 15px solid transparent; border-left: 25px solid white; margin-left: 5px; }
+        
+        .stats { background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 20px; font-size: 14px; backdrop-filter: blur(5px); }
+        
+        /* Bottom Panel (Volume) */
+        .bottom-panel { position: absolute; z-index: 10; width: 100%; padding: 20px; box-sizing: border-box; display: flex; justify-content: flex-end; bottom: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); pointer-events: auto; }
+        input[type="range"] { accent-color: #ff2d6e; cursor: pointer; }
+        
+        /* Debug Panel */
+        #debugPanel { position: absolute; top: 70px; left: 20px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; font-size: 12px; font-family: monospace; z-index: 20; max-width: 300px; display: none; pointer-events: auto; }
+        .debug-row { margin-bottom: 5px; display: flex; justify-content: space-between; gap:20px; }
+        .debug-label { color: #888; }
+        .debug-value { color: #0f0; }
+    </style>
+</head>
+<body>
+
+<div class="live-container">
+    <video id="remoteVideo" autoplay playsinline></video>
+    
+    <div id="loadingSpinner">
+        <div class="spinner"></div>
+        <p style="margin-top:20px; font-weight:bold" id="loadingText">Connecting to stream...</p>
+    </div>
+    
+    <button id="reconnectBtn">Retry Connection</button>
+    
+    <!-- Required for mobile browsers that block un-muted autoplay -->
+    <div id="playOverlay">
+        <div class="play-btn"></div>
+        <p style="font-weight:bold; font-size:18px;">Tap to watch live</p>
+    </div>
+
+    <div class="overlay">
+        <div class="stats">
+            <span id="statusIndicator">Connecting...</span> | 👁️ <span id="viewerCount">0</span>
+        </div>
+        <button onclick="document.getElementById('debugPanel').style.display = document.getElementById('debugPanel').style.display === 'none' ? 'block' : 'none'" style="pointer-events:auto; background:transparent; border:1px solid #555; color:#888; border-radius:4px; font-size:11px;">Debug</button>
+    </div>
+    
+    <div id="debugPanel">
+        <div style="text-align:center; font-weight:bold; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:5px;">Viewer Diagnostics</div>
+        <div id="debugContent"></div>
+    </div>
+    
+    <div class="bottom-panel">
+        <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.6); padding:8px 15px; border-radius:20px; backdrop-filter:blur(5px);">
+            🔊 <input type="range" id="volumeControl" min="0" max="1" step="0.1" value="1">
+        </div>
+    </div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/stream.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        window.LiveStreaming.initViewer('test-room-123');
+    });
+</script>
+</body>
+</html>

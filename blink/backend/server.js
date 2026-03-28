@@ -1,7 +1,7 @@
 /**
- * server.js
+ * backend/server.js
  * ═══════════════════════════════════════════════════════════
- * Blink Backend – Real-Time Production Server
+ * Blink Production Gateway – Professional Architecture
  * ═══════════════════════════════════════════════════════════
  */
 
@@ -13,69 +13,47 @@ const helmet  = require('helmet');
 const compression = require('compression');
 const path    = require('path');
 const fs      = require('fs');
-
 require('dotenv').config();
-const { PORT = 4000 } = process.env;
 
+const { PORT = 4000, FRONTEND_URL = "*" } = process.env;
 const app    = express();
 const server = http.createServer(app);
 const io     = socketIo(server, {
-    cors: { origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] }
+    cors: { 
+        origin: FRONTEND_URL, 
+        methods: ["GET", "POST"] 
+    }
 });
 
-// ── Directories ──────────────────────────────────────────────
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-// ── Middleware ───────────────────────────────────────────────
+// Middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
-app.use(cors());
+app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static serving
+// Serve static: uploads are inside backend, frontend is sibling
+const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use('/uploads', express.static(uploadDir));
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(frontendPath));
 
-// ── Endpoints ───────────────────────────────────────────────
-const { requireAuth } = require('./middleware/authMiddleware');
-const uc = require('./controllers/userController');
-const { uploadAvatar } = require('./middleware/uploadMiddleware');
+// API
+app.use('/api/auth',      require('./routes/authRoutes'));
+app.use('/api/user',      require('./routes/userRoutes'));
+app.use('/api/videos',    require('./routes/videoRoutes'));
+app.use('/api/stories',   require('./routes/storyRoutes'));
+app.use('/api/live',      require('./routes/liveRoutes'));
+app.use('/api/followers', require('./routes/followRoutes'));
+app.use('/api/messages',  require('./routes/messageRoutes'));
 
-app.use('/api/auth', require('./routes/authRoutes'));
+// SPA Fallback
+app.get('*', (req, res) => res.sendFile(path.join(frontendPath, 'index.html')));
 
-// Profile Rebuild APIs
-app.get('/api/user/profile', requireAuth, (req, res) => { req.params.id = req.user.id; uc.getProfile(req, res); });
-app.put('/api/user/update-profile', requireAuth, uploadAvatar, uc.updateProfile);
-app.put('/api/user/change-password', requireAuth, uc.changePassword);
-app.delete('/api/user/delete', requireAuth, uc.deleteAccount);
-
-// ── Socket.IO Real-Time Chat ─────────────────────────────────
-io.on('connection', (socket) => {
-    console.log('[Socket] Connected:', socket.id);
-
-    socket.on('joinRoom', (roomId) => {
-        socket.join(roomId);
-        console.log(`[Socket] ${socket.id} joined room ${roomId}`);
-    });
-
-    socket.on('sendMessage', (data) => {
-        if (!data.message || !data.roomId) return;
-        const msg = {
-            id: Date.now(),
-            username: data.username,
-            message: data.message.trim(),
-            avatar: data.avatar,
-            timestamp: new Date()
-        };
-        io.to(data.roomId).emit('receiveMessage', msg);
-    });
-
-    socket.on('disconnect', () => console.log('[Socket] Disconnected:', socket.id));
+// Socket
+io.on('connection', (s) => {
+    s.on('joinRoom', (r) => s.join(r));
+    s.on('sendMessage', (d) => io.to(d.roomId).emit('receiveMessage', d));
+    s.on('typing', (d) => s.to(d.roomId).emit('userTyping', d));
 });
 
-// ── Start ────────────────────────────────────────────────────
-server.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+server.listen(PORT, () => console.log(`🚀 Blink Platform: http://localhost:${PORT}`));

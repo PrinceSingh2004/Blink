@@ -1,3 +1,91 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Blink</title>
-<script>window.location.replace('/pages/profile.html');</script>
-</head><body></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Blink | @username</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/profile.css">
+</head>
+<body class="theme-dark">
+
+    <div id="loader" class="loader-overlay">
+        <div class="loader-spinner"></div>
+    </div>
+
+    <!-- MAIN PROFILE -->
+    <main class="profile-container">
+        
+        <div class="profile-header">
+            <div class="profile-avatar-wrap" id="avatarWrap">
+                <img id="profileAvatar" src="" alt="Avatar" class="avatar-img hidden">
+                <div id="avatarInitial" class="avatar-initial">?</div>
+            </div>
+            
+            <div class="profile-main-info">
+                <h1 id="pUsername">@loading</h1>
+                <p id="pBio" class="bio-text">Loading bio...</p>
+                
+                <div class="profile-stats">
+                    <div class="stat"><span id="sVideos">0</span><label>Videos</label></div>
+                    <div class="stat"><span id="sFollowers">0</span><label>Followers</label></div>
+                    <div class="stat"><span id="sFollowing">0</span><label>Following</label></div>
+                </div>
+
+                <div class="profile-actions">
+                    <button id="editBtn" class="btn btn-primary">Edit Profile</button>
+                    <button id="passwordBtn" class="btn btn-secondary">Security</button>
+                    <button id="deleteBtn" class="btn btn-danger">Delete Account</button>
+                    <button id="logoutBtn" class="btn btn-outline">Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="errorArea" class="error-msg hidden">
+            <i class="bi bi-exclamation-circle"></i>
+            <h3>Failed to load profile</h3>
+            <button onclick="window.location.reload()" class="btn btn-secondary">Retry</button>
+        </div>
+    </main>
+
+    <!-- MODAL: EDIT PROFILE -->
+    <div id="editModal" class="modal-backdrop">
+        <div class="modal">
+            <h2>Edit Profile</h2>
+            <form id="editForm">
+                <div class="modal-upload">
+                    <img id="editPreview" src="" alt="Preview">
+                    <input type="file" id="avatarInput" accept="image/*">
+                </div>
+                <input type="text" id="editUsername" placeholder="Username" required minlength="3">
+                <textarea id="editBio" placeholder="Tell us about yourself..." rows="3"></textarea>
+                <div class="modal-btns">
+                    <button type="button" class="btn btn-outline" id="cancelEdit">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveEdit">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CHANGE PASSWORD -->
+    <div id="passwordModal" class="modal-backdrop">
+        <div class="modal">
+            <h2>Change Password</h2>
+            <form id="passwordForm">
+                <input type="password" id="oldPass" placeholder="Current Password" required>
+                <input type="password" id="newPass" placeholder="New Password (min 6 chars)" required minlength="6">
+                <div class="modal-btns">
+                    <button type="button" class="btn btn-outline" id="cancelPass">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOASTS -->
+    <div id="toastContainer"></div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/profile.js"></script>
+</body>
+</html>
