@@ -41,6 +41,13 @@ app.use(cors({ origin: FRONTEND_URL }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 📁 Storage Orchestration (Render Persistence preparation)
+const uploadDir = path.join(__dirname, 'uploads');
+['reels', 'stories', 'avatars', 'misc'].forEach(sub => {
+    const p = path.join(uploadDir, sub);
+    if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+});
+
 // Serve static: uploads are inside backend, frontend is sibling
 const frontendPath = path.join(__dirname, '..', 'frontend');
 app.use('/uploads', express.static(uploadDir));
@@ -54,6 +61,11 @@ app.use('/api/stories',   require('./routes/storyRoutes'));
 app.use('/api/live',      require('./routes/liveRoutes'));
 app.use('/api/followers', require('./routes/followRoutes'));
 app.use('/api/messages',  require('./routes/messageRoutes'));
+
+// 🛡️ Global Error Handling (Standardized Responses)
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+app.use(notFound);
+app.use(errorHandler);
 
 // SPA Fallback
 app.get('*', (req, res) => res.sendFile(path.join(frontendPath, 'index.html')));
