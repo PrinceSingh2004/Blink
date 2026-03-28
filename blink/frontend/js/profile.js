@@ -114,41 +114,71 @@ if (document.getElementById('profilePage')) {
 
     // Render user profile
     async function loadProfile() {
+        const usernameEl = document.getElementById('profileUsername');
+        const handleEl   = document.getElementById('profileHandle');
+        const bioEl     = document.getElementById('profileBio');
+        const followersEl = document.getElementById('statFollowers');
+        const followingEl = document.getElementById('statFollowing');
+        const videoCountEl = document.getElementById('videoCount');
+
         try {
-            const data = await apiRequest(`/users/${targetId}`);
-            const u    = data.user;
+            // Set a timeout for the fetch
+            const fetchPromise = apiRequest(`/users/${targetId}`);
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Profile connection timed out')), 15000)
+            );
+
+            const data = await Promise.race([fetchPromise, timeoutPromise]);
+            
+            if (!data || !data.user) {
+                throw new Error('Profile data not found');
+            }
+
+            const u = data.user;
+            
+            // Production-ready data mapping
             document.title = `Blink | @${u.username}`;
-            document.getElementById('profileUsername').textContent = u.username;
-            document.getElementById('profileHandle').textContent   = '@' + u.username;
-            document.getElementById('profileBio').textContent      = u.bio || 'No bio yet.';
-            document.getElementById('statFollowers').textContent   = fmt(u.followers_count);
-            document.getElementById('statFollowing').textContent   = fmt(u.following_count);
+            if (usernameEl) usernameEl.textContent = u.username;
+            if (handleEl)   handleEl.textContent   = '@' + u.username;
+            if (bioEl)      bioEl.textContent      = u.bio || 'No bio yet.';
+            if (followersEl) followersEl.textContent = fmt(u.followers_count || 0);
+            if (followingEl) followingEl.textContent = fmt(u.following_count || 0);
+            if (videoCountEl) videoCountEl.textContent = fmt(data.videos_count || u.videos_count || 0);
 
-
+            // Handle online status
             const statusEl = document.getElementById('profileOnlineStatus');
             if (statusEl) {
                 statusEl.setAttribute('data-online-user-id', u.id);
                 if (window.Blink.socket) {
                     window.Blink.socket.emit('check_status', u.id);
-                } else {
-                    setTimeout(() => window.Blink.socket?.emit('check_status', u.id), 1000);
                 }
             }
 
+            // Handle avatars
             const avatarEl = document.getElementById('profilePhoto');
             const initialEl = document.getElementById('profileAvatarInitial');
             
-            // Use profile_pic or profile_photo — server now returns both via COALESCE
-            const photoUrl = u.profile_pic || u.profile_photo;
+            // Use avatar_url (new alias) or fallback to photo/pic
+            const photoUrl = u.avatar_url || u.profile_pic || u.profile_photo;
             
             if (photoUrl) {
                 avatarEl.src = bustCache(photoUrl);
-                avatarEl.style.display = 'block';
-                if (initialEl) initialEl.style.display = 'none';
+                avatarEl.onload = () => {
+                    avatarEl.style.display = 'block';
+                    if (initialEl) initialEl.style.display = 'none';
+                };
+                avatarEl.onerror = () => {
+                    // Fallback to initial if image fails to load
+                    avatarEl.style.display = 'none';
+                    if (initialEl) {
+                        initialEl.style.display = 'flex';
+                        initialEl.textContent = (u.username || 'U')[0].toUpperCase();
+                    }
+                };
             } else {
                 avatarEl.style.display = 'none';
                 if (initialEl) {
-                    initialEl.style.display = 'block';
+                    initialEl.style.display = 'flex';
                     initialEl.textContent = (u.username || 'U')[0].toUpperCase();
                 }
             }
@@ -162,129 +192,106 @@ if (document.getElementById('profilePage')) {
                     wrap.style.cursor = 'pointer';
                     wrap.title = 'Click to change profile photo';
                     
-                    // Instagram-like click to change
-                    wrap.addEventListener('click', (e) => {
-                        // Don't trigger if clicking the loading overlay
+                    wrap.onclick = (e) => {
                         if (e.target.closest('#avatarLoadingOverlay')) return;
                         fileInput.click();
-                    });
+                    };
 
-                    // ═══════════════════════════════════════════════════
-                    // MOBILE FIX: DO NOT use capture="environment"
-                    // capture forces camera-only mode — user can't pick
-                    // existing photos from gallery. accept="image/*" alone
-                    // lets the user choose camera OR gallery on all devices.
-                    // ═══════════════════════════════════════════════════
-                    fileInput.removeAttribute('capture');
                     fileInput.setAttribute('accept', 'image/*');
-
-                    fileInput.addEventListener('change', async function() {
+                    fileInput.onchange = async function() {
                         const file = this.files[0];
                         if (!file) return;
 
-                        // ── Client-side validation ───────────────────
                         const validation = validateImageFile(file);
                         if (!validation.valid) {
                             showToast(validation.error, 'error');
-                            this.value = ''; // Reset file input
+                            this.value = '';
                             return;
                         }
 
-                        // ── Build FormData ────────────────────────────
-                        // CRITICAL: field name MUST be 'avatar' — matches multer .single('avatar')
                         const formData = new FormData();
                         formData.append('avatar', file);
 
-                        // ── Show loading state ───────────────────────
                         showAvatarLoading();
-                        showToast('Uploading profile photo...', 'info');
-
-                        // ── Upload with timeout ──────────────────────
-                        const controller = new AbortController();
-                        const timeout = setTimeout(() => {
-                            controller.abort();
-                            showToast('Upload timed out. Please try again.', 'error');
-                        }, 30000); // 30 second timeout
-
-                        // Show "still uploading" message after 10s
-                        const slowTimer = setTimeout(() => {
-                            showToast('Still uploading... please wait', 'info');
-                        }, 10000);
+                        showToast('Updating profile photo...', 'info');
 
                         try {
                             const res = await fetch('/api/upload-avatar', {
                                 method: 'POST',
                                 headers: { 'Authorization': 'Bearer ' + getToken() },
-                                body: formData,
-                                signal: controller.signal,
+                                body: formData
                             });
 
-                            clearTimeout(timeout);
-                            clearTimeout(slowTimer);
+                            const uploadData = await res.json();
+                            if (!res.ok) throw new Error(uploadData.error || 'Upload failed');
 
-                            const data = await res.json();
-
-                            if (!res.ok) {
-                                throw new Error(data.error || `Upload failed (${res.status})`);
-                            }
-
-                            if (data.success) {
-                                // Get the new URL from the response
-                                const newUrl = data.imageUrl || data.profile_pic || data.profile_photo || data.url;
-                                
-                                // Update avatar image immediately
+                            if (uploadData.success) {
+                                const newUrl = uploadData.imageUrl || uploadData.avatar_url || uploadData.url;
                                 setAvatarSrc(newUrl);
-                                
-                                // Hide initial letter if showing
                                 if (initialEl) initialEl.style.display = 'none';
                                 
-                                // Sync localStorage
+                                // Update localStorage user
                                 const userToken = getUser();
                                 if (userToken) {
                                     userToken.profile_pic = newUrl;
                                     userToken.profile_photo = newUrl;
+                                    userToken.avatar_url = newUrl;
                                     localStorage.setItem('blink_user', JSON.stringify(userToken));
                                 }
                                 
                                 showToast('Profile photo updated! ✨', 'success');
                                 populateSidebar();
                             } else {
-                                throw new Error(data.error || 'Upload failed');
+                                throw new Error(uploadData.error || 'Upload failed');
                             }
                         } catch (err) {
-                            clearTimeout(timeout);
-                            clearTimeout(slowTimer);
-
-                            if (err.name === 'AbortError') {
-                                showToast('Upload timed out. Check your connection.', 'error');
-                            } else {
-                                showToast(err.message, 'error');
-                            }
-                            console.error('[Profile] Avatar upload error:', err);
+                            showToast(err.message, 'error');
+                            console.error('[Profile] Upload error:', err);
                         } finally {
                             hideAvatarLoading();
-                            this.value = ''; // Reset file input for re-upload
+                            this.value = '';
                         }
-                    });
+                    };
                 }
                 document.getElementById('editProfileBtn')?.classList.remove('hidden');
                 document.getElementById('goLiveProfileBtn')?.classList.remove('hidden');
                 document.getElementById('rowLogoutBtn')?.classList.remove('hidden');
             } else {
-                document.getElementById('followBtn')?.classList.remove('hidden');
-                // Check follow status if logged in
-                if (me) {
-                    const s = await apiRequest(`/follow/status/${targetId}`);
-                    isFollowing = s.following;
-                    updateFollowBtn();
+                const followBtn = document.getElementById('followBtn');
+                if (followBtn) {
+                    followBtn.classList.remove('hidden');
+                    // Check follow status if logged in
+                    if (me) {
+                        try {
+                            const s = await apiRequest(`/follow/status/${targetId}`);
+                            isFollowing = s.following;
+                            updateFollowBtn();
+                        } catch (e) { console.warn('Follow status check failed', e); }
+                    }
                 }
             }
 
             // Load videos
             await loadVideos();
+
         } catch (err) { 
-            console.error('[Profile] loadProfile:', err.message);
-            showToast('Failed to load profile', 'error'); 
+            console.error('[Profile] loadProfile Critical Error:', err);
+            showToast('Failed to load profile. Please refresh.', 'error'); 
+            
+            // Fallback UI for fatal error
+            if (usernameEl) usernameEl.textContent = 'User Not Found';
+            if (handleEl) handleEl.textContent = '@error';
+            if (bioEl) bioEl.textContent = 'We couldn\'t load this profile. It may have been deleted or there is a connection issue.';
+            
+            const videoGrid = document.getElementById('videoGrid');
+            if (videoGrid) videoGrid.innerHTML = `
+                <div style="grid-column:1/-1; padding:60px 20px; text-align:center;">
+                    <div style="font-size:48px; color:var(--text-secondary); margin-bottom:16px;"><i class="bi bi-cloud-slash"></i></div>
+                    <h3>Connection Error</h3>
+                    <p style="color:var(--text-secondary); margin-bottom:20px;">We're having trouble reaching the server.</p>
+                    <button class="btn btn-primary" onclick="window.location.reload()">Retry Now</button>
+                </div>
+            `;
         }
     }
 
@@ -315,8 +322,143 @@ if (document.getElementById('profilePage')) {
         } catch (err) { showToast(err.message, 'error'); }
     });
 
-    document.getElementById('editProfileBtn')?.addEventListener('click', () => {
-        window.location.href = '/pages/edit-profile.html';
+    // ─── EDIT PROFILE MODAL LOGIC ────────────────────────────────
+    const editModal = document.getElementById('editProfileModal');
+    const openEditBtn = document.getElementById('editProfileBtn');
+    const closeEditBtn = document.getElementById('closeEditModal');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const editForm = document.getElementById('editProfileForm');
+    const editPhotoInput = document.getElementById('editPhotoInput');
+    const changePhotoBtn = document.getElementById('changePhotoBtn');
+
+    const openModal = () => {
+        const u = getUser(); // Fresh data for modal
+        if (!u) return;
+
+        // Pre-fill fields
+        document.getElementById('editUsernameInput').value = u.username;
+        document.getElementById('editBioInput').value = u.bio || '';
+        document.getElementById('editPhotoUsername').textContent = '@' + u.username;
+        
+        const preview = document.getElementById('editPhotoPreview');
+        const initial = document.getElementById('editPhotoInitial');
+        const photo = u.avatar_url || u.profile_pic || u.profile_photo;
+
+        if (photo) {
+            preview.src = bustCache(photo);
+            preview.style.display = 'block';
+            initial.style.display = 'none';
+        } else {
+            preview.style.display = 'none';
+            initial.style.display = 'flex';
+            initial.textContent = (u.username || 'U')[0].toUpperCase();
+        }
+
+        editModal.classList.add('open');
+    };
+
+    const closeModal = () => {
+        editModal.classList.remove('open');
+        editForm.reset();
+        document.getElementById('editPhotoInput').value = '';
+    };
+
+    openEditBtn?.addEventListener('click', openModal);
+    closeEditBtn?.addEventListener('click', closeModal);
+    cancelEditBtn?.addEventListener('click', closeModal);
+    editModal?.addEventListener('click', (e) => { if (e.target === editModal) closeModal(); });
+
+    // Live Preview
+    changePhotoBtn?.addEventListener('click', () => editPhotoInput.click());
+    editPhotoInput?.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+            const validation = validateImageFile(file);
+            if (!validation.valid) {
+                 showToast(validation.error, 'error');
+                 this.value = '';
+                 return;
+            }
+            const reader = new FileReader();
+            reader.onload = e => {
+                const preview = document.getElementById('editPhotoPreview');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                document.getElementById('editPhotoInitial').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Bio Char Count
+    document.getElementById('editBioInput')?.addEventListener('input', function() {
+        document.getElementById('bioCharCount').textContent = this.value.length;
+    });
+
+    // Form Submission
+    editForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const saveBtn = document.getElementById('saveProfileBtn');
+        const saveTxt = document.getElementById('saveBtnText');
+        const spinner = document.getElementById('saveBtnSpinner');
+
+        // UI Feedback
+        saveBtn.disabled = true;
+        saveTxt.textContent = 'Saving...';
+        spinner.classList.remove('hidden');
+
+        try {
+            const formData = new FormData();
+            formData.append('username', document.getElementById('editUsernameInput').value.trim());
+            formData.append('bio', document.getElementById('editBioInput').value.trim());
+            
+            if (editPhotoInput.files[0]) {
+                formData.append('avatar', editPhotoInput.files[0]);
+            }
+
+            const res = await fetch('/api/user/update-profile', {
+                method: 'PUT',
+                headers: { 'Authorization': 'Bearer ' + getToken() },
+                body: formData
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to update profile');
+
+            if (data.success) {
+                // Update Local Storage
+                const u = data.user;
+                localStorage.setItem('blink_user', JSON.stringify(u));
+                
+                // Update UI instantly
+                document.getElementById('profileUsername').textContent = u.username;
+                document.getElementById('profileHandle').textContent = '@' + u.username;
+                document.getElementById('profileBio').textContent = u.bio || 'No bio yet.';
+                
+                // Update Avatars everywhere
+                const photo = u.avatar_url || u.profile_photo;
+                if (photo) {
+                    const profilePhoto = document.getElementById('profilePhoto');
+                    const profileInitial = document.getElementById('profileAvatarInitial');
+                    if (profilePhoto) {
+                        profilePhoto.src = bustCache(photo);
+                        profilePhoto.style.display = 'block';
+                        if (profileInitial) profileInitial.style.display = 'none';
+                    }
+                }
+
+                showToast('Profile updated! ✨', 'success');
+                populateSidebar(); // Sync sidebar avatar
+                closeModal();
+            }
+        } catch (err) {
+            showToast(err.message, 'error');
+            console.error('[EditProfile] Submit Error:', err);
+        } finally {
+            saveBtn.disabled = false;
+            saveTxt.textContent = 'Save Changes';
+            spinner.classList.add('hidden');
+        }
     });
 
     // ─── MOBILE LOGOUT BTN & MODAL ────────────────────────────────

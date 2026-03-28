@@ -82,21 +82,42 @@ exports.getCurrentUser = async (req, res) => {
 // ─── GET PUBLIC PROFILE ──────────────────────────────────────
 exports.getProfile = async (req, res) => {
     try {
+        const userId = req.params.id;
+        if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+        // Optimized JOIN query to fetch user data + video count + avoid extra round-trips
         const [rows] = await db.query(
-            `SELECT id, username, email, 
-                    COALESCE(profile_pic, profile_photo) AS profile_pic,
-                    COALESCE(profile_pic, profile_photo) AS profile_photo,
-                    bio, followers_count, following_count, total_likes, 
-                    is_live, created_at
-             FROM users WHERE id = ?`,
-            [req.params.id]
+            `SELECT u.id, u.username, u.email, u.bio, 
+                    COALESCE(u.profile_pic, u.profile_photo, u.avatar_url) AS avatar_url,
+                    COALESCE(u.profile_pic, u.profile_photo) AS profile_photo,
+                    COALESCE(u.profile_pic, u.profile_photo) AS profile_pic,
+                    u.followers_count, u.following_count, u.total_likes, 
+                    u.is_live, u.created_at,
+                    (SELECT COUNT(*) FROM videos WHERE user_id = u.id) AS videos_count
+             FROM users u
+             WHERE u.id = ?`,
+            [userId]
         );
 
         if (!rows.length) return res.status(404).json({ error: 'User not found' });
 
-        res.json({ user: rows[0] });
+        const userData = rows[0];
+        
+        // Ensure production-ready structure
+        const response = {
+            success: true,
+            user: userData,
+            // Mirroring fields for convenience if frontend looks for flat object
+            username: userData.username,
+            avatar_url: userData.avatar_url,
+            videos_count: userData.videos_count,
+            followers_count: userData.followers_count,
+            following_count: userData.following_count
+        };
+
+        res.json(response);
     } catch (err) {
-        console.error('[User] getProfile:', err.message);
+        console.error('[User] getProfile Error:', err.message);
         res.status(500).json({ error: 'Server error' });
     }
 };
@@ -119,80 +140,81 @@ exports.searchUsers = async (req, res) => {
     }
 };
 
-// ─── UPDATE PROFILE (username, bio only — no file) ───────────
+// ─── UPDATE PROFILE (Unified: username, bio, avatar) ──────────
+/**
+ * PUT /api/user/update-profile
+ * 
+ * Handles multi-part/form-data with:
+ * - username (text)
+ * - bio (text)
+ * - avatar (file - optional)
+ */
 exports.updateProfile = async (req, res) => {
     try {
+        const userId = req.user.id;
         const { username, bio } = req.body;
-        let imageUrl = null;
-
-        // If a file was uploaded through this route, process it
-        if (req.file && req.file.buffer) {
-            try {
-                const result = await processAndUploadAvatar(req.file.buffer, req.user.id);
-                imageUrl = result.secure_url;
-
-                // Delete old avatar from Cloudinary
-                const [current] = await db.query(
-                    'SELECT avatar_public_id FROM users WHERE id = ?',
-                    [req.user.id]
-                );
-                if (current[0]?.avatar_public_id) {
-                    await deleteFromCloudinary(current[0].avatar_public_id);
-                }
-
-                // Save new avatar URL + public_id
-                await db.query(
-                    'UPDATE users SET profile_photo = ?, profile_pic = ?, avatar_public_id = ? WHERE id = ?',
-                    [imageUrl, imageUrl, result.public_id, req.user.id]
-                );
-            } catch (uploadErr) {
-                console.error('[User] Avatar upload in updateProfile failed:', uploadErr.message);
-                // Don't fail the entire update — just skip the avatar part
-            }
-        }
+        let avatarUrl = null;
 
         const updates = [];
         const params  = [];
 
+        // 1. Process Avatar if provided
+        if (req.file) {
+            try {
+                const result = await processAndUploadAvatar(req.file.buffer, userId);
+                avatarUrl = result.secure_url;
+                
+                // Track columns to update
+                updates.push('avatar_url = ?', 'profile_photo = ?', 'profile_pic = ?', 'avatar_public_id = ?');
+                params.push(avatarUrl, avatarUrl, avatarUrl, result.public_id);
+
+                // Delete old one in background
+                const [current] = await db.query('SELECT avatar_public_id FROM users WHERE id = ?', [userId]);
+                if (current[0]?.avatar_public_id) {
+                    deleteFromCloudinary(current[0].avatar_public_id); // No await, don't block
+                }
+            } catch (err) {
+                console.error('[User] Avatar process failed:', err.message);
+                // Non-fatal, continue with text updates
+            }
+        }
+
+        // 2. Validate & Update Username
         if (username) {
-            const cleanName = username.trim().toLowerCase();
-            if (cleanName.length < 3 || cleanName.length > 30)
+            const cleanUser = username.trim().toLowerCase();
+            if (cleanUser.length < 3 || cleanUser.length > 30) {
                 return res.status(400).json({ error: 'Username must be 3–30 characters' });
+            }
             
             // Check uniqueness
-            const [dup] = await db.query(
-                'SELECT id FROM users WHERE username = ? AND id != ?',
-                [cleanName, req.user.id]
-            );
+            const [dup] = await db.query('SELECT id FROM users WHERE username = ? AND id != ?', [cleanUser, userId]);
             if (dup.length) return res.status(409).json({ error: 'Username already taken' });
             
             updates.push('username = ?');
-            params.push(cleanName);
+            params.push(cleanUser);
         }
 
+        // 3. Update Bio
         if (bio !== undefined) {
             updates.push('bio = ?');
-            params.push(bio);
+            params.push(bio.trim());
         }
 
-        if (req.body.profile_pic === '') {
-            // Explicitly requested removal
-            updates.push('profile_photo = NULL', 'profile_pic = NULL');
-        }
-
+        // 4. Execute DB Update
         if (updates.length) {
-            params.push(req.user.id);
+            params.push(userId);
             await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
         }
 
-        // Fetch updated user to return
+        // 5. Fetch and Return Updated User
         const [rows] = await db.query(
-            `SELECT id, username, email, 
-                    COALESCE(profile_pic, profile_photo) AS profile_pic,
-                    COALESCE(profile_pic, profile_photo) AS profile_photo,
-                    bio, followers_count, following_count, total_likes
-             FROM users WHERE id = ?`,
-            [req.user.id]
+            `SELECT u.id, u.username, u.email, u.bio, 
+                    COALESCE(u.profile_pic, u.profile_photo, u.avatar_url) AS avatar_url,
+                    COALESCE(u.profile_pic, u.profile_photo) AS profile_photo,
+                    u.followers_count, u.following_count, 
+                    (SELECT COUNT(*) FROM videos WHERE user_id = u.id) AS videos_count
+             FROM users u WHERE u.id = ?`,
+            [userId]
         );
 
         res.json({
@@ -290,14 +312,15 @@ exports.updateAvatar = async (req, res) => {
         }
 
         // ── Step 5: Save to database ─────────────────────────────
-        // Update BOTH columns for backward compatibility
+        // Update ALL variants for full backward/forward compatibility
         const [updateResult] = await db.query(
             `UPDATE users SET 
+                avatar_url = ?,
                 profile_photo = ?, 
                 profile_pic = ?, 
                 avatar_public_id = ?
              WHERE id = ?`,
-            [avatarUrl, avatarUrl, publicId, req.user.id]
+            [avatarUrl, avatarUrl, avatarUrl, publicId, req.user.id]
         );
 
         if (updateResult.affectedRows === 0) {

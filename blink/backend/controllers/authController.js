@@ -89,15 +89,25 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
     try {
         const [rows] = await db.query(
-            `SELECT id, username, email, 
-                    COALESCE(profile_pic, profile_photo) AS profile_pic,
-                    COALESCE(profile_pic, profile_photo) AS profile_photo,
-                    bio, followers_count, following_count, total_likes, created_at 
-             FROM users WHERE id = ?`,
+            `SELECT u.id, u.username, u.email, 
+                    COALESCE(u.profile_pic, u.profile_photo, u.avatar_url) AS avatar_url,
+                    COALESCE(u.profile_pic, u.profile_photo) AS profile_photo,
+                    COALESCE(u.profile_pic, u.profile_photo) AS profile_pic,
+                    u.bio, u.followers_count, u.following_count, u.total_likes, u.created_at,
+                    (SELECT COUNT(*) FROM videos WHERE user_id = u.id) AS videos_count
+             FROM users u WHERE u.id = ?`,
             [req.user.id]
         );
         if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
-        res.json({ user: rows[0] });
+        
+        const userData = rows[0];
+        res.json({ 
+            success: true,
+            user: userData,
+            // Consistency aliases
+            avatar_url: userData.avatar_url,
+            videos_count: userData.videos_count
+        });
     } catch (err) {
         console.error('[Auth] getMe:', err.message);
         res.status(500).json({ error: 'Server error' });

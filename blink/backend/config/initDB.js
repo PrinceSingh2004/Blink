@@ -95,6 +95,7 @@ async function initDatabase() {
             password_hash   VARCHAR(255) NOT NULL,
             profile_photo   VARCHAR(500) DEFAULT NULL,
             profile_pic     VARCHAR(500) DEFAULT NULL,
+            avatar_url      VARCHAR(500) DEFAULT NULL,
             avatar_public_id VARCHAR(255) DEFAULT NULL,
             bio             TEXT         DEFAULT NULL,
             followers_count INT          DEFAULT 0,
@@ -106,6 +107,8 @@ async function initDatabase() {
             INDEX idx_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
+    await addCol('users', 'avatar_url', 'VARCHAR(500) DEFAULT NULL');
 
     await addCol('users', 'otp', 'VARCHAR(10) DEFAULT NULL');
     await addCol('users', 'otp_expiry', 'BIGINT DEFAULT NULL');

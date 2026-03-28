@@ -113,6 +113,7 @@ app.post('/api/upload-avatar',  authLimiter, requireAuth, uploadAvatar, uc.updat
 app.get('/api/user', requireAuth, uc.getCurrentUser);
 app.get('/api/user/:id', uc.getProfile); // Requested profile fetch
 app.get('/api/user/profile', requireAuth, (req,res) => { req.params.id = req.user.id; uc.getProfile(req,res); });
+app.put('/api/user/update-profile', requireAuth, uploadAvatar, uc.updateProfile);
 
 
 // ── Static Files ──────────────────────────────────────────────

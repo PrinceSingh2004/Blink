@@ -176,6 +176,53 @@
             <button class="btn btn-danger hidden" id="rowLogoutBtn"><i class="bi bi-box-arrow-right icon-inline"></i>Logout</button>
         </div>
 
+        <!-- EDIT PROFILE MODAL (Instagram Style) -->
+        <div class="modal-backdrop" id="editProfileModal">
+          <div class="modal edit-modal">
+            <div class="modal-header">
+              <h2 class="modal-title">Edit Profile</h2>
+              <button class="btn-close" id="closeEditModal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="modal-body">
+              <form id="editProfileForm">
+                <!-- Photo Edit Section -->
+                <div class="edit-photo-section">
+                  <div class="edit-avatar-preview">
+                    <img id="editPhotoPreview" src="" alt="">
+                    <div id="editPhotoInitial">?</div>
+                  </div>
+                  <div class="edit-photo-info">
+                    <h4 id="editPhotoUsername">@username</h4>
+                    <button type="button" class="btn-text-primary" id="changePhotoBtn">Change Profile Photo</button>
+                    <input type="file" id="editPhotoInput" accept="image/*" style="display:none">
+                  </div>
+                </div>
+
+                <!-- Fields -->
+                <div class="form-group">
+                  <label for="editUsernameInput">Username</label>
+                  <input type="text" id="editUsernameInput" class="form-input" placeholder="Enter username" required minlength="3">
+                  <p class="form-tip">Usernames must be unique and between 3-30 characters.</p>
+                </div>
+
+                <div class="form-group">
+                  <label for="editBioInput">Bio</label>
+                  <textarea id="editBioInput" class="form-input" rows="3" placeholder="Tell us more about yourself..."></textarea>
+                  <p class="form-tip"><span id="bioCharCount">0</span>/150</p>
+                </div>
+
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
+                  <button type="submit" class="btn btn-primary" id="saveProfileBtn">
+                    <span id="saveBtnText">Save Changes</span>
+                    <div id="saveBtnSpinner" class="spinner-small hidden"></div>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- Tabs -->
