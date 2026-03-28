@@ -1,260 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<script>if(!localStorage.getItem('blink_token')) window.location.href='/login.html';</script>
-<title>Blink | Profile</title>
-<link rel="icon" type="image/png" href="../favicon.png">
-<meta name="description" content="User profile on Blink.">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-<link rel="stylesheet" href="../css/style.css">
-<link rel="stylesheet" href="../css/profile.css">
-<style>
-  /* Mobile Logout Button (Top Right) */
-  .mobile-logout-btn {
-    position: absolute;
-    top: max(16px, env(safe-area-inset-top, 16px));
-    right: max(16px, env(safe-area-inset-right, 16px));
-    height: 44px; /* Touch-friendly minimal requirement */
-    padding: 0 16px;
-    background: rgba(255, 77, 77, 0.15); /* Light red transparent */
-    color: #ff4d4d; /* Brand red */
-    border: 1px solid rgba(255, 77, 77, 0.4);
-    border-radius: 22px;
-    font-weight: 700;
-    font-size: 14px;
-    display: none; /* Desktop hides it, mobile shows */
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 50;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    backdrop-filter: blur(8px);
-    transition: all 0.2s ease;
-  }
-  .mobile-logout-btn:active {
-    transform: scale(0.95);
-    background: rgba(255, 77, 77, 0.25);
-  }
-  @media (max-width: 960px) {
-    .mobile-logout-btn { display: flex; }
-  }
-
-  /* 6. FIX MOBILE UI (GRID) */
-  .video-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
-  }
-  @media (max-width: 768px) {
-    .video-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-  .video-card video {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Blink | @username</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../css/profile.css">
 </head>
-<body>
-<div class="app-layout" id="profilePage">
+<body class="theme-dark">
 
-  <!-- SIDEBAR -->
-  <nav class="sidebar" role="navigation">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-      <a href="index.html" class="logo-container" style="margin-bottom: 0;">
-        <div class="logo-icon">B</div><span class="logo-text">Blink</span>
-      </a>
-      <button id="themeToggle" title="Toggle Theme">🌙</button>
+    <div id="loader" class="loader-overlay">
+        <div class="loader-spinner"></div>
     </div>
-    <div class="sidebar-search">
-      <i class="bi bi-search input-icon"></i>
-      <input type="search" class="form-input" id="globalSearchInput" placeholder="Search creators..." aria-label="Search creators">
-    </div>
-    <ul class="nav-links">
-      <li class="nav-item"><a href="index.html"><i class="bi bi-house-fill nav-icon"></i><span class="nav-text">Home</span></a></li>
-      <li class="nav-item"><a href="upload.html"><i class="bi bi-upload nav-icon"></i><span class="nav-text">Upload</span></a></li>
-      <li class="nav-item"><a href="messages.html"><i class="bi bi-chat-dots-fill nav-icon"></i><span class="nav-text">Messages</span></a></li>
-      <li class="nav-item"><a href="live.html"><i class="bi bi-broadcast nav-icon"></i><span class="nav-text">Live</span></a></li>
-      <li class="nav-item"><a href="contact.html"><i class="bi bi-chat-left-dots-fill nav-icon"></i><span class="nav-text">Contact</span></a></li>
-      <li class="nav-item"><a href="profile.html" class="active"><i class="bi bi-person-circle nav-icon"></i><span class="nav-text">Profile</span></a></li>
-    </ul>
-    <div class="sidebar-user" onclick="window.location.href='profile.html'">
-      <div class="sidebar-avatar" id="sidebarAvatar"></div>
-      <div class="sidebar-info">
-        <div class="sidebar-name" id="sidebarName">Loading...</div>
-        <div class="sidebar-handle" id="sidebarHandle"></div>
-      </div>
-      <button class="sidebar-logout" id="logoutBtn" title="Sign Out"><i class="bi bi-box-arrow-right"></i></button>
-    </div>
-  </nav>
 
-  <!-- PROFILE CONTENT -->
-  <main class="main-content page-scrollable">
-    <div class="profile-content">
-
-      <!-- Cover -->
-      <div class="profile-cover" style="position: relative;">
-        <div class="profile-cover-gradient"></div>
-        <div class="profile-cover-overlay"></div>
+    <!-- MAIN PROFILE -->
+    <main class="profile-container">
         
-        <!-- Mobile Logout Button (Top Right) -->
-        <button class="mobile-logout-btn hidden" id="mobileLogoutBtn" title="Logout">
-          <i class="bi bi-box-arrow-right icon-inline"></i>
-        </button>
-      </div>
-
-      <!-- Custom Logout Confirmation Modal -->
-      <div class="modal-backdrop" id="logoutConfirmModal" role="dialog" aria-modal="true" aria-label="Confirm Logout">
-        <div class="modal" style="max-width:340px; border-radius:24px; padding:24px; text-align:center;">
-          <div style="font-size:48px; color:#ff4d4d; margin-bottom:12px;"><i class="bi bi-exclamation-circle"></i></div>
-          <h2 class="modal-title" style="margin-bottom:8px; font-size:20px; font-weight:800;">Log Out</h2>
-          <p style="color:var(--text-secondary); font-size:15px; margin-bottom:28px;">Are you sure you want to logout?</p>
-          <div style="display:flex; flex-direction:column; gap:12px;">
-            <button class="btn btn-primary" id="confirmLogoutBtn" style="background:#ff4d4d; border:none; height:48px; border-radius:14px; font-size:16px; font-weight:700; width:100%;">Yes, Logout</button>
-            <button class="btn btn-secondary" id="cancelLogoutBtn" style="height:48px; border-radius:14px; font-size:16px; font-weight:600; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); width:100%;">Cancel</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Body -->
-      <div class="profile-body">
-        <!-- 1. Profile Header (Avatar Left, Info Right) -->
-        <div class="profile-main-header">
-          <div class="profile-avatar-wrap" id="profileAvatarWrap" role="button" aria-label="Change profile photo" tabindex="0">
-            <div class="profile-avatar-inner" id="profileImageClick">
-              <input type="file" id="fileInput" accept="image/*" style="display:none" aria-label="Upload profile photo" />
-              <img id="profilePhoto" src="" alt="Profile photo" style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-              <span id="profileAvatarInitial">?</span>
-              <!-- Camera icon overlay (visible on hover for own profile) -->
-              <div class="avatar-camera-overlay" id="avatarCameraOverlay">
-                <i class="bi bi-camera-fill"></i>
-              </div>
+        <div class="profile-header">
+            <div class="profile-avatar-wrap" id="avatarWrap">
+                <img id="profileAvatar" src="" alt="Avatar" class="avatar-img hidden">
+                <div id="avatarInitial" class="avatar-initial">?</div>
             </div>
-            <!-- Loading spinner overlay -->
-            <div class="avatar-loading-overlay" id="avatarLoadingOverlay">
-              <div class="avatar-spinner"></div>
-              <span class="avatar-loading-text">Uploading...</span>
-            </div>
-            <div class="profile-verified-badge"><i class="bi bi-patch-check-fill"></i></div>
-          </div>
-
-          <div class="profile-user-info">
-            <h1 class="profile-name">
-              <span id="profileUsername">Loading...</span>
-              <span id="profileOnlineStatus" class="status-text"></span>
-            </h1>
-            <div class="profile-handle" id="profileHandle"></div>
-            <p class="profile-bio" id="profileBio"></p>
-          </div>
-        </div>
-
-        <!-- 2. Stats Section (Videos | Followers | Following) -->
-        <div class="profile-stats">
-          <div class="stat-item">
-            <div class="stat-val" id="videoCount">0</div>
-            <div class="stat-lbl">Videos</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-val" id="statFollowers">0</div>
-            <div class="stat-lbl">Followers</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-val" id="statFollowing">0</div>
-            <div class="stat-lbl">Following</div>
-          </div>
-        </div>
-
-        <!-- 3. Action Buttons Section ([Edit] [Go Live] [Share]) -->
-        <div class="profile-actions-row">
-            <button class="btn btn-primary hidden" id="editProfileBtn"><i class="bi bi-pencil-square icon-inline"></i>Edit Profile</button>
-            <button class="btn btn-secondary hidden" id="goLiveProfileBtn" onclick="window.location.href='live.html'"><i class="bi bi-broadcast icon-inline"></i>Go Live</button>
-            <button class="btn btn-secondary hidden" id="followBtn"><i class="bi bi-person-plus-fill icon-inline"></i>Follow</button>
-            <button class="btn btn-outline" id="shareBtn" onclick="(async()=>{try{await navigator.clipboard.writeText(window.location.href);window.Blink.showToast('Link copied!')}catch{}})()"><i class="bi bi-share-fill icon-inline"></i>Share</button>
-            <button class="btn btn-danger hidden" id="rowLogoutBtn"><i class="bi bi-box-arrow-right icon-inline"></i>Logout</button>
-        </div>
-
-        <!-- EDIT PROFILE MODAL (Instagram Style) -->
-        <div class="modal-backdrop" id="editProfileModal">
-          <div class="modal edit-modal">
-            <div class="modal-header">
-              <h2 class="modal-title">Edit Profile</h2>
-              <button class="btn-close" id="closeEditModal"><i class="bi bi-x-lg"></i></button>
-            </div>
-            <div class="modal-body">
-              <form id="editProfileForm">
-                <!-- Photo Edit Section -->
-                <div class="edit-photo-section">
-                  <div class="edit-avatar-preview">
-                    <img id="editPhotoPreview" src="" alt="">
-                    <div id="editPhotoInitial">?</div>
-                  </div>
-                  <div class="edit-photo-info">
-                    <h4 id="editPhotoUsername">@username</h4>
-                    <button type="button" class="btn-text-primary" id="changePhotoBtn">Change Profile Photo</button>
-                    <input type="file" id="editPhotoInput" accept="image/*" style="display:none">
-                  </div>
+            
+            <div class="profile-main-info">
+                <h1 id="pUsername">@loading</h1>
+                <p id="pBio" class="bio-text">Loading bio...</p>
+                
+                <div class="profile-stats">
+                    <div class="stat"><span id="sVideos">0</span><label>Videos</label></div>
+                    <div class="stat"><span id="sFollowers">0</span><label>Followers</label></div>
+                    <div class="stat"><span id="sFollowing">0</span><label>Following</label></div>
                 </div>
 
-                <!-- Fields -->
-                <div class="form-group">
-                  <label for="editUsernameInput">Username</label>
-                  <input type="text" id="editUsernameInput" class="form-input" placeholder="Enter username" required minlength="3">
-                  <p class="form-tip">Usernames must be unique and between 3-30 characters.</p>
+                <div class="profile-actions">
+                    <button id="editBtn" class="btn btn-primary">Edit Profile</button>
+                    <button id="passwordBtn" class="btn btn-secondary">Security</button>
+                    <button id="deleteBtn" class="btn btn-danger">Delete Account</button>
+                    <button id="logoutBtn" class="btn btn-outline">Logout</button>
                 </div>
-
-                <div class="form-group">
-                  <label for="editBioInput">Bio</label>
-                  <textarea id="editBioInput" class="form-input" rows="3" placeholder="Tell us more about yourself..."></textarea>
-                  <p class="form-tip"><span id="bioCharCount">0</span>/150</p>
-                </div>
-
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
-                  <button type="submit" class="btn btn-primary" id="saveProfileBtn">
-                    <span id="saveBtnText">Save Changes</span>
-                    <div id="saveBtnSpinner" class="spinner-small hidden"></div>
-                  </button>
-                </div>
-              </form>
             </div>
-          </div>
         </div>
 
-      </div>
-
-      <!-- Tabs -->
-      <div class="profile-tabs" role="tablist">
-        <div class="profile-tab active" data-tab="videos" role="tab" tabindex="0">Videos</div>
-        <div class="profile-tab" data-tab="liked"  role="tab" tabindex="0">Liked</div>
-        <div class="profile-tab" data-tab="saved"  role="tab" tabindex="0">Saved</div>
-      </div>
-
-      <div id="panel-videos" class="tab-panel">
-        <div class="video-grid" id="videoGrid">
-          <div style="grid-column:1/-1;padding:40px;text-align:center"><div class="spinner"></div></div>
+        <div id="errorArea" class="error-msg hidden">
+            <i class="bi bi-exclamation-circle"></i>
+            <h3>Failed to load profile</h3>
+            <button onclick="window.location.reload()" class="btn btn-secondary">Retry</button>
         </div>
-      </div>
+    </main>
 
-      <div id="panel-liked" class="tab-panel" style="display:none">
-        <div class="tab-empty"><div class="icon"><i class="bi bi-heart-fill"></i></div><h3>No liked videos</h3><p>Videos you like appear here</p></div>
-      </div>
-
-      <div id="panel-saved" class="tab-panel" style="display:none">
-        <div class="tab-empty"><div class="icon"><i class="bi bi-bookmark-fill"></i></div><h3>Nothing saved</h3><p>Videos you save appear here</p></div>
-      </div>
-
+    <!-- MODAL: EDIT PROFILE -->
+    <div id="editModal" class="modal-backdrop">
+        <div class="modal">
+            <h2>Edit Profile</h2>
+            <form id="editForm">
+                <div class="modal-upload">
+                    <img id="editPreview" src="" alt="Preview">
+                    <input type="file" id="avatarInput" accept="image/*">
+                </div>
+                <input type="text" id="editUsername" placeholder="Username" required minlength="3">
+                <textarea id="editBio" placeholder="Tell us about yourself..." rows="3"></textarea>
+                <div class="modal-btns">
+                    <button type="button" class="btn btn-outline" id="cancelEdit">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveEdit">Save Changes</button>
+                </div>
+            </form>
+        </div>
     </div>
-  </main>
-</div>
 
-<div id="toastContainer"></div>
-<script src="../js/auth.js"></script>
-<script src="../js/profile.js"></script>
-<script>
-// Set video count when videos load (removed previous mutation observer, as the fetch handles it)
-</script>
+    <!-- MODAL: CHANGE PASSWORD -->
+    <div id="passwordModal" class="modal-backdrop">
+        <div class="modal">
+            <h2>Change Password</h2>
+            <form id="passwordForm">
+                <input type="password" id="oldPass" placeholder="Current Password" required>
+                <input type="password" id="newPass" placeholder="New Password (min 6 chars)" required minlength="6">
+                <div class="modal-btns">
+                    <button type="button" class="btn btn-outline" id="cancelPass">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOASTS -->
+    <div id="toastContainer"></div>
+
+    <script src="../js/auth.js"></script>
+    <script src="../js/profile.js"></script>
 </body>
 </html>
