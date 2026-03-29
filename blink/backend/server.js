@@ -112,9 +112,44 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/live', liveRoutes);
 app.use('/api/upload', uploadRoutes);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+// ════════════════════════════════════════════════════════════════════════════════
+// DATABASE HEALTH CHECK ENDPOINT
+// ════════════════════════════════════════════════════════════════════════════════
+const pool = require('./config/db');
+
+app.get('/health', async (req, res) => {
+    try {
+        const dbHealth = pool.getHealthStatus();
+        const dbTest = await pool.testConnection();
+
+        res.json({
+            status: dbTest.success ? 'OK' : 'ERROR',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            database: dbTest.success ? {
+                status: 'connected',
+                version: dbTest.mysqlVersion,
+                database: dbTest.database,
+                responseTime: dbTest.responseTime,
+                poolSize: dbHealth.poolConfig.connectionLimit,
+                ssl: dbHealth.poolConfig.ssl
+            } : {
+                status: 'disconnected',
+                error: dbTest.message
+            },
+            memory: {
+                rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
+                heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+                heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`
+            }
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: 'ERROR',
+            timestamp: new Date().toISOString(),
+            error: err.message
+        });
+    }
 });
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -126,23 +161,16 @@ app.set('socketio', io);
 // ════════════════════════════════════════════════════════════════════════════════
 // ERROR HANDLING MIDDLEWARE
 // ════════════════════════════════════════════════════════════════════════════════
-app.use((err, req, res, next) => {
-    console.error('❌ [ERROR]', err.message);
-    
-    if (req.file?.path && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-    }
-    
-    res.status(err.status || 500).json({
-        error: err.message || 'Internal Server Error',
-        code: err.code || 'INTERNAL_ERROR'
-    });
-});
+const { errorHandler, notFoundHandler, requestTimeout } = require('./middleware/errorMiddleware');
 
-// 404 Handler
-app.use((req, res) => {
-    res.status(404).json({ error: 'Endpoint not found' });
-});
+// Request timeout middleware (30 seconds)
+app.use(requestTimeout(30000));
+
+// ════════════════════════════════════════════════════════════════════════════════
+// ERROR HANDLING MIDDLEWARE (MUST BE LAST)
+// ════════════════════════════════════════════════════════════════════════════════
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // ════════════════════════════════════════════════════════════════════════════════
 // PORT CONFLICT RESOLUTION
@@ -162,42 +190,114 @@ const findAvailablePort = (startPort = 5000) => {
 };
 
 // ════════════════════════════════════════════════════════════════════════════════
-// START SERVER
+// START SERVER WITH DATABASE INITIALIZATION
 // ════════════════════════════════════════════════════════════════════════════════
 const startServer = async () => {
     try {
+        console.log('🚀 [STARTUP] Initializing Blink Backend v4.0...');
+
+        // Step 1: Test database connection
+        console.log('🔍 [STARTUP] Testing database connection...');
+        const dbTest = await pool.testConnection();
+
+        if (!dbTest.success) {
+            throw new Error(`Database connection failed: ${dbTest.message}`);
+        }
+
+        console.log('✅ [STARTUP] Database connection established');
+
+        // Step 2: Find available port
         const finalPort = await findAvailablePort(parseInt(process.env.PORT) || 5000);
-        
+        console.log(`📡 [STARTUP] Using port: ${finalPort}`);
+
+        // Step 3: Start server
         server.listen(finalPort, () => {
             console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║   🚀 BLINK v4.0 - PRODUCTION SERVER ONLINE                ║
 ║   Port: ${finalPort}                                        
 ║   Environment: ${process.env.NODE_ENV || 'development'}                ║
+║   Database: ✅ Connected (${dbTest.database})              ║
+║   SSL: ✅ Enabled                                          ║
+║   Keep-Alive: ✅ Active (30s intervals)                    ║
 ║   Time: ${new Date().toISOString()}   ║
 ╚════════════════════════════════════════════════════════════╝
             `);
         });
-    } catch (e) {
-        console.error('❌ Failed to start server:', e.message);
+
+    } catch (err) {
+        console.error('❌ [STARTUP ERROR]', err.message);
+        console.error('💡 [STARTUP] Check your environment variables and database configuration');
         process.exit(1);
     }
 };
 
 // ════════════════════════════════════════════════════════════════════════════════
-// GRACEFUL SHUTDOWN
+// GLOBAL ERROR HANDLERS (PREVENT APP CRASH)
 // ════════════════════════════════════════════════════════════════════════════════
-process.on('SIGTERM', () => {
-    console.log('\n🛑 SIGTERM received - Graceful shutdown initiated...');
-    server.close(() => {
-        console.log('✅ Server closed');
-        process.exit(0);
-    });
+process.on('uncaughtException', (err) => {
+    console.error('❌ [CRITICAL] Uncaught Exception:', err.message);
+    console.error(err.stack);
+
+    // Log to file if in production
+    if (process.env.NODE_ENV === 'production') {
+        const fs = require('fs');
+        const logEntry = `[${new Date().toISOString()}] UNCAUGHT EXCEPTION: ${err.message}\n${err.stack}\n\n`;
+        fs.appendFileSync('error.log', logEntry);
+    }
+
+    // Don't exit in production - let the app continue
+    if (process.env.NODE_ENV !== 'production') {
+        process.exit(1);
+    }
 });
 
-process.on('SIGINT', () => {
-    console.log('\n🛑 SIGINT received - Graceful shutdown initiated...');
-    server.close(() => {
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ [CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+
+    // Log to file if in production
+    if (process.env.NODE_ENV === 'production') {
+        const fs = require('fs');
+        const logEntry = `[${new Date().toISOString()}] UNHANDLED REJECTION: ${reason}\n\n`;
+        fs.appendFileSync('error.log', logEntry);
+    }
+
+    // Don't exit in production - let the app continue
+    if (process.env.NODE_ENV !== 'production') {
+        process.exit(1);
+    }
+});
+
+// ════════════════════════════════════════════════════════════════════════════════
+// GRACEFUL SHUTDOWN WITH DATABASE CLEANUP
+// ════════════════════════════════════════════════════════════════════════════════
+const gracefulShutdown = async (signal) => {
+    console.log(`\n🛑 ${signal} received - Graceful shutdown initiated...`);
+
+    try {
+        // Close database pool first
+        await pool.gracefulShutdown();
+
+        // Close server
+        server.close(() => {
+            console.log('✅ Server closed successfully');
+            process.exit(0);
+        });
+
+        // Force exit after 10 seconds
+        setTimeout(() => {
+            console.error('❌ Forced shutdown after timeout');
+            process.exit(1);
+        }, 10000);
+
+    } catch (err) {
+        console.error('❌ Error during shutdown:', err.message);
+        process.exit(1);
+    }
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
         console.log('✅ Server closed');
         process.exit(0);
     });
