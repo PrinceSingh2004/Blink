@@ -1,15 +1,11 @@
 /**
- * frontend/js/config.js
- * ═══════════════════════════════════════════════════════════
- * Global Production Configuration
- * ═══════════════════════════════════════════════════════════
+ * frontend/js/config.js – Blink Local Development Config
  */
 
-// REPLACE THIS with your actual deployed Render backend URL!
-// Example: "https://blink-api.onrender.com"
-const CONFIG = {
-    API_BASE: "https://blink-api.onrender.com",
-    SOCKET_URL: "https://blink-api.onrender.com"
-};
+window.BlinkConfig = {
+    // For local testing, point to the Node.js server
+    API_BASE: 'http://localhost:5000',
 
-window.BlinkConfig = CONFIG;
+    // Socket.IO server URL
+    SOCKET_URL: 'http://localhost:5000'
+};

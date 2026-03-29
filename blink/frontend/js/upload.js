@@ -1,99 +1,152 @@
-/* upload.js – Multi-Type Media Upload Page */
+/**
+ * upload.js – Blink Content Creation v3
+ * ═══════════════════════════════════════════════════════════
+ * Handles: Drag & Drop, Preview, Progress, Multi-Type Uploads
+ * ═══════════════════════════════════════════════════════════
+ */
+
 document.addEventListener('DOMContentLoaded', async () => {
-    const { getToken, requireAuth, showToast, populateSidebar } = window.Blink;
-
+    // ── 1. HELPERS & AUTH ───────────────────────────────────────
+    if (!window.Blink) return console.error('[Blink] auth.js not loaded');
+    const { getToken, requireAuth, showToast } = window.Blink;
+    
     if (!requireAuth()) return;
-    await populateSidebar();
 
-    const uploadZone    = document.getElementById('uploadZone');
-    const fileInput     = document.getElementById('videoFileInput');
-    const previewWrap   = document.getElementById('previewWrap');
-    const previewVideo  = document.getElementById('videoPreview');
-    const uploadForm    = document.getElementById('uploadForm');
-    const submitBtn     = document.getElementById('submitUploadBtn');
-    const progressWrap  = document.getElementById('uploadProgress');
+    const form          = document.getElementById('uploadForm');
+    const dropZone      = document.getElementById('uploadDropZone');
+    const fileInput     = document.getElementById('fileInput');
+    const previewArea   = document.getElementById('previewArea');
+    const mediaPlaceholder = document.getElementById('mediaPlaceholder');
+    const removePreview = document.getElementById('removePreview');
+    const submitBtn     = document.getElementById('submitBtn');
+    const progressBar   = document.getElementById('progressBar');
     const progressFill  = document.getElementById('progressFill');
     const progressText  = document.getElementById('progressText');
     const typeSelect    = document.getElementById('uploadType');
     const moodGroup      = document.getElementById('moodGroup');
 
-    // Toggle mood visibility based on type
-    typeSelect?.addEventListener('change', () => {
-        if (typeSelect.value === 'story') moodGroup.style.display = 'none';
-        else moodGroup.style.display = 'block';
+    let selectedFile    = null;
+
+    // ── 2. PREVIEW LOGIC ───────────────────────────────────────
+    const showPreview = (file) => {
+        selectedFile = file;
+        const isVid = file.type.startsWith('video/');
+        const url = URL.createObjectURL(file);
+        
+        mediaPlaceholder.innerHTML = isVid 
+            ? `<video src="${url}" controls autoplay muted playsinline loop style="width:100%; border-radius:16px;"></video>`
+            : `<img src="${url}" alt="Preview" style="width:100%; border-radius:16px;">`;
+            
+        dropZone.classList.add('hidden');
+        previewArea.style.display = 'block';
+    };
+
+    const clearPreview = () => {
+        selectedFile = null;
+        mediaPlaceholder.innerHTML = '';
+        dropZone.classList.remove('hidden');
+        previewArea.style.display = 'none';
+        fileInput.value = '';
+    };
+
+    dropZone.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => { if (e.target.files[0]) showPreview(e.target.files[0]); };
+    removePreview.onclick = clearPreview;
+
+    // Drag & Drop
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, e => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
     });
 
-    // Select file
-    fileInput?.addEventListener('change', handleFile);
+    dropZone.addEventListener('dragover', () => dropZone.classList.add('drag-active'));
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-active'));
+    dropZone.addEventListener('drop', (e) => {
+        dropZone.classList.remove('drag-active');
+        if (e.dataTransfer.files[0]) showPreview(e.dataTransfer.files[0]);
+    });
 
-    function handleFile(e) {
-        const file = e.target.files?.[0] || (e.dataTransfer?.files?.[0]);
-        if (!file) return;
+    // ── 3. FORM LOGIC ──────────────────────────────────────────
+    typeSelect.onchange = () => {
+        if (typeSelect.value === 'story') {
+            moodGroup.classList.add('hidden');
+            moodGroup.style.display = 'none';
+        } else {
+            moodGroup.classList.remove('hidden');
+            moodGroup.style.display = 'block';
+        }
+    };
+
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        if (!selectedFile) return showToast('Please select a media file', 'error');
+
+        const type    = typeSelect.value;
+        const caption = document.getElementById('captionInput').value.trim();
+        const mood    = document.getElementById('moodSelect').value;
+
+        // Choose endpoint and field name based on type
+        // v3 Backend:
+        // /api/videos/upload (video filed: 'video') -> Reels
+        // /api/posts/ (media field: 'media') -> Normal posts
+        // /api/stories/upload (story field: 'story') -> Stories
         
-        const isVid = file.type.startsWith('video/');
-        const isImg = file.type.startsWith('image/');
+        let endpoint = '/api/videos/upload';
+        let fieldName = 'video';
 
-        if (!isVid && !isImg) { 
-            showToast('Unsupported format (MP4, WebM, JPG, PNG only)', 'error'); 
-            return; 
+        if (type === 'post') {
+            endpoint = '/api/posts';
+            fieldName = 'media';
+        } else if (type === 'story') {
+            endpoint = '/api/stories/upload';
+            fieldName = 'story';
         }
 
-        const url = URL.createObjectURL(file);
-        previewVideo.src = url;
-        previewWrap.style.display = '';
-        uploadZone.style.display  = 'none';
-        document.getElementById('fileNameLabel').textContent = file.name;
-        document.getElementById('fileNameLabel').style.display = 'block';
-    }
-
-    // Submit upload
-    uploadForm?.addEventListener('submit', async e => {
-        e.preventDefault();
-        const file = fileInput?.files?.[0];
-        if (!file) return showToast('Please select a file first', 'error');
-
-        const type = typeSelect.value; // 'reel' or 'story'
-        const endpoint = type === 'story' ? '/api/stories/upload' : '/api/videos/upload';
-        const fieldName = type === 'story' ? 'story' : 'video';
-
         const formData = new FormData();
-        formData.append(fieldName, file);
-        formData.append('caption', document.getElementById('captionInput').value.trim());
-        if (type === 'reel') formData.append('mood', document.getElementById('moodSelect').value);
+        formData.append(fieldName, selectedFile);
+        formData.append('caption', caption);
+        formData.append('mood_category', mood);
+        formData.append('hashtags', caption.match(/#[a-z0-9]+/gi)?.join(' ') || '');
 
+        // Use XHR for progress tracking
         submitBtn.disabled = true;
-        progressWrap.style.display = '';
+        progressBar.style.display = 'block';
+        progressText.style.display = 'block';
 
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', endpoint, true);
+        xhr.open('POST', window.Blink.API + endpoint, true);
         xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
 
-        xhr.upload.onprogress = e => {
+        xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
                 const pct = Math.round((e.loaded / e.total) * 100);
                 progressFill.style.width = pct + '%';
-                progressText.textContent = `Uploading… ${pct}%`;
+                progressText.textContent = `Uploading ${pct}%...`;
             }
         };
 
         xhr.onload = () => {
-            const res = JSON.parse(xhr.responseText);
+            let res;
+            try { res = JSON.parse(xhr.responseText); } catch { res = {}; }
+
             if (xhr.status >= 200 && xhr.status < 300) {
-                showToast(`${type.charAt(0).toUpperCase() + type.slice(1)} posted!`, 'success');
-                setTimeout(() => { window.location.href = '/index.html'; }, 1000);
+                showToast('✨ Upload complete!', 'success');
+                setTimeout(() => { window.location.href = 'index.html'; }, 1000);
             } else {
-                showToast(res.error || 'Upload failed', 'error');
+                showToast(res.error || 'Upload failed. Try a smaller file.', 'error');
                 submitBtn.disabled = false;
+                progressBar.style.display = 'none';
+                progressText.style.display = 'none';
             }
         };
 
-        xhr.send(formData);
-    });
+        xhr.onerror = () => {
+            showToast('Network error during upload.', 'error');
+            submitBtn.disabled = false;
+        };
 
-    // Change video button
-    document.getElementById('changeVideoBtn')?.addEventListener('click', () => {
-        previewWrap.style.display = 'none';
-        uploadZone.style.display  = '';
-        fileInput.value  = '';
-    });
+        xhr.send(formData);
+    };
 });

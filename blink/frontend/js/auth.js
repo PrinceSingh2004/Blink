@@ -1,59 +1,75 @@
-// ── Configuration ─────────────────────────────────────────────
-const BASE = window.BlinkConfig ? window.BlinkConfig.API_BASE : window.location.origin;
-const API  = `${BASE}/api`;
-const TOKEN = 'blink_token';
-const USER  = 'blink_user';
+/**
+ * frontend/js/auth.js – Blink Auth System v3
+ * JWT, API helper, sidebar, toast, search, theme
+ */
 
-// ── Token helpers ─────────────────────────────────────────────
-function getToken()    { return localStorage.getItem(TOKEN); }
-function getUser()     { try { return JSON.parse(localStorage.getItem(USER)); } catch { return null; } }
-function isLoggedIn()  { return !!getToken(); }
+// ══════════════════════════════════════════════════════════════════
+// 0. GLOBAL BLINK NAMESPACE
+// ══════════════════════════════════════════════════════════════════
+window.Blink = window.Blink || {};
+
+// ── Configuration ─────────────────────────────────────────────────
+const _BASE = window.BlinkConfig?.API_BASE || '';
+const _API  = _BASE ? `${_BASE}/api` : '/api';
+
+const TOKEN_KEY = 'blink_token';
+const USER_KEY  = 'blink_user';
+
+// ── Token helpers ─────────────────────────────────────────────────
+function getToken()   { return localStorage.getItem(TOKEN_KEY); }
+function getUser()    { try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; } }
+function isLoggedIn() { return !!getToken(); }
 
 function setAuth(token, user) {
-    localStorage.setItem(TOKEN, token);
-    localStorage.setItem(USER, JSON.stringify(user));
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
-// ── Logout Functionality ──────────────────────────────────────
+// ── Logout ────────────────────────────────────────────────────────
 function logout() {
-    console.log('[Auth] Logging out...');
-    localStorage.removeItem(TOKEN);
-    localStorage.removeItem(USER);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     sessionStorage.clear();
-    window.location.href = '/login.html';
+    window.location.href = 'login.html';
 }
 
-// ── Page Protection ───────────────────────────────────────────
+// ── Page Protection ────────────────────────────────────────────────
 function requireAuth() {
     if (!isLoggedIn()) {
-        console.warn('[Auth] Access denied. Redirecting to login...');
-        window.location.href = '/login.html';
+        window.location.href = 'login.html';
         return false;
     }
     return true;
 }
 
-// ── API helper ────────────────────────────────────────────────
+// ── Universal API request helper ───────────────────────────────────
 async function apiRequest(url, options = {}) {
-    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-    if (getToken()) headers['Authorization'] = `Bearer ${getToken()}`;
+    const headers = {  ...(options.headers || {}) };
     
+    // Don't set Content-Type for FormData (let browser set with boundary)
+    if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+    }
+    
+    if (getToken()) headers['Authorization'] = `Bearer ${getToken()}`;
+
     try {
-        const res  = await fetch(API + url, { ...options, headers });
+        const res  = await fetch(_API + url, { ...options, headers });
+        
         if (res.status === 401) {
-            logout(); // Auto-logout if token is expired/invalid
+            logout();
             return;
         }
+        
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         return data;
     } catch (err) {
-        if (err.message.includes('401')) logout();
         throw err;
     }
 }
 
-// ── Toast ─────────────────────────────────────────────────────
+// ── Toast Notification ─────────────────────────────────────────────
 function showToast(msg, type = 'info') {
     let container = document.getElementById('toastContainer');
     if (!container) {
@@ -62,94 +78,131 @@ function showToast(msg, type = 'info') {
         document.body.appendChild(container);
     }
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.textContent = msg;
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <span>${msg}</span>
+        <button onclick="this.parentElement.remove()" class="toast-close">×</button>
+    `;
     container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
 }
 
-// ── Sidebar & Header user info ─────────────────────────────────
+// ── Sidebar & User info ────────────────────────────────────────────
 async function populateSidebar() {
     let user = getUser();
-    
-    // Fallback renderer for instant UI
+
     const renderUser = (u) => {
         if (!u) return;
         const nameEl   = document.getElementById('sidebarName');
         const handleEl = document.getElementById('sidebarHandle');
         const avatarEl = document.getElementById('sidebarAvatar');
         const topAvEl  = document.getElementById('topNavAvatar');
-        
-        if (nameEl)   nameEl.textContent   = u.username;
-        if (handleEl) handleEl.textContent = '@' + u.username;
 
-        const photo = u.profile_pic || u.profile_photo;
-        const imgHtml = photo 
-            ? `<img src="${photo}${photo.includes('?') ? '&' : '?'}t=${Date.now()}" alt="${u.username}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
-            : (u.username || 'U')[0].toUpperCase();
+        if (nameEl)   nameEl.textContent   = u.display_name || u.username || 'User';
+        if (handleEl) handleEl.textContent = '@' + (u.username || '');
 
+        const photo   = u.profile_pic || u.avatar_url || u.profile_photo;
+        const initial = (u.username || 'U')[0].toUpperCase();
+        const imgHtml = photo
+            ? `<img src="${photo}?t=${Date.now()}" alt="${u.username}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+            : initial;
 
         if (avatarEl) avatarEl.innerHTML = imgHtml;
         if (topAvEl)  topAvEl.innerHTML  = imgHtml;
+        
+        // Update notification badge  
+        updateNotificationBadge();
     };
-    
-    // Instant paint
+
     if (user) renderUser(user);
 
-    // Refresh Fix: Always aggressively fetch from backend to bypass stale localstates
+    // Background refresh
     if (getToken()) {
         try {
-            // Using /auth/me to get the freshest user data (including new Cloudinary profile_photo)
             const data = await apiRequest('/auth/me');
-            if (data?.user) { 
-                user = data.user; 
-                localStorage.setItem(USER, JSON.stringify(user)); 
-                renderUser(user); // Repaint with refreshed data
+            if (data?.user) {
+                localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+                renderUser(data.user);
             }
         } catch (err) {
-            console.warn('[Blink] background profile refresh failed:', err.message);
+            console.warn('[Blink] profile refresh failed:', err.message);
         }
     }
 }
 
 function initSidebar() {
-    const pathname = window.location.pathname;
-    const page = pathname.split('/').pop() || 'index.html';
-    const navLinks = document.querySelectorAll('.nav-links a');
-    navLinks.forEach(link => {
-        const href = link.getAttribute('href');
-        if (!href) return;
-        const linkPage = href.split('/').pop();
-        if (linkPage === page) link.classList.add('active');
-        else link.classList.remove('active');
+    const page = window.location.pathname.split('/').pop() || 'index.html';
+    document.querySelectorAll('.nav-links a').forEach(link => {
+        const href     = link.getAttribute('href');
+        const linkPage = (href || '').split('/').pop();
+        link.classList.toggle('active', linkPage === page);
     });
 }
 
+// ── Notification Badge ─────────────────────────────────────────────
+async function updateNotificationBadge() {
+    if (!getToken()) return;
+    try {
+        const data = await apiRequest('/notifications/unread');
+        const count = data?.count || 0;
+        const badge = document.getElementById('notifBadge');
+        if (badge) {
+            badge.textContent = count > 9 ? '9+' : String(count);
+            badge.style.display = count > 0 ? 'flex' : 'none';
+        }
+    } catch {}
+}
+
+// ── Socket initialization ──────────────────────────────────────────
 function initSocket() {
     const user = getUser();
     if (!user || typeof io === 'undefined') return;
     try {
-        const socket = io();
+        const socketUrl = window.BlinkConfig?.SOCKET_URL || window.location.origin;
+        const socket    = io(socketUrl, {
+            auth:              { token: getToken() },
+            reconnection:      true,
+            reconnectionDelay: 1000,
+            timeout:           10000
+        });
+
         window.Blink.socket = socket;
+
         socket.on('connect', () => {
             socket.emit('identify', user.id);
         });
-    } catch (e) { console.error('[Socket] init fail', e); }
+
+        socket.on('notification', (notif) => {
+            showToast(`🔔 ${notif.message}`, 'info');
+            updateNotificationBadge();
+        });
+
+        socket.on('connect_error', (err) => {
+            console.warn('[Socket] Connection error:', err.message);
+        });
+    } catch (e) {
+        console.error('[Socket] init error:', e);
+    }
 }
 
-// ── Creator Search ──────────────────────────────────────────────
+// ── Search ────────────────────────────────────────────────────────
 async function handleSearch(query) {
-    const resultsContainer = document.getElementById('globalSearchResults');
+    const results = document.getElementById('globalSearchResults');
     if (!query) {
-        if (resultsContainer) resultsContainer.style.display = 'none';
+        if (results) results.style.display = 'none';
         return;
     }
 
     try {
-        const data = await apiRequest(`/users/search?q=${encodeURIComponent(query)}`);
+        const data = await apiRequest(`/users/search?q=${encodeURIComponent(query)}&limit=8`);
         displaySearchResults(data.users || []);
     } catch (err) {
-        console.error('[Search] Error:', err.message);
+        console.warn('[Search] Error:', err.message);
     }
 }
 
@@ -157,6 +210,7 @@ function displaySearchResults(users) {
     let container = document.getElementById('globalSearchResults');
     if (!container) {
         const parent = document.querySelector('.sidebar-search');
+        if (!parent) return;
         container = document.createElement('div');
         container.id = 'globalSearchResults';
         container.className = 'search-results-dropdown';
@@ -164,72 +218,83 @@ function displaySearchResults(users) {
     }
 
     container.style.display = 'block';
+
     if (users.length === 0) {
         container.innerHTML = '<div class="search-item empty">No creators found</div>';
         return;
     }
 
-    container.innerHTML = users.map(user => `
-        <div class="search-item" onclick="window.location.href='/profile.html?id=${user.id}'">
+    container.innerHTML = users.map(u => `
+        <div class="search-item" onclick="window.location.href='profile.html?id=${u.id}'" tabindex="0">
             <div class="search-avatar">
-                ${user.profile_photo ? `<img src="${user.profile_photo}">` : user.username[0].toUpperCase()}
+                ${u.profile_photo
+                    ? `<img src="${u.profile_photo}" alt="${u.username}">`
+                    : u.username[0].toUpperCase()
+                }
             </div>
             <div class="search-info">
-                <div class="search-username">@${user.username}</div>
-                <div class="search-meta">${user.followers_count || 0} followers</div>
+                <div class="search-username">
+                    @${u.username}
+                    ${u.is_verified ? '<i class="bi bi-patch-check-fill" style="color:var(--accent-primary);font-size:11px"></i>' : ''}
+                </div>
+                <div class="search-meta">${u.followers_count || 0} followers</div>
             </div>
-            ${user.is_live ? '<span class="search-live-dot"></span>' : ''}
+            ${u.is_live ? '<span class="search-live-badge">LIVE</span>' : ''}
         </div>
     `).join('');
 }
 
-// ─── Shared UI Helpers ─────────────────────────────────────────
+// ── Password toggle ────────────────────────────────────────────────
 function initPasswordToggles() {
     document.querySelectorAll('.pw-toggle').forEach(btn => {
         btn.onclick = (e) => {
             e.preventDefault();
-            const input = btn.parentElement.querySelector('input');
-            const icon  = btn.querySelector('i');
+            const input = btn.closest('.input-wrap')?.querySelector('input');
+            if (!input) return;
+            const icon = btn.querySelector('i');
             if (input.type === 'password') {
                 input.type = 'text';
-                icon.className = 'bi bi-eye-slash-fill';
+                if (icon) icon.className = 'bi bi-eye-slash-fill';
                 btn.classList.add('active');
             } else {
                 input.type = 'password';
-                icon.className = 'bi bi-eye-fill';
+                if (icon) icon.className = 'bi bi-eye-fill';
                 btn.classList.remove('active');
             }
         };
     });
 }
 
-// Expose globally
-Object.assign(window.Blink, { 
-    getToken, getUser, isLoggedIn, setAuth, logout, requireAuth, 
-    apiRequest, showToast, populateSidebar, initSidebar, initSocket, handleSearch,
-    initPasswordToggles
+// ══════════════════════════════════════════════════════════════════
+// EXPOSE GLOBALLY
+// ══════════════════════════════════════════════════════════════════
+Object.assign(window.Blink, {
+    API: _API,
+    getToken, getUser, isLoggedIn, setAuth, logout, requireAuth,
+    apiRequest, showToast, populateSidebar, initSidebar, initSocket,
+    handleSearch, updateNotificationBadge, initPasswordToggles
 });
 
-// ── DOM Initialization ────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+// DOM READY
+// ══════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
-    
-    // Auto-protect pages starting with / or known protected paths
-    const publicPages = ['login.html', 'register.html', 'forgot-password.html', 'contact.html'];
-    const isPublic = publicPages.some(p => path.includes(p));
+    const publicPages = ['login.html', 'register.html', 'forgot-password.html'];
+    const isPublicPage = publicPages.some(p => path.includes(p));
 
-    if (path.includes('/') && !isPublic) {
-        if (!requireAuth()) return;
-    }
+    // Auto-protect non-public pages
+    if (!isPublicPage && !requireAuth()) return;
 
     initPasswordToggles();
     initSidebar();
+
     if (isLoggedIn()) {
         populateSidebar();
         initSocket();
     }
 
-    // Attach Search Listener
+    // Global search
     const searchInput = document.getElementById('globalSearchInput');
     if (searchInput) {
         let debounceTimer;
@@ -237,163 +302,158 @@ document.addEventListener('DOMContentLoaded', () => {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => handleSearch(e.target.value.trim()), 300);
         });
-        
-        // Hide results when clicking outside
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.sidebar-search')) {
-                const results = document.getElementById('globalSearchResults');
-                if (results) results.style.display = 'none';
+                const res = document.getElementById('globalSearchResults');
+                if (res) res.style.display = 'none';
             }
         });
     }
 
-    // ── Theme Toggle ──────────────────────────────────────────
+    // Theme toggle
     const themeToggle = document.getElementById('themeToggle');
-    const root = document.documentElement;
-
-    const updateThemeIcon = (theme) => {
-        if (!themeToggle) return;
-        themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
-    };
+    const root        = document.documentElement;
 
     const setTheme = (theme) => {
         root.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
-        updateThemeIcon(theme);
+        localStorage.setItem('blink_theme', theme);
+        if (themeToggle) themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
     };
 
-    // Load saved theme or detect system pref
-    const savedTheme = localStorage.getItem('theme');
+    const savedTheme = localStorage.getItem('blink_theme');
     if (savedTheme) {
         setTheme(savedTheme);
     } else {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        setTheme(prefersDark ? 'dark' : 'light');
+        setTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     }
 
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
-            const currentTheme = root.getAttribute('data-theme');
-            setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+            setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
         });
     }
 
-    // Attach Logout Listener
+    // Logout
     document.getElementById('logoutBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
         logout();
     });
 });
 
-// ── Login / Register Forms ───────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+// LOGIN FORM
+// ══════════════════════════════════════════════════════════════════
 const loginForm = document.getElementById('loginForm');
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const identifier = loginForm.identifier.value.trim();
+        const identifier = (loginForm.identifier?.value || loginForm.email?.value || '').trim();
         const password   = loginForm.password.value;
         const btn        = document.getElementById('loginBtn');
-        try {
-            btn.disabled = true;
-            btn.textContent = 'Signing in...';
-            const data = await apiRequest('/auth/login', { method: 'POST', body: JSON.stringify({ identifier, password }) });
-            if (data?.token) {
-                setAuth(data.token, data.user);
-                window.location.href = '/index.html';
-            }
-        } catch (err) {
-            showToast(err.message, 'error');
-            btn.disabled = false;
-            btn.textContent = 'Sign In';
-        }
-    });
-}
+        const alert      = document.getElementById('loginAlert');
 
-const registerForm = document.getElementById('registerForm');
-if (registerForm) {
-    registerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const username = registerForm.username.value.trim();
-        const email    = registerForm.email.value.trim();
-        const password = registerForm.password.value;
-        const confirm  = registerForm.confirmPassword.value;
-        const btn      = document.getElementById('registerBtn');
-
-        if (password !== confirm) return showToast("Passwords do not match", "error");
-
-        // ONLY GMAIL VALIDATION
-        const gmailPattern = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
-        if (!gmailPattern.test(email)) {
-            showToast("Please enter a valid Gmail address", "error");
+        if (!identifier || !password) {
+            showToast('Please fill in all fields', 'error');
             return;
         }
 
         try {
-            btn.disabled = true;
-            btn.textContent = 'Creating account...';
-            const data = await apiRequest('/auth/register', { 
-                method: 'POST', 
-                body: JSON.stringify({ username, email, password }) 
+            btn.disabled  = true;
+            if (btn.querySelector?.('.btn-label')) btn.querySelector('.btn-label').textContent = 'Signing in...';
+            else btn.textContent = 'Signing in...';
+            if (alert) { alert.textContent = ''; alert.className = 'auth-alert'; }
+
+            const data = await apiRequest('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ identifier, password })
             });
+
             if (data?.token) {
                 setAuth(data.token, data.user);
-                window.location.href = '/index.html';
+                window.location.href = 'index.html';
             }
         } catch (err) {
-            showToast(err.message, 'error');
+            showToast(err.message || 'Login failed', 'error');
+            if (alert) {
+                alert.textContent = err.message || 'Login failed';
+                alert.className   = 'auth-alert error';
+            }
             btn.disabled = false;
+            if (btn.querySelector?.('.btn-label')) btn.querySelector('.btn-label').innerHTML = 'Sign In <i class="bi bi-arrow-right"></i>';
+            else btn.textContent = 'Sign In';
+        }
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// REGISTER FORM
+// ══════════════════════════════════════════════════════════════════
+const registerForm = document.getElementById('registerForm');
+if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = (registerForm.username?.value || '').trim();
+        const email    = (registerForm.email?.value || '').trim();
+        const password = registerForm.password?.value || '';
+        const confirm  = registerForm.confirmPassword?.value || '';
+        const btn      = document.getElementById('registerBtn');
+
+        if (!username || !email || !password)
+            return showToast('All fields are required', 'error');
+        if (password !== confirm)
+            return showToast('Passwords do not match', 'error');
+        if (password.length < 6)
+            return showToast('Password must be at least 6 characters', 'error');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+            return showToast('Please enter a valid email address', 'error');
+
+        try {
+            btn.disabled  = true;
+            btn.textContent = 'Creating account...';
+
+            const data = await apiRequest('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify({ username, email, password })
+            });
+
+            if (data?.token) {
+                setAuth(data.token, data.user);
+                showToast('🎉 Account created! Welcome to Blink.', 'success');
+                setTimeout(() => { window.location.href = 'index.html'; }, 1000);
+            }
+        } catch (err) {
+            showToast(err.message || 'Registration failed', 'error');
+            btn.disabled  = false;
             btn.textContent = 'Create Account';
         }
     });
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── Native Mobile Back Button Handler ─────────────────────────
-// ══════════════════════════════════════════════════════════════
-(function initMobileBackButton() {
-    // 1. Only execute on mobile platforms (especially Android for back button)
-    const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
-    if (!isMobile) return;
+// ══════════════════════════════════════════════════════════════════
+// Mobile Back Button (Android / PWA)
+// ══════════════════════════════════════════════════════════════════
+(function initMobileBack() {
+    if (!/android|iphone|ipad|ipod/i.test(navigator.userAgent)) return;
+    
+    const isHome = ['index.html', '', '/'].some(p =>
+        window.location.pathname.endsWith(p)
+    );
 
-    let exitTimeout = null;
-    let backPressCount = 0;
+    history.pushState({ blink: true }, '', window.location.href);
 
-    // Detect if we are currently on the Home Page
-    const pathname = window.location.pathname.toLowerCase();
-    const isHomePage = pathname.endsWith('index.html') || pathname.endsWith('pages/') || pathname === '/' || pathname.endsWith('blink/');
-
-    // To intercept the hardware back button cleanly, we must push a trap state into the window's history
-    history.pushState({ intercept: true }, '', window.location.href);
-
-    window.addEventListener('popstate', (e) => {
-        if (!isHomePage) {
-            // Not on Home -> Force redirect to Home seamlessly
-            window.location.replace('/index.html');
+    let backCount = 0, exitTimer;
+    window.addEventListener('popstate', () => {
+        if (!isHome) {
+            window.location.replace('index.html');
             return;
         }
-
-        // We ARE on the Home Page
-        backPressCount++;
-        
-        if (backPressCount === 1) {
-            // First press -> warn user and restore trap state to prevent closed app
-            history.pushState({ intercept: true }, '', window.location.href);
-            
-            if (window.Blink && typeof window.Blink.showToast === 'function') {
-                window.Blink.showToast('Press again to exit', 'info');
-            } else if (typeof showToast === 'function') {
-                showToast('Press again to exit', 'info');
-            } else {
-                console.warn('Press again to exit');
-            }
-
-            // Reset threshold after 2 seconds
-            exitTimeout = setTimeout(() => {
-                backPressCount = 0;
-            }, 2000);
+        backCount++;
+        if (backCount === 1) {
+            history.pushState({ blink: true }, '', window.location.href);
+            showToast('Press back again to exit', 'info');
+            exitTimer = setTimeout(() => { backCount = 0; }, 2000);
         } else {
-            // Second press within 2s threshold -> Execute native exit / history escape
-            clearTimeout(exitTimeout);
+            clearTimeout(exitTimer);
             history.back();
         }
     });

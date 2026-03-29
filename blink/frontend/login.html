@@ -1,79 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Blink | Sign In</title>
-<link rel="icon" type="image/png" href="favicon.png">
-<meta name="description" content="Sign in to your Blink account ? the short video platform.">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/auth.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Blink | Sign In</title>
+  <meta name="description" content="Sign in to your Blink account – the next-gen short video platform.">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/auth.css">
 </head>
+
 <body>
-<div class="auth-page">
+  <div class="auth-page">
 
-  <!-- LEFT VISUAL -->
-  <div class="auth-visual">
-    <div class="auth-cards">
-      <div class="auth-card"></div>
-      <div class="auth-card"></div>
-      <div class="auth-card"></div>
-    </div>
-    <div class="auth-brand">
-      <div class="auth-logo-icon">B</div>
-      <div class="auth-brand-name">Blink</div>
-      <p class="auth-brand-tagline">The next-gen short video platform. Create. Share. Go Viral.</p>
-    </div>
-    <div class="auth-features">
-      <div class="auth-feature"><span class="auth-feature-icon"><i class="bi bi-camera-reels-fill"></i></span><span class="auth-feature-text">Upload vertical short videos</span></div>
-      <div class="auth-feature"><span class="auth-feature-icon"><i class="bi bi-lightning-charge-fill"></i></span><span class="auth-feature-text">Blink Moments ? 24h viral clips</span></div>
-      <div class="auth-feature"><span class="auth-feature-icon"><i class="bi bi-people-fill"></i></span><span class="auth-feature-text">Follow creators you love</span></div>
-      <div class="auth-feature"><span class="auth-feature-icon"><i class="bi bi-chat-dots-fill"></i></span><span class="auth-feature-text">Real-time messaging</span></div>
-    </div>
-  </div>
-
-  <!-- RIGHT FORM -->
-  <div class="auth-form-section">
-    <div class="auth-form-header">
-      <h1 class="auth-form-title">Welcome back</h1>
-      <p class="auth-form-subtitle">Sign in to continue to Blink</p>
-    </div>
-
-    <div id="loginAlert" class="auth-alert"></div>
-
-    <form class="auth-form" id="loginForm" autocomplete="on" novalidate>
-      <div class="form-group">
-        <label class="form-label" for="identifier">Email or Username</label>
-        <div class="input-wrap">
-          <span class="input-icon"><i class="bi bi-person-circle"></i></span>
-          <input type="text" name="identifier" id="identifier" class="form-input" placeholder="Enter email or username" autocomplete="username" required>
+    <!-- LEFT VISUAL -->
+    <div class="auth-visual">
+      <div class="auth-cards">
+        <div class="auth-card"></div>
+        <div class="auth-card"></div>
+        <div class="auth-card"></div>
+      </div>
+      <div class="auth-brand">
+        <div class="auth-logo-icon">B</div>
+        <div class="auth-brand-name">Blink</div>
+        <p class="auth-brand-tagline">The next-gen short video platform.<br>Create. Share. Go Viral.</p>
+      </div>
+      <div class="auth-features">
+        <div class="auth-feature">
+          <span class="auth-feature-icon"><i class="bi bi-camera-reels-fill"></i></span>
+          <span class="auth-feature-text">Upload vertical short videos</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon"><i class="bi bi-lightning-charge-fill"></i></span>
+          <span class="auth-feature-text">Blink Moments – 24h viral clips</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon"><i class="bi bi-people-fill"></i></span>
+          <span class="auth-feature-text">Follow creators you love</span>
+        </div>
+        <div class="auth-feature">
+          <span class="auth-feature-icon"><i class="bi bi-chat-dots-fill"></i></span>
+          <span class="auth-feature-text">Real-time messaging</span>
         </div>
       </div>
+    </div>
 
-      <div class="form-group">
-        <label class="form-label" for="passwordInput">Password</label>
-        <div class="input-wrap">
-          <span class="input-icon"><i class="bi bi-lock-fill"></i></span>
-          <input type="password" name="password" id="passwordInput" class="form-input" placeholder="Enter your password" autocomplete="current-password" required>
-          <button type="button" class="pw-toggle" aria-label="Toggle password"><i class="bi bi-eye-fill"></i></button>
-        </div>
-        <div style="text-align: right; margin-top: 8px;">
-          <a href="forgot-password.html" style="font-size: 13px; color: var(--accent-primary); text-decoration: none;">Forgot your password?</a>
-        </div>
+    <!-- RIGHT FORM -->
+    <div class="auth-form-section">
+      <div class="auth-form-header">
+        <h1 class="auth-form-title">Welcome back 👋</h1>
+        <p class="auth-form-subtitle">Sign in to continue to Blink</p>
       </div>
 
-      <button type="submit" class="auth-submit-btn" id="loginBtn">
-        <span class="btn-label">Sign In <i class="bi bi-arrow-right"></i></span>
-        <span class="btn-spinner"></span>
-      </button>
-    </form>
+      <div id="loginAlert" class="auth-alert"></div>
 
-    <div class="auth-divider">or</div>
-    <div class="auth-switch">Don't have an account? <a href="register.html">Create one free</a></div>
+      <form class="auth-form" id="loginForm" autocomplete="on" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="identifier">Email or Username</label>
+          <div class="input-wrap">
+            <span class="input-icon"><i class="bi bi-person-circle"></i></span>
+            <input type="text" name="identifier" id="identifier" class="form-input"
+              placeholder="Enter email or username" autocomplete="username" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="passwordInput">Password</label>
+          <div class="input-wrap">
+            <span class="input-icon"><i class="bi bi-lock-fill"></i></span>
+            <input type="password" name="password" id="passwordInput" class="form-input"
+              placeholder="Enter your password" autocomplete="current-password" required>
+            <button type="button" class="pw-toggle" aria-label="Toggle password">
+              <i class="bi bi-eye-fill"></i>
+            </button>
+          </div>
+          <div style="text-align:right;margin-top:8px;">
+            <a href="#" style="font-size:13px;color:var(--accent-primary);text-decoration:none;">
+              Forgot password?
+            </a>
+          </div>
+        </div>
+
+        <button type="submit" class="auth-submit-btn" id="loginBtn">
+          <span class="btn-label">Sign In <i class="bi bi-arrow-right"></i></span>
+          <span class="btn-spinner"></span>
+        </button>
+      </form>
+
+      <div class="auth-divider">or</div>
+      <div class="auth-switch">Don't have an account? <a href="register.html">Create one free</a></div>
+    </div>
+
   </div>
+  <div id="toastContainer"></div>
 
-</div>
-<div id="toastContainer"></div>
-<script src="js/auth.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
 </body>
+
 </html>

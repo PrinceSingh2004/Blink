@@ -3,65 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
-    <title>Blink | Home</title>
+    <title>Blink | Watch, Create, Share</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/feed.css">
 </head>
+
 <body class="theme-dark">
 
-    <!-- TOP HEADER -->
-    <header class="mobile-header">
-        <div class="logo-text">Blink</div>
-        <div class="header-actions">
-            <a href="upload.html"><i class="bi bi-plus-square"></i></a>
-            <a href="messages.html"><i class="bi bi-chat-dots"></i></a>
-        </div>
-    </header>
+    <div class="app-layout">
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <a href="index.html" class="logo-container" style="margin-bottom: 0;">
+                    <div class="logo-icon">B</div><span class="logo-text">Blink</span>
+                </a>
+                <button id="themeToggle" title="Toggle Theme">🌙</button>
+            </div>
+            
+            <div class="sidebar-search">
+                <i class="bi bi-search input-icon" style="position:absolute; left:12px; top:12px; font-size:14px; color:var(--text-muted)"></i>
+                <input type="search" class="form-input" id="globalSearchInput" placeholder="Search creators..." style="padding-left:35px">
+                <div id="globalSearchResults" class="search-results-dropdown"></div>
+            </div>
 
-    <main class="app-main">
-        <!-- STORIES ROW -->
-        <div class="stories-container" id="storiesRow">
-            <!-- Add Story -->
-            <div class="story-bubble" id="addStoryBtn">
-                <div class="story-avatar add-story">
-                    <i class="bi bi-plus"></i>
+            <ul class="nav-links">
+                <li class="nav-item"><a href="index.html" class="active"><i class="bi bi-house-door-fill nav-icon"></i><span class="nav-text">Home</span></a></li>
+                <li class="nav-item"><a href="upload.html"><i class="bi bi-plus-square-fill nav-icon"></i><span class="nav-text">Upload</span></a></li>
+                <li class="nav-item"><a href="messages.html"><i class="bi bi-chat-dots-fill nav-icon"></i><span class="nav-text">Messages</span><span id="notifBadge" class="nav-badge" style="display:none">0</span></a></li>
+                <li class="nav-item"><a href="live.html"><i class="bi bi-broadcast nav-icon"></i><span class="nav-text">Live</span></a></li>
+                <li class="nav-item"><a href="profile.html"><i class="bi bi-person-circle nav-icon"></i><span class="nav-text">Profile</span></a></li>
+            </ul>
+
+            <div class="sidebar-user">
+                <div class="sidebar-avatar" id="sidebarAvatar"></div>
+                <div class="sidebar-info">
+                    <div class="sidebar-name" id="sidebarName">Loading...</div>
+                    <div class="sidebar-handle" id="sidebarHandle"></div>
                 </div>
-                <span>Your Story</span>
+                <button class="sidebar-logout" id="logoutBtn"><i class="bi bi-box-arrow-right"></i></button>
             </div>
-            <div id="storiesList" style="display: flex; gap: 15px;"></div>
-        </div>
+        </nav>
 
-        <!-- REELS FEED (Infinite Scroll) -->
-        <div class="reels-feed" id="feedContainer">
-            <!-- Videos injected here -->
-        </div>
+        <!-- MAIN FEED -->
+        <main class="main-content">
+            <!-- MOBILE HEADER -->
+            <header class="mobile-header">
+                <div class="logo-text">Blink</div>
+                <div class="header-actions">
+                    <a href="upload.html"><i class="bi bi-plus-square"></i></a>
+                    <a href="messages.html"><i class="bi bi-chat-dots"></i></a>
+                </div>
+            </header>
 
-        <!-- SKELETON LOADER -->
-        <div id="feedLoader" class="skeleton-loader hidden">
-            <div class="sk-video"></div>
-            <div class="sk-info">
-                <div class="sk-text"></div>
-                <div class="sk-text short"></div>
+            <div class="feed-layout">
+                <!-- STORIES ROW -->
+                <div class="stories-container" id="storiesRow">
+                    <div class="story-bubble" id="addStoryBtn">
+                        <div class="story-avatar add-story">
+                            <i class="bi bi-plus"></i>
+                        </div>
+                        <span>Your Story</span>
+                    </div>
+                    <div id="storiesList" style="display: flex; gap: 15px;"></div>
+                </div>
+
+                <!-- REELS FEED -->
+                <div class="reels-feed" id="feedContainer"></div>
+
+                <!-- LOADER -->
+                <div id="feedLoader" class="skeleton-loader hidden">
+                    <div class="sk-video"></div>
+                </div>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
 
-    <!-- BOTTOM NAVIGATION (MOBILE) -->
-    <nav class="bottom-nav">
-        <a href="index.html" class="active"><i class="bi bi-house-door-fill"></i></a>
-        <a href="explore.html"><i class="bi bi-search"></i></a>
-        <a href="upload.html"><i class="bi bi-plus-square"></i></a>
-        <a href="live.html"><i class="bi bi-broadcast"></i></a>
-        <a href="profile.html"><i class="bi bi-person-circle"></i></a>
-    </nav>
-
-    <!-- HIDDEN INPUT FOR STORIES -->
+    <!-- HIDDEN INPUTS -->
     <input type="file" id="storyInput" accept="image/*,video/*" class="hidden">
 
-    <!-- TOASTS -->
     <div id="toastContainer"></div>
 
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/feed.js"></script>
 </body>

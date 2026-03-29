@@ -1,80 +1,90 @@
--- Blink Platform – Production Grade Normalized Schema
--- ═══════════════════════════════════════════════════════════
+CREATE DATABASE IF NOT EXISTS railway;
+USE railway;
 
-CREATE DATABASE IF NOT EXISTS blink_db;
-USE blink_db;
-
--- 1. USERS (Identity & Stats)
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(30) NOT NULL UNIQUE,
-    email VARCHAR(100) NOT NULL UNIQUE,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(150),
     password_hash VARCHAR(255) NOT NULL,
     bio TEXT,
-    profile_pic VARCHAR(255),
-    avatar_url VARCHAR(255), -- Legacy Alias 1
-    profile_photo VARCHAR(255), -- Legacy Alias 2
+    profile_photo VARCHAR(255),
     followers_count INT DEFAULT 0,
     following_count INT DEFAULT 0,
-    total_likes INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX (username)
+    is_live BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. VIDEOS (Reels Engine)
+CREATE TABLE IF NOT EXISTS follows (
+    follower_id INT NOT NULL,
+    following_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(follower_id, following_id),
+    FOREIGN KEY(follower_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY(following_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS videos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     video_url VARCHAR(255) NOT NULL,
     caption TEXT,
-    mood_category VARCHAR(50) DEFAULT 'General',
     likes_count INT DEFAULT 0,
+    views_count INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 3. STORIES (24H Ephemeral Hub)
 CREATE TABLE IF NOT EXISTS stories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     media_url VARCHAR(255) NOT NULL,
-    media_type ENUM('image', 'video') NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
+    media_type ENUM('image','video') DEFAULT 'video',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    expires_at TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- 4. SOCIAL: FOLLOWERS
-CREATE TABLE IF NOT EXISTS followers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    follower_id INT NOT NULL,
-    following_id INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY (follower_id, following_id),
-    FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (following_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- 5. SOCIAL: LIKES
-CREATE TABLE IF NOT EXISTS video_likes (
+CREATE TABLE IF NOT EXISTS likes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     video_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY (user_id, video_id),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+    UNIQUE KEY unique_like(user_id, video_id),
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY(video_id) REFERENCES videos(id) ON DELETE CASCADE
 );
 
--- 6. REAL-TIME: MESSAGES
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE IF NOT EXISTS streams (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    sender_id INT NOT NULL,
-    receiver_id INT NOT NULL,
-    room_id VARCHAR(100) NOT NULL,
-    message TEXT NOT NULL,
-    is_seen TINYINT(1) DEFAULT 0,
+    stream_id VARCHAR(100) UNIQUE NOT NULL,
+    user_id INT NOT NULL,
+    title VARCHAR(150),
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS stream_chats (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    stream_id VARCHAR(100) NOT NULL,
+    user_id INT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(stream_id) REFERENCES streams(stream_id) ON DELETE CASCADE,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Trigger to safely tally likes_count into videos table (optional enhancement)
+-- Not strictly required but keeps likes_count synced
+DELIMITER //
+CREATE TRIGGER after_like_insert AFTER INSERT ON likes
+FOR EACH ROW BEGIN
+    UPDATE videos SET likes_count = likes_count + 1 WHERE id = NEW.video_id;
+END;
+//
+CREATE TRIGGER after_like_delete AFTER DELETE ON likes
+FOR EACH ROW BEGIN
+    UPDATE videos SET likes_count = likes_count - 1 WHERE id = OLD.video_id;
+END;
+//
+DELIMITER ;
