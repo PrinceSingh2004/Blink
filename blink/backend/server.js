@@ -298,10 +298,6 @@ const gracefulShutdown = async (signal) => {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-        console.log('✅ Server closed');
-        process.exit(0);
-    });
-});
 
 // ════════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
