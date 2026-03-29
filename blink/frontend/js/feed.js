@@ -107,71 +107,83 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (err) {
             console.error('[Feed]', err);
             showToast('Failed to load reels', 'error');
-            // Show demo video on first load failure
-            if (page === 0) renderFallback();
         } finally {
             loading = false;
             if (loader) loader.classList.add('hidden');
         }
     }
 
-    function renderFallback() {
-        renderReels([{
-            id: 9999,
-            video_url: 'https://www.w3schools.com/html/mov_bbb.mp4',
-            username: 'blink_demo',
-            caption: 'Welcome to Blink! Upload videos to see them here. 🎬',
-            likes_count: 0,
-            comments_count: 0,
-            liked_by_me: false,
-            likes_formatted: '0',
-            avatar: null
-        }]);
-    }
-
     function renderReels(videos) {
+        if (!videos.length) return;
+        
         videos.forEach(v => {
             const reel = document.createElement('div');
-            reel.className = 'reel-card';
+            reel.className = 'reel-item animate-fade-in';
             reel.dataset.id = v.id;
 
             const avatarHtml = v.avatar
-                ? `<img src="${v.avatar}" alt="@${v.username}" class="reel-avatar-img" loading="lazy">`
-                : `<div class="reel-avatar-letter">${(v.username || 'U')[0].toUpperCase()}</div>`;
+                ? `<img src="${v.avatar}" alt="@${v.username}" class="reel-user-avatar avatar" loading="lazy">`
+                : `<div class="reel-user-avatar avatar" style="display:flex;align-items:center;justify-content:center;background:#333;font-size:12px;">${(v.username || 'U')[0].toUpperCase()}</div>`;
 
             reel.innerHTML = `
                 <video src="${v.video_url}" loop muted playsinline class="reel-video" preload="metadata"></video>
                 
-                <div class="reel-overlay">
-                    <div class="reel-top">
-                        ${v.is_blink_moment ? `<div class="blink-badge">⚡ Blink Moment</div>` : ''}
-                    </div>
-
-                    <div class="reel-side-actions">
-                        <div class="reel-avatar" onclick="window.location.href='profile.html?id=${v.user_id}'">
+                <!-- Side Actions -->
+                <div class="reel-actions">
+                    <div class="action-item" onclick="window.location.href='profile.html?id=${v.user_id}'">
+                        <div class="story-ring" style="width:48px;height:48px;padding:2px;margin-bottom:10px;">
                             ${avatarHtml}
-                            <div class="follow-plus">+</div>
                         </div>
-
-                        <button class="action-btn like-btn ${v.liked_by_me ? 'liked' : ''}" data-id="${v.id}" data-liked="${v.liked_by_me}">
-                            <i class="bi ${v.liked_by_me ? 'bi-heart-fill' : 'bi-heart'}"></i>
-                            <span class="action-count">${v.likes_formatted || v.likes_count || 0}</span>
-                        </button>
-
-                        <button class="action-btn comment-btn" data-id="${v.id}">
-                            <i class="bi bi-chat-dots-fill"></i>
-                            <span class="action-count">${v.comments_count || 0}</span>
-                        </button>
-
-                        <button class="action-btn share-btn">
-                            <i class="bi bi-send-fill"></i>
-                            <span class="action-count">Share</span>
-                        </button>
                     </div>
 
-                    <div class="reel-info">
-                        <div class="reel-user" onclick="window.location.href='profile.html?id=${v.user_id}'">
-                            <span class="reel-username">@${v.username}</span>
+                    <div class="action-item">
+                        <button class="btn-ghost action-btn like-btn ${v.liked_by_me ? 'liked' : ''}" data-id="${v.id}" data-liked="${v.liked_by_me}">
+                            <i class="bi ${v.liked_by_me ? 'bi-heart-fill' : 'bi-heart'}"></i>
+                        </button>
+                        <span class="action-count">${v.likes_formatted || v.likes_count || 0}</span>
+                    </div>
+
+                    <div class="action-item">
+                        <button class="btn-ghost action-btn comment-btn" data-id="${v.id}">
+                            <i class="bi bi-chat-right-text-fill"></i>
+                        </button>
+                        <span class="action-count">${v.comments_count || 0}</span>
+                    </div>
+
+                    <div class="action-item">
+                        <button class="btn-ghost action-btn share-btn">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
+                        <span class="action-count">Share</span>
+                    </div>
+                </div>
+
+                <!-- Bottom Info -->
+                <div class="reel-info">
+                    <div class="reel-user" onclick="window.location.href='profile.html?id=${v.user_id}'">
+                        <span class="reel-username">@${v.username}</span>
+                        ${v.is_verified ? `<i class="bi bi-patch-check-fill" style="color:var(--accent-secondary);font-size:14px;"></i>` : ''}
+                        ${v.is_blink_moment ? `<span style="background:var(--accent-primary);font-size:10px;padding:2px 6px;border-radius:4px;font-weight:800;margin-left:8px;">MOMENT</span>` : ''}
+                    </div>
+                    ${v.caption ? `<p class="reel-caption">${v.caption}</p>` : ''}
+                    <div class="reel-music" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;opacity:0.8;">
+                        <i class="bi bi-music-note-beamed"></i>
+                        <marquee scrollamount="3" style="width:150px;">Original Sound · @${v.username} · Blink Original</marquee>
+                    </div>
+                </div>
+
+                <div class="tap-to-pause" style="position:absolute;top:0;left:0;right:0;bottom:100px;z-index:2;"></div>
+            `;
+
+            // Change feedContainer to reelsContainer if that's what was used in index.html
+            const container = document.getElementById('reelsContainer') || document.getElementById('feedContainer');
+            if (container) container.appendChild(reel);
+            attachReelEvents(reel, v);
+        });
+
+        observeVideos();
+    }
+ame}</span>
                             ${v.is_verified ? `<i class="bi bi-patch-check-fill verified-icon"></i>` : ''}
                         </div>
                         ${v.caption ? `<p class="reel-caption">${v.caption}</p>` : ''}

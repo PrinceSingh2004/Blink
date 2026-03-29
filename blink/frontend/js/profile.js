@@ -1,12 +1,9 @@
 /**
- * profile.js – Profile Management v3
- * ═══════════════════════════════════════════════════════════
- * Matches Backend v3 API & Unified Blink Helper
- * ═══════════════════════════════════════════════════════════
+ * profile.js – Blink Profile Management v4.0 (UI Optimized)
+ * Matches production-level styling in pages.css
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // ── 1. HELPERS ───────────────────────────────────────────────
     if (!window.Blink) return console.error('[Blink] auth.js not loaded');
     const { getToken, getUser, setAuth, logout, requireAuth, apiRequest, showToast } = window.Blink;
     
@@ -14,190 +11,159 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const me = getUser();
     const urlParams = new URLSearchParams(window.location.search);
-    const targetId = urlParams.get('id') || me.id;
-    const isOwner = parseInt(targetId) === parseInt(me.id);
+    const targetUserId = urlParams.get('id') || me.id;
+    const isOwner = parseInt(targetUserId) === parseInt(me.id);
 
-    // DOM Elements
-    const pUsername = document.getElementById('pUsername');
-    const pBio = document.getElementById('pBio');
-    const pAvatar = document.getElementById('profileAvatar');
-    const avatarInitial = document.getElementById('avatarInitial');
-    const sVideos = document.getElementById('sVideos');
-    const sFollowers = document.getElementById('sFollowers');
-    const sFollowing = document.getElementById('sFollowing');
-    const loader = document.getElementById('loader');
-    const errorArea = document.getElementById('errorArea');
-    const editBtn = document.getElementById('editBtn');
-    const followBtn = document.getElementById('followBtn'); // Assuming it exists or I should add it
+    // --- DOM Elements ---
+    const elements = {
+        handle:      document.getElementById('profileHandle'),
+        displayName: document.getElementById('profileDisplayName'),
+        bio:         document.getElementById('profileBio'),
+        website:     document.getElementById('profileWebsite'),
+        avatar:      document.getElementById('profileAvatar'),
+        posts:       document.getElementById('postsCount'),
+        followers:   document.getElementById('followersCount'),
+        following:   document.getElementById('followingCount'),
+        editBtn:     document.getElementById('editProfileBtn'),
+        grid:        document.getElementById('postGrid'),
+        modal:       document.getElementById('editProfileModal'),
+        form:        document.getElementById('editProfileForm'),
+        closeModal:  document.getElementById('closeEditModalBtn')
+    };
 
-    // Hide/Show owner-only buttons
-    if (!isOwner) {
-        if (editBtn) editBtn.style.display = 'none';
-        const deleteBtn = document.getElementById('deleteBtn');
-        if (deleteBtn) deleteBtn.style.display = 'none';
-        const passwordBtn = document.getElementById('passwordBtn');
-        if (passwordBtn) passwordBtn.style.display = 'none';
+    // Hide edit button if not the owner
+    if (!isOwner && elements.editBtn) {
+        elements.editBtn.style.display = 'none';
+        // TODO: Show Follow button instead
     }
 
-    // ── 2. LOAD PROFILE ──────────────────────────
+    // ── 1. LOAD PROFILE DATA ────────────────────────────────────
     async function loadProfile() {
-        if (loader) loader.classList.remove('hidden');
-        if (errorArea) errorArea.classList.add('hidden');
-
         try {
-            const data = await apiRequest(`/users/${targetId}`);
-            if (data.success) {
-                renderUser(data.data);
-            } else {
-                throw new Error(data.error || 'Failed to load user');
+            const data = await apiRequest(`/users/${targetUserId}`);
+            if (data.user) {
+                renderUser(data.user);
             }
         } catch (err) {
-            console.error('[Profile] Error:', err);
-            if (errorArea) errorArea.classList.remove('hidden');
-            showToast('Failed to load profile.', 'error');
-        } finally {
-            if (loader) loader.classList.add('hidden');
+            console.error('[Profile] Error loading user:', err);
+            showToast('User not found', 'error');
+            if (elements.handle) elements.handle.textContent = 'User Not Found';
         }
     }
 
     function renderUser(u) {
         document.title = `Blink | @${u.username}`;
-        if (pUsername) pUsername.textContent = '@' + u.username;
-        if (pBio) pBio.textContent = u.bio || 'No bio yet.';
-        if (sVideos) sVideos.textContent = u.posts_count || 0;
-        if (sFollowers) sFollowers.textContent = u.followers_count || 0;
-        if (sFollowing) sFollowing.textContent = u.following_count || 0;
-
-        const photo = u.profile_pic || u.avatar_url || u.profile_photo;
-        if (photo) {
-            if (pAvatar) {
-                pAvatar.src = photo;
-                pAvatar.classList.remove('hidden');
+        if (elements.handle)      elements.handle.textContent      = '@' + u.username;
+        if (elements.displayName) elements.displayName.textContent = u.display_name || u.username;
+        if (elements.bio)         elements.bio.textContent         = u.bio || 'No bio yet.';
+        if (elements.posts)       elements.posts.textContent       = u.posts_count || 0;
+        if (elements.followers)   elements.followers.textContent   = u.followers_count || 0;
+        if (elements.following)   elements.following.textContent   = u.following_count || 0;
+        
+        if (u.website) {
+            if (elements.website) {
+                elements.website.href = u.website.startsWith('http') ? u.website : 'https://' + u.website;
+                elements.website.textContent = u.website.replace(/^https?:\/\//, '');
+                elements.website.style.display = 'block';
             }
-            if (avatarInitial) avatarInitial.classList.add('hidden');
-        } else {
-            if (pAvatar) pAvatar.classList.add('hidden');
-            if (avatarInitial) {
-                avatarInitial.classList.remove('hidden');
-                avatarInitial.textContent = (u.username || 'U')[0].toUpperCase();
-            }
+        } else if (elements.website) {
+            elements.website.style.display = 'none';
         }
 
-        // Handle Follow button if viewing another profile
-        if (!isOwner && followBtn) {
-            followBtn.style.display = 'block';
-            followBtn.textContent = u.is_following ? 'Unfollow' : 'Follow';
-            followBtn.className = u.is_following ? 'btn btn-outline' : 'btn btn-primary';
-            followBtn.onclick = () => handleFollow(u.id);
+        const photo = u.profile_pic || u.avatar_url || u.profile_photo;
+        if (photo && elements.avatar) {
+            elements.avatar.innerHTML = `<img src="${photo}" alt="${u.username}" class="avatar" style="width:100%;height:100%;object-fit:cover;">`;
+        } else if (elements.avatar) {
+            elements.avatar.textContent = (u.username || 'U')[0].toUpperCase();
         }
     }
 
-    async function handleFollow(userId) {
+    // ── 2. LOAD POST GRID ────────────────────────────────────────
+    async function loadGrid() {
+        if (!elements.grid) return;
         try {
-            const res = await apiRequest(`/users/${userId}/follow`, { method: 'POST' });
-            if (res.success) {
-                showToast(res.message, 'success');
-                loadProfile(); // Refresh to update counts
-            }
+            const data = await apiRequest(`/users/${targetUserId}/posts`);
+            renderGrid(data.posts || []);
         } catch (err) {
-            showToast(err.message, 'error');
+            console.warn('[Profile] Failed to load posts:', err.message);
+            elements.grid.innerHTML = '<div class="profile-error">Failed to load posts.</div>';
         }
+    }
+
+    function renderGrid(posts) {
+        if (!posts || posts.length === 0) {
+            elements.grid.innerHTML = `
+                <div class="profile-error" style="grid-column: 1 / -1;">
+                    <i class="bi bi-camera" style="font-size: 48px; opacity: 0.2; margin-bottom: 20px; display: block;"></i>
+                    <p style="color: var(--text-muted);">No posts yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        elements.grid.innerHTML = posts.map(p => `
+            <div class="grid-item animate-fade-in" onclick="window.location.href='post.html?id=${p.id}'">
+                <img src="${p.thumbnail_url || p.media_url}" alt="Blink Post" class="grid-img" loading="lazy">
+                <div class="grid-overlay">
+                    <span><i class="bi bi-heart-fill"></i> ${p.likes_count || 0}</span>
+                    <span><i class="bi bi-chat-fill"></i> ${p.comments_count || 0}</span>
+                </div>
+            </div>
+        `).join('');
     }
 
     // ── 3. MODAL LOGIC (Edit Profile) ───────────────────────────
-    const editModal = document.getElementById('editModal');
-    const editForm = document.getElementById('editForm');
-    const avatarInput = document.getElementById('avatarInput');
-    const editPreview = document.getElementById('editPreview');
-
-    if (editBtn) {
-        editBtn.addEventListener('click', () => {
-            if (!isOwner) return;
-            if (editModal) {
-                editModal.classList.add('active');
-                const uInput = document.getElementById('editUsername');
-                const bInput = document.getElementById('editBio');
-                if (uInput) uInput.value = pUsername.textContent.replace('@', '');
-                if (bInput) bInput.value = pBio.textContent === 'No bio yet.' ? '' : pBio.textContent;
-                if (editPreview) editPreview.src = pAvatar?.src || '';
-            }
-        });
-    }
-
-    const cancelEdit = document.getElementById('cancelEdit');
-    if (cancelEdit && editModal) {
-        cancelEdit.addEventListener('click', () => editModal.classList.remove('active'));
-    }
-
-    if (avatarInput && editPreview) {
-        avatarInput.addEventListener('change', function() {
-            const file = this.files[0];
-            if (file) {
-                if (file.size > 10 * 1024 * 1024) return showToast('Image too large (max 10MB)', 'error');
-                const reader = new FileReader();
-                reader.onload = e => editPreview.src = e.target.result;
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-
-    if (editForm) {
-        editForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('saveEdit');
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = 'Saving...';
-            }
-
-            const formData = new FormData();
-            formData.append('username', document.getElementById('editUsername')?.value || '');
-            formData.append('bio', document.getElementById('editBio')?.value || '');
-            if (avatarInput && avatarInput.files[0]) {
-                formData.append('avatar', avatarInput.files[0]);
-            }
-
-            try {
-                // Use fetch directly for FormData to avoid manual Content-Type set in apiRequest
-                const res = await fetch(window.Blink.API + '/users/profile', {
-                    method: 'PUT',
-                    headers: { 'Authorization': 'Bearer ' + getToken() },
-                    body: formData
-                });
-
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Update failed');
-
-                if (data.success) {
-                    showToast('Profile updated! ✨', 'success');
-                    if (editModal) editModal.classList.remove('active');
-                    loadProfile();
-                    
-                    // Update header/sidebar
-                    window.Blink.populateSidebar();
-                }
-            } catch (err) {
-                showToast(err.message, 'error');
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = 'Save Changes';
+    if (elements.editBtn) {
+        elements.editBtn.onclick = () => {
+            if (elements.modal) {
+                elements.modal.classList.add('show');
+                // Pre-fill form
+                const form = elements.form;
+                const user = getUser();
+                if (form) {
+                    form.display_name.value = elements.displayName?.textContent || '';
+                    form.bio.value = elements.bio?.textContent || '';
+                    form.website.value = elements.website?.href || '';
                 }
             }
-        });
-    }
-
-    // ── 4. CHANGE PASSWORD & DELETE (Omitted for brevity if UI doesn't match API exactly) ───
-    // These would follow the same pattern as above using apiRequest('/users/...')
-
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.onclick = (e) => {
-            e.preventDefault();
-            logout();
         };
     }
 
-    // Init
-    loadProfile();
+    if (elements.closeModal) {
+        elements.closeModal.onclick = () => elements.modal.classList.remove('show');
+    }
+
+    if (elements.form) {
+        elements.form.onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = elements.form.querySelector('button[type="submit"]');
+            if (btn) btn.disabled = true;
+
+            const formData = {
+                display_name: elements.form.display_name.value,
+                bio:         elements.form.bio.value,
+                website:     elements.form.website.value
+            };
+
+            try {
+                const res = await apiRequest('/users/profile', {
+                    method: 'PUT',
+                    body: JSON.stringify(formData)
+                });
+                
+                showToast('Profile updated! ✨', 'success');
+                elements.modal.classList.remove('show');
+                loadProfile();
+                window.Blink.populateSidebar();
+            } catch (err) {
+                showToast(err.message || 'Update failed', 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        };
+    }
+
+    // ── 4. INITIALIZE ───────────────────────────────────────────
+    await loadProfile();
+    await loadGrid();
 });

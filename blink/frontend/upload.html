@@ -3,221 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
-    <title>Blink | Create Original Content</title>
+    <title>Blink | Create Studio</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/pages.css">
     <style>
+        .upload-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center; justify-content: center;
+            padding: var(--space-xl);
+        }
+        @media (min-width: 769px) { .upload-page { padding-left: var(--sidebar-width); } }
+        
         .upload-container {
-            max-width: 600px;
-            margin: 80px auto;
-            padding: 24px;
-            background: var(--glass);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            backdrop-filter: blur(20px);
-        }
-        .upload-header {
-            text-align: center;
-            margin-bottom: 24px;
-        }
-        .upload-header h1 {
-            font-size: 24px;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-        .upload-header p {
-            color: var(--text-muted);
-            font-size: 14px;
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            background: var(--bg-surface);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(255,255,255,0.1);
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            animation: fadeIn 0.8s ease-out;
         }
 
-        .upload-drop-zone {
-            aspect-ratio: 16/9;
-            border: 2px dashed var(--border);
-            border-radius: 16px;
+        .dropzone-area {
+            background: rgba(255,255,255,0.02);
+            border: 2px dashed rgba(255,0,80,0.3);
+            border-radius: var(--radius-md);
+            margin: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            text-align: center;
+            transition: var(--transition);
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 24px;
-            background: rgba(255,255,255,0.02);
-        }
-        .upload-drop-zone:hover, .upload-drop-zone.drag-active {
-            border-color: var(--primary);
-            background: rgba(var(--primary-rgb), 0.05);
-        }
-        .upload-drop-zone i {
-            font-size: 40px;
-            color: var(--primary);
-            margin-bottom: 12px;
-        }
-        .upload-drop-zone p {
-            font-size: 14px;
-            font-weight: 600;
-        }
-        .upload-drop-zone span {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 4px;
+            aspect-ratio: 9/16;
+            position: relative;
         }
 
-        .preview-area {
-            position: relative;
-            margin-bottom: 24px;
-            border-radius: 16px;
-            overflow: hidden;
+        .dropzone-area.dragover {
+            border-color: var(--accent-primary);
+            background: rgba(255,0,80,0.05);
+            transform: scale(0.98);
+        }
+
+        .dropzone-icon {
+            font-size: 64px;
+            color: var(--accent-primary);
+            margin-bottom: 20px;
+            opacity: 0.6;
+        }
+
+        .preview-media {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover;
+            border-radius: var(--radius-md);
             display: none;
         }
-        .preview-area video, .preview-area img {
-            width: 100%;
-            display: block;
-        }
-        .remove-preview {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.6);
-            border: none;
-            color: #fff;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            cursor: pointer;
+
+        .upload-form-side {
+            padding: 40px;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
         }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
-        .form-label {
-            display: block;
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: var(--text-muted);
-        }
-        .form-select, .form-textarea {
-            width: 100%;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 12px 16px;
-            color: #fff;
-            font-size: 14px;
-            outline: none;
-        }
-        .form-textarea {
-            height: 100px;
-            resize: none;
-        }
-
-        .upload-submit-btn {
-            width: 100%;
-            padding: 16px;
-            border-radius: 14px;
-            border: none;
-            background: var(--primary);
-            color: var(--bg);
-            font-weight: 800;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .upload-submit-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        @media (max-width: 768px) {
+            .upload-container { grid-template-columns: 1fr; }
+            .dropzone-area { aspect-ratio: 1/1; margin: 10px; }
+            .upload-form-side { padding: 20px; }
         }
 
         .progress-bar {
-            height: 4px;
-            background: var(--border);
-            border-radius: 2px;
-            margin-top: 20px;
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: var(--radius-full);
             overflow: hidden;
+            margin-top: 10px;
             display: none;
         }
+
         .progress-fill {
             height: 100%;
-            background: var(--primary);
+            background: var(--accent-gradient);
             width: 0%;
             transition: width 0.3s ease;
         }
     </style>
 </head>
 
-<body class="theme-dark">
-    <div class="upload-container">
-        <header class="upload-header">
-            <h1>Create Content</h1>
-            <p>Share your moments with the Blink community</p>
-        </header>
+<body>
 
-        <form id="uploadForm">
-            <input type="file" id="fileInput" class="hidden" accept="video/mp4,video/webm,image/jpeg,image/png,image/webp">
+    <!-- ── SIDEBAR (Desktop) ─────────────────────────────────── -->
+    <aside class="sidebar glass hide-mobile">
+        <div class="sidebar-logo">
+            <span class="gradient-text auth-logo">B</span>
+            <h2 class="gradient-text">Blink</h2>
+        </div>
+        
+        <nav class="nav-links">
+            <a href="index.html" class="nav-link"><i class="bi bi-house-door"></i> <span>Home</span></a>
+            <a href="messages.html" class="nav-link"><i class="bi bi-chat-dots"></i> <span>Messages</span></a>
+            <a href="live.html" class="nav-link"><i class="bi bi-broadcast"></i> <span>Live</span></a>
+            <a href="upload.html" class="nav-link active"><i class="bi bi-plus-square-fill"></i> <span>Create</span></a>
+            <a href="profile.html" class="nav-link"><i class="bi bi-person"></i> <span>Profile</span></a>
+        </nav>
+    </aside>
+
+    <!-- ── UPLOAD CONTENT ────────────────────────────────────── -->
+    <main class="upload-page">
+        <div class="upload-container glass">
             
-            <div id="uploadDropZone" class="upload-drop-zone">
-                <i class="bi bi-cloud-arrow-up-fill"></i>
-                <p>Click or drag media here</p>
-                <span>MP4, WEBM, JPG, PNG (Max 100MB)</span>
+            <!-- LEFT: DROPZONE -->
+            <div class="dropzone-area" id="dropzone">
+                <input type="file" id="mediaInput" accept="video/*,image/*" hidden>
+                <div class="dropzone-content" id="dropzoneContent">
+                    <i class="bi bi-cloud-arrow-up-fill dropzone-icon"></i>
+                    <h3 style="margin-bottom:8px;">Drag & Drop a video</h3>
+                    <p style="color:var(--text-muted);font-size:14px;">Resolution must be vertical (9:16) for Reels</p>
+                    <button class="btn btn-secondary" style="margin-top:24px;">Select from Device</button>
+                </div>
+                <video id="videoPreview" class="preview-media" loop muted></video>
+                <img id="imagePreview" class="preview-media" alt="Preview">
             </div>
 
-            <div id="previewArea" class="preview-area">
-                <button type="button" class="remove-preview" id="removePreview"><i class="bi bi-x-lg"></i></button>
-                <div id="mediaPlaceholder"></div>
+            <!-- RIGHT: FORM -->
+            <div class="upload-form-side">
+                <div>
+                    <h2 style="font-size:24px;margin-bottom:4px;">Upload Reel</h2>
+                    <p style="color:var(--text-muted);font-size:14px;">Add a catchy caption and hashtags.</p>
+                </div>
+
+                <div class="form-group" style="margin-top:20px;">
+                    <label class="form-label">Caption</label>
+                    <div class="input-wrap" style="padding:0;">
+                         <textarea id="captionInput" class="form-input" style="height:120px;resize:none;padding-left:14px;" placeholder="Write something cinematic..."></textarea>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <div class="input-wrap" style="padding:0;">
+                        <span class="input-icon"><i class="bi bi-hash"></i></span>
+                        <select id="typeInput" class="form-input">
+                            <option value="reel">Reel (Short Video)</option>
+                            <option value="post">Fixed Post (Photo/Video)</option>
+                            <option value="story">Story (Expires in 24h)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="uploadProgress" class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <p id="progressText" style="font-size:12px;color:var(--text-muted);text-align:center;margin-top:4px;display:none;">Uploading 0%</p>
+
+                <div style="flex:1;"></div>
+
+                <button class="btn btn-primary" id="publishBtn" style="width:100%;height:52px;font-size:16px;">
+                    Publish to Blink <i class="bi bi-send-check-fill"></i>
+                </button>
             </div>
 
-            <div class="form-group">
-                <label class="form-label" for="uploadType">Content Type</label>
-                <select id="uploadType" class="form-select">
-                    <option value="reel">Reel (Short Video)</option>
-                    <option value="post">Fixed Post (Photo/Video)</option>
-                    <option value="story">Story (Lasts 24h)</option>
-                </select>
-            </div>
+        </div>
+    </main>
 
-            <div class="form-group" id="moodGroup">
-                <label class="form-label" for="moodSelect">Category / Mood</label>
-                <select id="moodSelect" class="form-select">
-                    <option value="General">General</option>
-                    <option value="Gaming">Gaming</option>
-                    <option value="Tech">Tech</option>
-                    <option value="Aesthetic">Aesthetic</option>
-                    <option value="Lifestyle">Lifestyle</option>
-                    <option value="Music">Music</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="captionInput">Caption</label>
-                <textarea id="captionInput" class="form-textarea" placeholder="Write something catchy... #viral #blink"></textarea>
-            </div>
-
-            <button type="submit" class="upload-submit-btn" id="submitBtn">
-                <i class="bi bi-rocket-takeoff-fill"></i> Post Now
-            </button>
-
-            <div class="progress-bar" id="progressBar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div id="progressText" style="text-align:center;font-size:12px;margin-top:8px;color:var(--text-muted);display:none;">Uploading 0%</div>
-        </form>
-    </div>
-
-    <!-- BOTTOM NAVIGATION -->
+    <!-- ── BOTTOM NAV (Mobile) ────────────────────────────────── -->
     <nav class="bottom-nav">
-        <a href="index.html"><i class="bi bi-house-door-fill"></i></a>
-        <a href="messages.html"><i class="bi bi-chat-dots-fill"></i></a>
-        <a href="upload.html" class="active"><i class="bi bi-plus-square-fill"></i></a>
-        <a href="live.html"><i class="bi bi-broadcast"></i></a>
-        <a href="profile.html"><i class="bi bi-person-circle-fill"></i></a>
+        <a href="index.html" class="bottom-link"><i class="bi bi-house-door"></i> <span>Home</span></a>
+        <a href="live.html" class="bottom-link"><i class="bi bi-broadcast"></i> <span>Live</span></a>
+        <a href="upload.html" class="bottom-link active"><i class="bi bi-plus-square-fill"></i> <span>Create</span></a>
+        <a href="messages.html" class="bottom-link"><i class="bi bi-chat-dots"></i> <span>Chat</span></a>
+        <a href="profile.html" class="bottom-link"><i class="bi bi-person"></i> <span>Profile</span></a>
     </nav>
 
+    <!-- NOTIFICATIONS -->
+    <div id="toastContainer"></div>
+
+    <!-- SCRIPTS -->
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/upload.js"></script>

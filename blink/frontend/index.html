@@ -4,87 +4,99 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
     <title>Blink | Watch, Create, Share</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/feed.css">
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/pages.css">
 </head>
 
-<body class="theme-dark">
+<body>
 
-    <div class="app-layout">
-        <!-- SIDEBAR -->
-        <nav class="sidebar">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                <a href="index.html" class="logo-container" style="margin-bottom: 0;">
-                    <div class="logo-icon">B</div><span class="logo-text">Blink</span>
-                </a>
-                <button id="themeToggle" title="Toggle Theme">🌙</button>
-            </div>
-            
-            <div class="sidebar-search">
-                <i class="bi bi-search input-icon" style="position:absolute; left:12px; top:12px; font-size:14px; color:var(--text-muted)"></i>
-                <input type="search" class="form-input" id="globalSearchInput" placeholder="Search creators..." style="padding-left:35px">
-                <div id="globalSearchResults" class="search-results-dropdown"></div>
-            </div>
-
-            <ul class="nav-links">
-                <li class="nav-item"><a href="index.html" class="active"><i class="bi bi-house-door-fill nav-icon"></i><span class="nav-text">Home</span></a></li>
-                <li class="nav-item"><a href="upload.html"><i class="bi bi-plus-square-fill nav-icon"></i><span class="nav-text">Upload</span></a></li>
-                <li class="nav-item"><a href="messages.html"><i class="bi bi-chat-dots-fill nav-icon"></i><span class="nav-text">Messages</span><span id="notifBadge" class="nav-badge" style="display:none">0</span></a></li>
-                <li class="nav-item"><a href="live.html"><i class="bi bi-broadcast nav-icon"></i><span class="nav-text">Live</span></a></li>
-                <li class="nav-item"><a href="profile.html"><i class="bi bi-person-circle nav-icon"></i><span class="nav-text">Profile</span></a></li>
-            </ul>
-
-            <div class="sidebar-user">
-                <div class="sidebar-avatar" id="sidebarAvatar"></div>
-                <div class="sidebar-info">
-                    <div class="sidebar-name" id="sidebarName">Loading...</div>
-                    <div class="sidebar-handle" id="sidebarHandle"></div>
+    <!-- ── SIDEBAR (Desktop) ─────────────────────────────────── -->
+    <aside class="sidebar glass">
+        <div class="sidebar-logo">
+            <span class="gradient-text auth-logo">B</span>
+            <h2 class="gradient-text">Blink</h2>
+        </div>
+        
+        <nav class="nav-links">
+            <a href="index.html" class="nav-link active">
+                <i class="bi bi-house-door-fill"></i>
+                <span>Home</span>
+            </a>
+            <a href="messages.html" class="nav-link">
+                <i class="bi bi-chat-dots-fill"></i>
+                <span>Messages</span>
+            </a>
+            <a href="live.html" class="nav-link">
+                <i class="bi bi-broadcast"></i>
+                <span>Live</span>
+            </a>
+            <a href="upload.html" class="nav-link">
+                <i class="bi bi-plus-square-fill"></i>
+                <span>Create</span>
+            </a>
+            <a href="profile.html" class="nav-link" id="sidebarProfileLink">
+                <div class="story-ring sidebar-avatar-wrap" style="width:32px;height:32px;">
+                    <div id="sidebarAvatar" class="avatar" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#333;font-size:12px;">U</div>
                 </div>
-                <button class="sidebar-logout" id="logoutBtn"><i class="bi bi-box-arrow-right"></i></button>
-            </div>
+                <div style="display:flex;flex-direction:column;line-height:1.2;">
+                    <span id="sidebarName">Profile</span>
+                    <span id="sidebarHandle" style="font-size:11px;color:var(--text-muted);">@handle</span>
+                </div>
+            </a>
         </nav>
 
-        <!-- MAIN FEED -->
-        <main class="main-content">
-            <!-- MOBILE HEADER -->
-            <header class="mobile-header">
-                <div class="logo-text">Blink</div>
-                <div class="header-actions">
-                    <a href="upload.html"><i class="bi bi-plus-square"></i></a>
-                    <a href="messages.html"><i class="bi bi-chat-dots"></i></a>
-                </div>
-            </header>
+        <div class="sidebar-footer">
+            <button id="logoutBtn" class="nav-link" style="width:100%;text-align:left;">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+            </button>
+        </div>
+    </aside>
 
-            <div class="feed-layout">
-                <!-- STORIES ROW -->
-                <div class="stories-container" id="storiesRow">
-                    <div class="story-bubble" id="addStoryBtn">
-                        <div class="story-avatar add-story">
-                            <i class="bi bi-plus"></i>
-                        </div>
-                        <span>Your Story</span>
-                    </div>
-                    <div id="storiesList" style="display: flex; gap: 15px;"></div>
-                </div>
+    <!-- ── MAIN FEED AREA ────────────────────────────────────── -->
+    <main class="reels-container" id="reelsContainer">
+        <!-- REEL ITEMS INJECTED BY JS -->
+        <div class="profile-error">
+            <div class="loader" style="margin: 0 auto 20px;"></div>
+            <p>Loading the latest Blinks...</p>
+        </div>
+    </main>
 
-                <!-- REELS FEED -->
-                <div class="reels-feed" id="feedContainer"></div>
+    <!-- ── BOTTOM NAV (Mobile) ────────────────────────────────── -->
+    <nav class="bottom-nav">
+        <a href="index.html" class="bottom-link active">
+            <i class="bi bi-house-door-fill"></i>
+            <span>Home</span>
+        </a>
+        <a href="live.html" class="bottom-link">
+            <i class="bi bi-broadcast"></i>
+            <span>Live</span>
+        </a>
+        <a href="upload.html" class="bottom-link">
+            <i class="bi bi-plus-square" style="font-size:28px;"></i>
+        </a>
+        <a href="messages.html" class="bottom-link">
+            <i class="bi bi-chat-dots"></i>
+            <span>Chat</span>
+        </a>
+        <a href="profile.html" class="bottom-link">
+            <div id="topNavAvatar" class="avatar" style="width:24px;height:24px;background:#333;display:flex;align-items:center;justify-content:center;font-size:10px;">U</div>
+            <span>Profile</span>
+        </a>
+    </nav>
 
-                <!-- LOADER -->
-                <div id="feedLoader" class="skeleton-loader hidden">
-                    <div class="sk-video"></div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- HIDDEN INPUTS -->
-    <input type="file" id="storyInput" accept="image/*,video/*" class="hidden">
-
+    <!-- ── NOTIFICATIONS ─────────────────────────────────────── -->
     <div id="toastContainer"></div>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- ── SCRIPTS ────────────────────────────────────────────── -->
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/feed.js"></script>

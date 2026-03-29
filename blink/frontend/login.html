@@ -1,106 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Blink | Sign In</title>
-  <meta name="description" content="Sign in to your Blink account – the next-gen short video platform.">
-  <link rel="icon" type="image/png" href="favicon.png">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-    rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/auth.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+    <title>Blink | Sign In</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/pages.css">
+    <style>
+        .auth-split {
+            display: flex;
+            min-height: 100vh;
+            width: 100%;
+        }
+        .auth-side-visual {
+            flex: 1;
+            background: radial-gradient(circle at center, #1a1012 0%, #000 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        .auth-side-visual::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, #ff0050 0%, transparent 40%, #00f2ea 60%, transparent 100%);
+            opacity: 0.1;
+            animation: spin 20s linear infinite;
+        }
+        .auth-side-content {
+            position: relative;
+            z-index: 5;
+            text-align: center;
+        }
+        .auth-side-logo {
+            font-size: 80px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            display: block;
+        }
+        .auth-side-tagline {
+            font-size: 24px;
+            font-weight: 300;
+            color: var(--text-secondary);
+            max-width: 400px;
+        }
+        .auth-side-form {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-main);
+            padding: 40px;
+        }
+        @media (max-width: 992px) {
+            .auth-side-visual { display: none; }
+            .auth-side-form { padding: 20px; }
+        }
+    </style>
 </head>
 
 <body>
-  <div class="auth-page">
 
-    <!-- LEFT VISUAL -->
-    <div class="auth-visual">
-      <div class="auth-cards">
-        <div class="auth-card"></div>
-        <div class="auth-card"></div>
-        <div class="auth-card"></div>
-      </div>
-      <div class="auth-brand">
-        <div class="auth-logo-icon">B</div>
-        <div class="auth-brand-name">Blink</div>
-        <p class="auth-brand-tagline">The next-gen short video platform.<br>Create. Share. Go Viral.</p>
-      </div>
-      <div class="auth-features">
-        <div class="auth-feature">
-          <span class="auth-feature-icon"><i class="bi bi-camera-reels-fill"></i></span>
-          <span class="auth-feature-text">Upload vertical short videos</span>
+    <div class="auth-split animate-fade-in">
+        
+        <!-- LEFT: VISUAL -->
+        <div class="auth-side-visual">
+            <div class="auth-side-content">
+                <span class="gradient-text auth-side-logo">B</span>
+                <p class="auth-side-tagline">Watch. Create. Go Viral. The next-gen platform for cinematic shorts.</p>
+                <div class="profile-stats" style="justify-content:center;margin-top:40px;gap:60px;">
+                    <div class="stat-item"><span class="stat-value">10M+</span> views</div>
+                    <div class="stat-item"><span class="stat-value">500K+</span> creators</div>
+                </div>
+            </div>
         </div>
-        <div class="auth-feature">
-          <span class="auth-feature-icon"><i class="bi bi-lightning-charge-fill"></i></span>
-          <span class="auth-feature-text">Blink Moments – 24h viral clips</span>
+
+        <!-- RIGHT: FORM -->
+        <div class="auth-side-form">
+            <div class="auth-card glass">
+                <div class="auth-header">
+                    <span class="gradient-text auth-logo">Blink</span>
+                    <h2 style="font-size:28px;font-weight:700;margin-top:20px;">Welcome back 👋</h2>
+                    <p class="auth-subtitle">Sign in to continue sharing moments.</p>
+                </div>
+
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label">Email or Username</label>
+                        <div class="input-wrap">
+                            <span class="input-icon"><i class="bi bi-person-circle"></i></span>
+                            <input type="text" name="identifier" class="form-input" placeholder="Enter email or username" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <div class="input-wrap">
+                            <span class="input-icon"><i class="bi bi-lock-fill"></i></span>
+                            <input type="password" name="password" class="form-input" placeholder="Enter your password" required>
+                            <button type="button" class="pw-toggle" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:18px;color:rgba(255,255,255,0.4);"><i class="bi bi-eye-fill"></i></button>
+                        </div>
+                    </div>
+
+                    <div style="text-align:right;margin-bottom:20px;">
+                        <a href="#" style="color:var(--text-muted);font-size:13px;font-weight:500;">Forgot password?</a>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="loginBtn" style="width:100%;height:52px;font-size:16px;">
+                        Sign In <i class="bi bi-arrow-right-short"></i>
+                    </button>
+                    
+                    <div class="auth-divider" style="text-align:center;margin:30px 0;position:relative;">
+                        <span style="background:var(--bg-surface);padding:0 10px;color:var(--text-muted);font-size:12px;text-transform:uppercase;letter-spacing:1px;position:relative;z-index:2;">or</span>
+                        <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,0.1);z-index:1;"></div>
+                    </div>
+
+                    <p style="text-align:center;color:var(--text-secondary);font-size:14px;">
+                        New to Blink? <a href="register.html" style="color:var(--accent-primary);font-weight:700;">Create Account</a>
+                    </p>
+                </form>
+            </div>
         </div>
-        <div class="auth-feature">
-          <span class="auth-feature-icon"><i class="bi bi-people-fill"></i></span>
-          <span class="auth-feature-text">Follow creators you love</span>
-        </div>
-        <div class="auth-feature">
-          <span class="auth-feature-icon"><i class="bi bi-chat-dots-fill"></i></span>
-          <span class="auth-feature-text">Real-time messaging</span>
-        </div>
-      </div>
+
     </div>
 
-    <!-- RIGHT FORM -->
-    <div class="auth-form-section">
-      <div class="auth-form-header">
-        <h1 class="auth-form-title">Welcome back 👋</h1>
-        <p class="auth-form-subtitle">Sign in to continue to Blink</p>
-      </div>
+    <!-- NOTIFICATIONS -->
+    <div id="toastContainer"></div>
 
-      <div id="loginAlert" class="auth-alert"></div>
-
-      <form class="auth-form" id="loginForm" autocomplete="on" novalidate>
-        <div class="form-group">
-          <label class="form-label" for="identifier">Email or Username</label>
-          <div class="input-wrap">
-            <span class="input-icon"><i class="bi bi-person-circle"></i></span>
-            <input type="text" name="identifier" id="identifier" class="form-input"
-              placeholder="Enter email or username" autocomplete="username" required>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="passwordInput">Password</label>
-          <div class="input-wrap">
-            <span class="input-icon"><i class="bi bi-lock-fill"></i></span>
-            <input type="password" name="password" id="passwordInput" class="form-input"
-              placeholder="Enter your password" autocomplete="current-password" required>
-            <button type="button" class="pw-toggle" aria-label="Toggle password">
-              <i class="bi bi-eye-fill"></i>
-            </button>
-          </div>
-          <div style="text-align:right;margin-top:8px;">
-            <a href="#" style="font-size:13px;color:var(--accent-primary);text-decoration:none;">
-              Forgot password?
-            </a>
-          </div>
-        </div>
-
-        <button type="submit" class="auth-submit-btn" id="loginBtn">
-          <span class="btn-label">Sign In <i class="bi bi-arrow-right"></i></span>
-          <span class="btn-spinner"></span>
-        </button>
-      </form>
-
-      <div class="auth-divider">or</div>
-      <div class="auth-switch">Don't have an account? <a href="register.html">Create one free</a></div>
-    </div>
-
-  </div>
-  <div id="toastContainer"></div>
-
-  <script src="js/config.js"></script>
-  <script src="js/auth.js"></script>
+    <!-- SCRIPTS -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
 </body>
-
 </html>

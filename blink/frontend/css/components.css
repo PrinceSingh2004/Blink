@@ -1,0 +1,279 @@
+/* 
+ * components.css – Blink Platform Premium UI Components
+ * Optimized for Desktop and Mobile (Responsive)
+ */
+
+/* --- Buttons --- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: 10px 20px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 15px;
+    transition: var(--transition);
+    user-select: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background: var(--accent-gradient);
+    color: white;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover {
+    box-shadow: var(--glow-primary);
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+}
+
+.btn-primary:active { transform: scale(0.96); }
+
+.btn-secondary {
+    background: var(--bg-surface-elevated);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-secondary:hover { background: var(--bg-input); }
+
+.btn-ghost {
+    color: var(--text-secondary);
+}
+.btn-ghost:hover {
+    color: white;
+    background: rgba(255,255,255,0.1);
+}
+
+.icon-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.icon-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.1); }
+.icon-btn i { font-size: 24px; }
+
+/* --- Inputs --- */
+.form-group {
+    margin-bottom: var(--space-lg);
+    width: 100%;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: var(--space-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.input-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.form-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: white;
+    padding: 14px 16px;
+    padding-left: 44px;
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    transition: var(--transition);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(255,0,80,0.1);
+    background: var(--bg-surface-elevated);
+}
+
+.input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 18px;
+}
+
+/* --- Navigation: SIDEBAR (Desktop) --- */
+.sidebar {
+    width: var(--sidebar-width);
+    height: 100vh;
+    padding: var(--space-xl) var(--space-md);
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 0 var(--space-sm);
+    margin-bottom: var(--space-xl);
+}
+
+.sidebar-logo h2 {
+    font-size: 28px;
+    letter-spacing: -1px;
+}
+
+.nav-links {
+    flex: 1;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: var(--space-xs);
+    transition: var(--transition);
+}
+
+.nav-link:hover, .nav-link.active {
+    background: rgba(255,255,255,0.1);
+    color: white;
+}
+
+.nav-link i { font-size: 24px; }
+.nav-link.active i { color: var(--accent-primary); }
+
+/* --- Navigation: BOTTOM NAV (Mobile) --- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--bottom-nav-height);
+    display: none;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 var(--space-md);
+    z-index: 1000;
+    backdrop-filter: blur(40px);
+    background: rgba(0,0,0,0.8);
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.bottom-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-muted);
+    gap: 4px;
+}
+
+.bottom-link i { font-size: 22px; }
+.bottom-link span { font-size: 10px; font-weight: 500; }
+.bottom-link.active { color: var(--accent-primary); }
+
+/* --- Modals (Glassmorphism) --- */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: var(--transition);
+}
+
+.modal-overlay.show { opacity: 1; visibility: visible; }
+
+.modal-content {
+    background: var(--bg-surface);
+    width: 90%;
+    max-width: 500px;
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    border: 1px solid rgba(255,255,255,0.1);
+    transform: scale(0.9);
+    transition: var(--transition);
+}
+
+.modal-overlay.show .modal-content { transform: scale(1); }
+
+/* --- Toasts --- */
+#toastContainer {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    z-index: 3000;
+}
+
+.toast {
+    padding: 12px 24px;
+    border-radius: var(--radius-full);
+    background: var(--bg-surface-elevated);
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    box-shadow: var(--shadow-md);
+    transform: translateX(120%);
+    transition: var(--transition);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.toast.show { transform: translateX(0); }
+.toast-success { border-left: 4px solid var(--success); }
+.toast-error { border-left: 4px solid var(--danger); }
+
+/* --- Skeleton / Loader --- */
+.skeleton {
+    background: linear-gradient(90deg, #1e1e1e 0%, #2a2a2a 50%, #1e1e1e 100%);
+    background-size: 200% 100%;
+    animation: skeleton-shift 1.5s infinite;
+}
+
+@keyframes skeleton-shift {
+    to { background-position: -200% 0; }
+}
+
+/* --- AVATAR & RINGS --- */
+.avatar {
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--bg-surface-elevated);
+}
+
+.story-ring {
+    padding: 2px;
+    background: var(--accent-gradient);
+    border-radius: 50%;
+}
+
+@media (max-width: 768px) {
+    .sidebar { display: none; }
+    .bottom-nav { display: flex; }
+}

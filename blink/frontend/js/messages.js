@@ -1,8 +1,6 @@
 /**
- * messages.js – Blink Messaging v3
- * ═══════════════════════════════════════════════════════════
- * Handles: Conv List, Search, Room History, Real-Time Socket
- * ═══════════════════════════════════════════════════════════
+ * messages.js – Blink Messaging v4.0 (UI Optimized)
+ * Premium Split-Pane Desktop & Responsive Mobile Layout
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -13,111 +11,165 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!requireAuth()) return;
 
     const me = getUser();
-    const convList = document.getElementById('convList');
-    const chatMain = document.getElementById('chatMain');
-    const noChatSelected = document.getElementById('noChatSelected');
-    const chatBox = document.getElementById('messagesArea');
-    const input = document.getElementById('chatInput');
-    const sendBtn = document.getElementById('sendMsgBtn');
-    
-    // Header elements
-    const chatHeaderName = document.getElementById('chatHeaderName');
-    const chatHeaderAvatar = document.getElementById('chatHeaderAvatar');
+    const elements = {
+        list:       document.getElementById('conversationContainer'),
+        thread:     document.getElementById('chatThread'),
+        chatList:   document.getElementById('chatList'),
+        box:        document.getElementById('messagesArea'),
+        input:      document.getElementById('chatInput'),
+        sendBtn:    document.getElementById('sendBtn'),
+        header:     document.getElementById('threadHeader'),
+        name:       document.getElementById('threadName'),
+        avatar:     document.getElementById('threadAvatar'),
+        inputArea:  document.getElementById('inputArea'),
+        backBtn:    document.getElementById('backBtn')
+    };
 
     let currentRoomId = null;
-    let activeOtherUser = null;
-    let typingTimer;
+    let activeOtherUserId = null;
 
     // ── 2. CONVERSATION LIST ───────────────────────────────────
     async function loadConversations() {
-        if (convList) convList.innerHTML = '<div class="spinner"></div>';
         try {
             const data = await apiRequest('/messages/conversations');
             renderConversations(data.conversations || []);
         } catch (err) {
-            console.warn('[Chat] Conv list fail:', err);
-            if (convList) convList.innerHTML = '<p class="error-msg">Failed to load chats</p>';
+            console.warn('[Chat] Failed to load conversations:', err);
+            if (elements.list) elements.list.innerHTML = '<p style="padding:40px;text-align:center;color:var(--text-muted);">Failed to load chats</p>';
         }
     }
 
     function renderConversations(convs) {
-        if (!convList) return;
+        if (!elements.list) return;
         if (!convs.length) {
-            convList.innerHTML = '<div class="empty-conv">No messages yet. Start a new one!</div>';
+            elements.list.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-muted);"><i class="bi bi-chat-dots" style="font-size:32px;opacity:0.2;"></i><p style="margin-top:10px;">No messages yet.</p></div>';
             return;
         }
 
-        convList.innerHTML = convs.map(c => {
-            const time = c.last_message_time ? new Date(c.last_message_time).toLocaleDateString() : '';
-            return `
-                <div class="conv-item ${currentRoomId === c.room_id ? 'active' : ''}" data-room="${c.room_id}" data-uid="${c.other_user_id}">
-                    <div class="conv-avatar">
-                        ${c.avatar ? `<img src="${c.avatar}" alt="${c.username}">` : c.username[0].toUpperCase()}
-                    </div>
-                    <div class="conv-info">
-                        <div class="conv-name">
-                            ${c.username}
-                            ${c.is_verified ? '<i class="bi bi-patch-check-fill verified-icon"></i>' : ''}
-                        </div>
-                        <div class="conv-last-msg">${c.last_message || 'Start chatting...'}</div>
-                    </div>
-                    <div class="conv-meta">
-                        <div class="conv-time">${time}</div>
-                        ${c.unread_count > 0 ? `<div class="conv-badge">${c.unread_count}</div>` : ''}
-                    </div>
+        elements.list.innerHTML = convs.map(c => `
+            <div class="conversation-item ${currentRoomId === c.room_id ? 'active' : ''}" data-room="${c.room_id}" data-uid="${c.other_user_id}">
+                <div class="avatar" style="width:48px;height:48px;flex-shrink:0;background:#333;display:flex;align-items:center;justify-content:center;font-size:18px;">
+                    ${c.avatar ? `<img src="${c.avatar}" alt="${c.username}" class="avatar" style="width:100%;height:100%;object-fit:cover;">` : c.username[0].toUpperCase()}
                 </div>
-            `;
-        }).join('');
+                <div class="conv-info">
+                    <div class="conv-name">@${c.username} ${c.is_verified ? '<i class="bi bi-patch-check-fill" style="color:var(--accent-secondary);font-size:12px;"></i>' : ''}</div>
+                    <div class="conv-last">${c.last_message || 'Start a conversation...'}</div>
+                </div>
+                ${c.unread_count > 0 ? `<div style="background:var(--accent-primary);color:white;font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;">${c.unread_count}</div>` : ''}
+            </div>
+        `).join('');
 
-        // Attach click events
-        convList.querySelectorAll('.conv-item').forEach(item => {
+        // Attach clicks
+        elements.list.querySelectorAll('.conversation-item').forEach(item => {
             item.onclick = () => {
                 const uid = item.getAttribute('data-uid');
                 const username = item.querySelector('.conv-name').textContent.trim();
-                const avatar = item.querySelector('.conv-avatar').innerHTML;
-                openChat(uid, username, avatar);
+                const avatarContent = item.querySelector('.avatar').innerHTML;
+                openChat(uid, username.replace('@', ''), avatarContent);
             };
         });
     }
 
     // ── 3. OPEN CHAT ───────────────────────────────────────────
-    window.openChat = async (userId, username, avatarHtml) => {
-        if (noChatSelected) noChatSelected.style.display = 'none';
-        if (chatMain) chatMain.style.display = 'flex';
+    async function openChat(userId, username, avatarHtml) {
+        activeOtherUserId = userId;
         
-        chatBox.innerHTML = '<div class="loading-messages">Loading history...</div>';
-        window.__activeChatId = userId;
+        // Mobile visibility toggle
+        if (window.innerWidth <= 768) {
+            elements.chatList.classList.remove('active');
+            elements.thread.classList.add('active');
+        }
 
-        if (chatHeaderName) chatHeaderName.textContent = username;
-        if (chatHeaderAvatar) chatHeaderAvatar.innerHTML = avatarHtml;
+        // Show UI components
+        if (elements.header) elements.header.style.display = 'flex';
+        if (elements.inputArea) elements.inputArea.style.display = 'flex';
+        
+        elements.box.innerHTML = '<div style="flex:1;display:flex;align-items:center;justify-content:center;"><div class="loader"></div></div>';
+        
+        if (elements.name) elements.name.textContent = '@' + username;
+        if (elements.avatar) elements.avatar.innerHTML = avatarHtml;
 
         try {
             const data = await apiRequest(`/messages/room/${userId}`);
             currentRoomId = data.roomId;
-            chatBox.innerHTML = '';
+            elements.box.innerHTML = '';
             
             if (data.messages && data.messages.length) {
                 data.messages.forEach(m => appendMessage(m));
                 autoScroll();
             } else {
-                chatBox.innerHTML = '<div class="chat-start-hint">Start of your conversation</div>';
+                elements.box.innerHTML = `<div style="text-align:center;padding:100px 40px;color:var(--text-muted);opacity:0.5;font-size:14px;"><i class="bi bi-shield-lock" style="font-size:24px;"></i><p style="margin-top:10px;">Messages are end-to-end encrypted. Follow social guidelines to keep Blink safe.</p></div>`;
             }
 
-            // Join socket room
+            // Sync with socket
             if (window.Blink.socket) {
                 window.Blink.socket.emit('joinRoom', currentRoomId);
-                window.Blink.socket.emit('markSeen', { roomId: currentRoomId, userId: me.id });
             }
 
-            // Update list to clear unread
-            loadConversations();
+            loadConversations(); // Clear unread counts in UI
         } catch (err) {
-            showToast('Failed to open chat', 'error');
+            showToast('Failed to load chat history', 'error');
         }
+    }
+
+    function appendMessage(m) {
+        const isSent = parseInt(m.sender_id || m.senderId) === parseInt(me.id);
+        const div = document.createElement('div');
+        div.className = `msg ${isSent ? 'msg-out animate-fade-in' : 'msg-in animate-fade-in'}`;
+        
+        const timestamp = m.created_at || m.timestamp || new Date();
+        const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        div.innerHTML = `
+            <div>${m.message}</div>
+            <div style="font-size:9px;opacity:0.5;text-align:right;margin-top:4px;">${timeStr}</div>
+        `;
+        elements.box.appendChild(div);
+    }
+
+    function autoScroll() {
+        elements.box.scrollTop = elements.box.scrollHeight;
+    }
+
+    const sendMessage = async () => {
+        const msg = elements.input.value.trim();
+        if (!msg || !currentRoomId) return;
+
+        const payload = {
+            roomId: currentRoomId,
+            message: msg,
+            senderId: me.id,
+            username: me.username
+        };
+
+        if (window.Blink.socket) {
+            window.Blink.socket.emit('sendMessage', payload);
+        }
+
+        elements.input.value = '';
+        elements.input.focus();
     };
 
-    // ── 4. SOCKET LISTENERS ────────────────────────────────────
-    function initSocketListeners() {
+    if (elements.sendBtn) elements.sendBtn.onclick = sendMessage;
+    if (elements.input) {
+        elements.input.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        };
+    }
+
+    // Back button for mobile
+    if (elements.backBtn) {
+        elements.backBtn.onclick = () => {
+            elements.thread.classList.remove('active');
+            elements.chatList.classList.add('active');
+        };
+    }
+
+    // Socket Listeners
+    const initSocket = () => {
         const socket = window.Blink.socket;
         if (!socket) return;
 
@@ -125,135 +177,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (data.roomId === currentRoomId) {
                 appendMessage(data);
                 autoScroll();
-                socket.emit('markSeen', { roomId: currentRoomId, userId: me.id });
-                // If we're at the bottom, autoScroll
             }
-            // Always refresh conv list to show last msg
             loadConversations();
         });
-
-        socket.on('userTyping', (data) => {
-            const typingIndicator = document.getElementById('typingIndicator');
-            if (typingIndicator && data.roomId === currentRoomId) {
-                typingIndicator.textContent = data.typing ? `@${data.username} is typing...` : '';
-                typingIndicator.style.display = data.typing ? 'block' : 'none';
-            }
-        });
-    }
-
-    // ── 5. UI HELPERS ──────────────────────────────────────────
-    function appendMessage(m) {
-        const isSent = parseInt(m.sender_id || m.senderId) === parseInt(me.id);
-        const div = document.createElement('div');
-        div.className = `msg-bubble ${isSent ? 'sent' : 'received'}`;
-        
-        const timestamp = m.created_at || m.timestamp || new Date();
-        const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        div.innerHTML = `
-            <div class="msg-content">${m.message}</div>
-            <div class="msg-meta">
-                <span class="msg-time">${timeStr}</span>
-                ${isSent && m.is_read ? '<i class="bi bi-check-all seen-status"></i>' : ''}
-            </div>
-        `;
-        chatBox.appendChild(div);
-    }
-
-    function autoScroll() {
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    // ── 6. EVENT LISTENERS ─────────────────────────────────────
-    function sendMessage() {
-        const msg = input.value.trim();
-        if (!msg || !currentRoomId) return;
-
-        const payload = {
-            roomId: currentRoomId,
-            message: msg,
-            senderId: me.id,
-            username: me.username,
-            avatar: me.profile_pic || me.avatar_url
-        };
-
-        if (window.Blink.socket) {
-            window.Blink.socket.emit('sendMessage', payload);
-        }
-
-        input.value = '';
-        input.focus();
-    }
-
-    if (sendBtn) sendBtn.onclick = sendMessage;
-    if (input) {
-        input.onkeydown = (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        };
-
-        input.oninput = () => {
-            if (window.Blink.socket && currentRoomId) {
-                window.Blink.socket.emit('typing', { roomId: currentRoomId, username: me.username, isTyping: true });
-                clearTimeout(typingTimer);
-                typingTimer = setTimeout(() => {
-                    window.Blink.socket.emit('typing', { roomId: currentRoomId, username: me.username, isTyping: false });
-                }, 2000);
-            }
-        };
-    }
-
-    // New Message Modal
-    const newMsgBtn = document.getElementById('newMsgBtn');
-    const newMsgModal = document.getElementById('newMsgModal');
-    const modalStartBtn = document.getElementById('modalStartBtn');
-    const modalCancelBtn = document.getElementById('modalCancelBtn');
-
-    if (newMsgBtn) newMsgBtn.onclick = () => newMsgModal.classList.add('active');
-    if (modalCancelBtn) modalCancelBtn.onclick = () => newMsgModal.classList.remove('active');
-
-    if (modalStartBtn) {
-        modalStartBtn.onclick = async () => {
-            const username = document.getElementById('newMsgUsername').value.trim().replace('@', '');
-            if (!username) return;
-            try {
-                const data = await apiRequest(`/users/search?q=${username}`);
-                const user = (data.users || []).find(u => u.username.toLowerCase() === username.toLowerCase());
-                if (!user) {
-                    showToast('User not found', 'error');
-                } else {
-                    newMsgModal.classList.remove('active');
-                    openChat(user.id, user.username, user.profile_photo ? `<img src="${user.profile_photo}" alt="${user.username}">` : user.username[0].toUpperCase());
-                }
-            } catch (err) {
-                showToast('Failed to start chat', 'error');
-            }
-        };
-    }
+    };
 
     // ── INITIALIZE ────────────────────────────────────────────
-    loadConversations();
+    await loadConversations();
     
-    // Check if redirecting from another page to chat (via URL id)
-    const startUid = urlParams.get('start');
+    // Check if redirecting to a specific chat
+    const startUid = new URLSearchParams(window.location.search).get('start');
     if (startUid) {
-        // Find user and start chat
         try {
             const data = await apiRequest(`/users/${startUid}`);
-            if (data.success) {
-                const u = data.data;
-                const avatar = (u.profile_pic || u.avatar_url) ? `<img src="${u.profile_pic || u.avatar_url}" alt="${u.username}">` : u.username[0].toUpperCase();
+            if (data.user) {
+                const u = data.user;
+                const avatar = (u.profile_pic || u.avatar_url) ? `<img src="${u.profile_pic || u.avatar_url}" alt="${u.username}" class="avatar">` : u.username[0].toUpperCase();
                 openChat(u.id, u.username, avatar);
             }
         } catch {}
     }
 
-    // Wait for socket to be initialized by auth.js
+    // Socket check
     const checker = setInterval(() => {
         if (window.Blink.socket) {
-            initSocketListeners();
+            initSocket();
             clearInterval(checker);
         }
     }, 500);

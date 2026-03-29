@@ -3,129 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
-    <title>Blink | @username</title>
+    <title>Blink | Profile</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/profile.css">
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/pages.css">
 </head>
 
-<body class="theme-dark">
+<body>
 
-    <div class="app-layout">
-        <!-- SIDEBAR -->
-        <nav class="sidebar">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                <a href="index.html" class="logo-container" style="margin-bottom: 0;">
-                    <div class="logo-icon">B</div><span class="logo-text">Blink</span>
-                </a>
-                <button id="themeToggle" title="Toggle Theme">🌙</button>
-            </div>
-            
-            <div class="sidebar-search">
-                <i class="bi bi-search input-icon" style="position:absolute; left:12px; top:12px; font-size:14px; color:var(--text-muted)"></i>
-                <input type="search" class="form-input" id="globalSearchInput" placeholder="Search creators...">
-                <div id="globalSearchResults" class="search-results-dropdown"></div>
-            </div>
-
-            <ul class="nav-links">
-                <li class="nav-item"><a href="index.html"><i class="bi bi-house-door-fill nav-icon"></i><span class="nav-text">Home</span></a></li>
-                <li class="nav-item"><a href="upload.html"><i class="bi bi-plus-square-fill nav-icon"></i><span class="nav-text">Upload</span></a></li>
-                <li class="nav-item"><a href="messages.html"><i class="bi bi-chat-dots-fill nav-icon"></i><span class="nav-text">Messages</span><span id="notifBadge" class="nav-badge" style="display:none">0</span></a></li>
-                <li class="nav-item"><a href="live.html"><i class="bi bi-broadcast nav-icon"></i><span class="nav-text">Live</span></a></li>
-                <li class="nav-item"><a href="profile.html" class="active"><i class="bi bi-person-circle nav-icon"></i><span class="nav-text">Profile</span></a></li>
-            </ul>
-
-            <div class="sidebar-user">
-                <div class="sidebar-avatar" id="sidebarAvatar"></div>
-                <div class="sidebar-info">
-                    <div class="sidebar-name" id="sidebarName">Loading...</div>
-                    <div class="sidebar-handle" id="sidebarHandle"></div>
+    <!-- ── SIDEBAR (Desktop) ─────────────────────────────────── -->
+    <aside class="sidebar glass">
+        <div class="sidebar-logo">
+            <span class="gradient-text auth-logo">B</span>
+            <h2 class="gradient-text">Blink</h2>
+        </div>
+        
+        <nav class="nav-links">
+            <a href="index.html" class="nav-link">
+                <i class="bi bi-house-door"></i>
+                <span>Home</span>
+            </a>
+            <a href="messages.html" class="nav-link">
+                <i class="bi bi-chat-dots"></i>
+                <span>Messages</span>
+            </a>
+            <a href="live.html" class="nav-link">
+                <i class="bi bi-broadcast"></i>
+                <span>Live</span>
+            </a>
+            <a href="upload.html" class="nav-link">
+                <i class="bi bi-plus-square"></i>
+                <span>Create</span>
+            </a>
+            <a href="profile.html" class="nav-link active" id="sidebarProfileLink">
+                <div class="story-ring sidebar-avatar-wrap" style="width:32px;height:32px;">
+                    <div id="sidebarAvatar" class="avatar" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#333;font-size:12px;">U</div>
                 </div>
-                <button class="sidebar-logout" id="logoutBtn"><i class="bi bi-box-arrow-right"></i></button>
+                <div style="display:flex;flex-direction:column;line-height:1.2;">
+                    <span id="sidebarName">Profile</span>
+                    <span id="sidebarHandle" style="font-size:11px;color:var(--text-muted);">@handle</span>
+                </div>
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <button id="logoutBtn" class="nav-link" style="width:100%;text-align:left;">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ── PROFILE CONTENT ───────────────────────────────────── -->
+    <main class="profile-page app-container animate-fade-in">
+        
+        <!-- HEADER -->
+        <header class="profile-header">
+            <div class="profile-avatar-wrap">
+                <div class="story-ring" style="padding:4px;width:100%;height:100%;">
+                    <div id="profileAvatar" class="avatar" style="width:100%;height:100%;background:#333;display:flex;align-items:center;justify-content:center;font-size:48px;">U</div>
+                </div>
             </div>
+
+            <div class="profile-info">
+                <div class="profile-title-row">
+                    <h2 class="profile-handle" id="profileHandle">@loading</h2>
+                    <button class="btn btn-secondary" id="editProfileBtn">Edit Profile</button>
+                    <button class="icon-btn" id="profileOptionsBtn"><i class="bi bi-gear-fill"></i></button>
+                </div>
+
+                <div class="profile-stats">
+                    <div class="stat-item"><span class="stat-value" id="postsCount">0</span> posts</div>
+                    <div class="stat-item"><span class="stat-value" id="followersCount">0</span> followers</div>
+                    <div class="stat-item"><span class="stat-value" id="followingCount">0</span> following</div>
+                </div>
+
+                <div class="profile-bio">
+                    <span class="profile-full-name" id="profileDisplayName">Blink User</span>
+                    <p id="profileBio">Digital creator. Sharing daily vlogs and cinematic moments on Blink. ✨</p>
+                    <a href="#" class="profile-link" id="profileWebsite" style="color:var(--accent-secondary);font-size:14px;font-weight:600;">linktr.ee/blink</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- TABS -->
+        <nav class="profile-tabs">
+            <div class="profile-tab active"><i class="bi bi-grid-3x3"></i> Posts</div>
+            <div class="profile-tab"><i class="bi bi-camera-reels"></i> Reels</div>
+            <div class="profile-tab"><i class="bi bi-person-badge"></i> Tagged</div>
         </nav>
 
-        <!-- MAIN PROFILE -->
-        <main class="main-content">
-            <div id="loader" class="loader-overlay hidden">
-                <div class="loader-spinner"></div>
+        <!-- GRID -->
+        <div class="post-grid" id="postGrid">
+            <!-- SKELETON LOADING -->
+            <div class="grid-item skeleton"></div>
+            <div class="grid-item skeleton"></div>
+            <div class="grid-item skeleton"></div>
+            <div class="grid-item skeleton"></div>
+            <div class="grid-item skeleton"></div>
+            <div class="grid-item skeleton"></div>
+        </div>
+
+    </main>
+
+    <!-- ── EDIT PROFILE MODAL ────────────────────────────────── -->
+    <div class="modal-overlay" id="editProfileModal">
+        <div class="modal-content glass">
+            <div class="flex-between" style="margin-bottom:var(--space-xl);">
+                <h3>Edit Profile</h3>
+                <button class="btn-ghost icon-btn" id="closeEditModalBtn"><i class="bi bi-x-lg"></i></button>
             </div>
 
-            <div class="profile-container">
-                <div class="profile-hero">
-                    <div class="profile-avatar-wrap" id="avatarWrap">
-                        <img id="profileAvatar" src="" alt="Avatar" class="avatar-img hidden">
-                        <div id="avatarInitial" class="avatar-initial">?</div>
-                    </div>
-                    
-                    <div class="profile-main-info">
-                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-                            <h1 id="pUsername">@loading</h1>
-                            <button id="followBtn" class="btn btn-primary btn-sm" style="display:none">Follow</button>
-                        </div>
-                        <p id="pBio" class="bio-text">Loading bio...</p>
-                        
-                        <div class="profile-stats">
-                            <div class="stat"><span id="sVideos">0</span><label>Posts</label></div>
-                            <div class="stat"><span id="sFollowers">0</span><label>Followers</label></div>
-                            <div class="stat"><span id="sFollowing">0</span><label>Following</label></div>
-                        </div>
-
-                        <div class="profile-actions">
-                            <button id="editBtn" class="btn btn-secondary">Edit Profile</button>
-                            <button id="passwordBtn" class="btn btn-outline" style="border:1px solid var(--border)">Security</button>
-                        </div>
+            <form id="editProfileForm">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <div class="input-wrap">
+                        <span class="input-icon"><i class="bi bi-person"></i></span>
+                        <input type="text" name="display_name" class="form-input" placeholder="Your name">
                     </div>
                 </div>
 
-                <div id="errorArea" class="error-msg hidden">
-                    <i class="bi bi-exclamation-circle" style="font-size:32px;margin-bottom:12px;display:block"></i>
-                    <h3>User Not Found</h3>
-                    <p style="color:var(--text-muted);margin-bottom:20px">The profile you're looking for doesn't exist.</p>
-                    <a href="index.html" class="btn btn-primary">Go Home</a>
-                </div>
-
-                <!-- Tabs (Grid/Info) -->
-                <div class="profile-tabs" style="border-top:1px solid var(--border);margin-top:40px;padding-top:20px;">
-                    <div class="tab-item active"><i class="bi bi-grid-3x3"></i> ALL POSTS</div>
-                </div>
-                <div id="userPostsGrid" class="posts-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:10px"></div>
-            </div>
-        </main>
-    </div>
-
-    <!-- MODAL: EDIT PROFILE -->
-    <div id="editModal" class="modal-backdrop">
-        <div class="modal">
-            <h2 style="margin-bottom:20px">Edit Profile</h2>
-            <form id="editForm">
-                <div class="modal-upload" style="text-align:center;margin-bottom:20px">
-                    <img id="editPreview" src="" alt="Preview" style="width:100px;height:100px;border-radius:50%;object-fit:cover;border:2px solid var(--primary);margin-bottom:12px">
-                    <input type="file" id="avatarInput" accept="image/*" class="hidden">
-                    <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('avatarInput').click()">Change Photo</button>
+                <div class="form-group">
+                    <label class="form-label">Bio</label>
+                    <div class="input-wrap">
+                        <textarea name="bio" class="form-input" style="height:100px;resize:none;padding-left:14px;" placeholder="Tell the world about yourself"></textarea>
+                    </div>
                 </div>
                 
-                <div class="form-group" style="margin-bottom:16px">
-                    <label style="display:block;font-size:12px;margin-bottom:4px;color:var(--text-muted)">Username</label>
-                    <input type="text" id="editUsername" class="form-input" style="width:100%" required minlength="3">
-                </div>
-                
-                <div class="form-group" style="margin-bottom:24px">
-                    <label style="display:block;font-size:12px;margin-bottom:4px;color:var(--text-muted)">Bio</label>
-                    <textarea id="editBio" class="form-textarea" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:12px;padding:12px;color:#fff;resize:none" placeholder="Tell us about yourself..." rows="3"></textarea>
+                <div class="form-group">
+                    <label class="form-label">Website</label>
+                    <div class="input-wrap">
+                        <span class="input-icon"><i class="bi bi-link-45deg"></i></span>
+                        <input type="text" name="website" class="form-input" placeholder="https://example.com">
+                    </div>
                 </div>
 
-                <div class="modal-btns" style="display:flex;gap:12px">
-                    <button type="button" class="btn btn-outline" style="flex:1" id="cancelEdit">Cancel</button>
-                    <button type="submit" class="btn btn-primary" style="flex:1" id="saveEdit">Save Changes</button>
+                <div class="flex-center" style="margin-top:20px;">
+                    <button type="submit" class="btn btn-primary" style="width:100%;">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
 
+    <!-- ── BOTTOM NAV (Mobile Only) ──────────────────────────── -->
+    <nav class="bottom-nav">
+        <a href="index.html" class="bottom-link">
+            <i class="bi bi-house-door"></i>
+            <span>Home</span>
+        </a>
+        <a href="live.html" class="bottom-link">
+            <i class="bi bi-broadcast"></i>
+            <span>Live</span>
+        </a>
+        <a href="upload.html" class="bottom-link">
+            <i class="bi bi-plus-square" style="font-size:28px;"></i>
+        </a>
+        <a href="messages.html" class="bottom-link">
+            <i class="bi bi-chat-dots"></i>
+            <span>Chat</span>
+        </a>
+        <a href="profile.html" class="bottom-link active">
+            <div id="bottomAvatar" class="avatar show-mobile-only" style="width:24px;height:24px;background:#333;display:flex;align-items:center;justify-content:center;font-size:10px;">U</div>
+            <span>Profile</span>
+        </a>
+    </nav>
+
+    <!-- ── NOTIFICATIONS ─────────────────────────────────────── -->
     <div id="toastContainer"></div>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- ── SCRIPTS ────────────────────────────────────────────── -->
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/profile.js"></script>
