@@ -51,7 +51,10 @@ app.use('/api', require('./routes/healthRoutes'));
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Root Route
-app.get('/', (req, res) => res.json({ message: "Blink API online 🚀" }));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
 
 // 404 Handler
 app.use((req, res) => res.status(404).json({ error: "Route not found" }));

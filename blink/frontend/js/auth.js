@@ -416,18 +416,19 @@ if (registerForm) {
                 body: JSON.stringify({ username, email, password })
             });
 
-            if (data?.token) {
-                setAuth(data.token, data.user);
-                showToast('🎉 Account created! Welcome to Blink.', 'success');
-                setTimeout(() => { window.location.href = 'index.html'; }, 1000);
+            if (data?.success) {
+                showToast('🎉 Account created! Redirecting to sign in...', 'success');
+                setTimeout(() => { window.location.href = 'login.html'; }, 1500);
             }
         } catch (err) {
+            console.error('[Blink] Registration failed:', err.message);
             showToast(err.message || 'Registration failed', 'error');
             btn.disabled  = false;
             btn.textContent = 'Create Account';
         }
     });
 }
+
 
 // ══════════════════════════════════════════════════════════════════
 // Mobile Back Button (Android / PWA)

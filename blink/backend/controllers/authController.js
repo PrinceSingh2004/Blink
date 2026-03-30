@@ -12,12 +12,22 @@ exports.register = async (req, res) => {
             'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
             [username, email, hashedPassword]
         );
-
-        res.status(201).json({ success: true, message: "User registered" });
+        const token = jwt.sign({ id: result.insertId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.status(201).json({ 
+            success: true, 
+            message: "User registered", 
+            token, 
+            user: { id: result.insertId, username, email } 
+        });
     } catch (err) {
+        // Handle duplicate entry (email/username)
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ error: "Username or email already exists" });
+        }
         res.status(500).json({ error: err.message });
     }
 };
+
 
 exports.login = async (req, res) => {
     try {
