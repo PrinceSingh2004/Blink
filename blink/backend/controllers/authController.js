@@ -94,10 +94,18 @@ exports.login = async (req, res) => {
             return res.status(400).json({ error: 'Email and password are required.' });
         }
 
+        // Check if database is alive
+        if (!pool) {
+            return res.status(503).json({ error: 'Database service is starting up. Please try again in a moment.' });
+        }
+
         const [users] = await pool.query(
             'SELECT * FROM users WHERE email = ?',
             [email.toLowerCase()]
-        );
+        ).catch(err => {
+            console.error('❌ [DB QUERY ERROR] Login failed:', err.message);
+            throw new Error('Database connection issue. Please try again.');
+        });
 
         if (users.length === 0) {
             return res.status(401).json({ error: 'Invalid credentials.' });
@@ -109,8 +117,8 @@ exports.login = async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials.' });
         }
 
-        // Update last active
-        await pool.query('UPDATE users SET last_active = NOW() WHERE id = ?', [user.id]).catch(() => {});
+        // Update last active (don't let this failure block login)
+        pool.query('UPDATE users SET last_active = NOW() WHERE id = ?', [user.id]).catch(() => {});
 
         const token = generateToken(user.id, user.username, user.email);
 
@@ -127,7 +135,9 @@ exports.login = async (req, res) => {
         });
     } catch (err) {
         console.error('[AUTH] login error:', err.message);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ 
+            error: err.message.includes('Database') ? err.message : 'An internal server error occurred.' 
+        });
     }
 };
 
@@ -148,7 +158,10 @@ exports.getMe = async (req, res) => {
                     created_at
              FROM users WHERE id = ?`,
             [userId]
-        );
+        ).catch(err => {
+            console.error('❌ [DB QUERY ERROR] getMe failed:', err.message);
+            throw new Error('Database query failed.');
+        });
 
         if (!users[0]) {
             return res.status(404).json({ error: 'User not found.' });

@@ -26,14 +26,14 @@ const poolConfig = {
     // CONNECTION POOL SETTINGS
     waitForConnections: true,
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 10,
+    maxIdle: 10,
+    idleTimeout: 60000,
     queueLimit: 0,
-    connectTimeout: 30000, // Valid option for mysql2
+    connectTimeout: 30000,
     
-    // REMOVED acquireTimeout as it's invalid for Connection configuration in mysql2
-    
-    // KEEP-ALIVE SETTINGS
+    // KEEP-ALIVE SETTINGS (Prevents "Connection Lost" crashes)
     enableKeepAlive: true,
-    keepAliveInitialDelay: 0,
+    keepAliveInitialDelay: 10000,
 
     // ADDITIONAL PRODUCTION SETTINGS
     multipleStatements: false,
