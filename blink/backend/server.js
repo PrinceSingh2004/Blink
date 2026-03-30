@@ -45,6 +45,7 @@ const initDB = async () => {
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api', require('./routes/healthRoutes')); 
 
 // Static Frontend

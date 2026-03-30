@@ -1,150 +1,100 @@
 /* 
- * responsive.css – Blink Platform Adaptive Layouts v5.0
- * Unified Breakpoints & Bridge for Side/Bottom Navigation.
+ * responsive.css – Blink Platform Adaptive Layouts v5.1
+ * Clean, Standardized Breakpoints & Grid Controls.
  */
 
-/* ── OVERRIDES & BREAKPOINT SPECIFICS ──────────────────────── */
-
-/* Desktop Large (High Density) */
-@media (min-width: 1440px) {
-    :root {
-        --sidebar-width: 320px;
-        --container-max: 1600px;
-    }
+/* --- 1. GLOBAL ADAPTATIONS --- */
+:root {
+    --sidebar-width: 280px;
 }
 
-/* Tablet & Smaller Desktop */
-@media (max-width: 1024px) {
-    .main-layout {
-        display: block; /* Stack or just let content flow */
+/* --- 2. TABLET / COMPACT DESKTOP (max-width: 1100px) --- */
+@media (max-width: 1100px) {
+    :root {
+        --sidebar-width: 80px;
     }
-    
-    .reels-container {
-        width: 100vw;
-        height: 100vh;
-        margin: 0;
-    }
-    
-    .app-sidebar {
-        width: 80px;
-        padding: 24px 12px;
-    }
-    
-    .nav-logo, .nav-link span, .sidebar-footer span {
+
+    .nav-link span, 
+    .nav-logo h2,
+    .sidebar-footer span {
         display: none;
     }
-    
+
     .nav-link {
-        padding: 16px;
         justify-content: center;
-    }
-    
-    .sidebar-avatar-wrap {
-        width: 32px !important;
-        height: 32px !important;
+        padding: var(--space-md);
     }
 }
 
-/* Tablet Portrait & Handhelds */
+/* --- 3. MOBILE BREAKPOINT (max-width: 768px) --- */
 @media (max-width: 768px) {
-    header.desktop-only { display: none !important; }
-    
-    /* Main Content Spacing */
-    .app-wrapper {
-        padding: 0;
+    .app-sidebar {
+        display: none !important; /* Force hide sidebar on mobile */
     }
-    
+
+    .bottom-nav {
+        display: flex; /* Show bottom navigation */
+    }
+
+    .app-container {
+        display: block; /* Stack vertically if needed, though flex:1 main takes over */
+    }
+
     .main-content {
-        padding: 0;
-        margin: 0;
         width: 100%;
-        padding-bottom: var(--bottom-nav-height); /* Space for bottom nav */
+        margin: 0;
+        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
     }
-    
-    /* Responsive Grids */
-    .grid-2 { grid-template-columns: 1fr; }
-    .grid-3 { grid-template-columns: repeat(2, 1fr); }
-    
-    .btn { width: 100%; } /* Mobile-first buttons tend to be full width */
-    .btn-icon { width: 48px; } /* Reset icon btn width */
-}
 
-/* Mobile Devices (iPhone/Android Screen Specifics) */
-@media (max-width: 480px) {
-    :root {
-        --space-xxl: 32px;
-        --radius-xl: 16px;
+    /* Task Requirement: Responsive Grid for Feed/Explore (1 Column) */
+    .explore-grid, 
+    .feed-container {
+        grid-template-columns: 1fr;
+        padding: var(--space-md) 0;
     }
-    
-    h1 { font-size: 32px; }
-    h2 { font-size: 24px; }
-    
-    .main-content {
-        padding: 0;
+
+    /* Profile Grid remains 3 columns (Instagram Style) */
+    .profile-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
     }
-    
-    .card {
-        border-radius: 0;
-        border-left: none;
-        border-right: none;
-    }
-    
-    /* Bottom Nav Text hide for clean look on small screens */
-    .bottom-link span {
-        font-size: 9px;
-        transform: translateY(2px);
-    }
-    
-    .bottom-link i {
-        font-size: 22px;
+
+    .profile-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: var(--space-lg);
+        padding: var(--space-xl) var(--space-md);
     }
 }
 
-/* ── UTILITY RESPONSIVE CLASSES ──────────────────────────── */
-.hide-mobile {
-    @media (max-width: 768px) { display: none !important; }
-}
-
-.show-mobile-only {
-    @media (min-width: 769px) { display: none !important; }
-}
-
-/* Fast Touch Performance for mobile buttons */
-@media (pointer: coarse) {
-    .btn, .nav-link, .bottom-link {
-        min-height: 44px;
-        min-width: 44px;
+/* --- 4. TABLET GRID (769px to 1200px) --- */
+@media (min-width: 769px) and (max-width: 1200px) {
+    /* Task Requirement: 2 Columns for Tablet */
+    .explore-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-md);
     }
 }
 
-/* 🎥 REELS PLAYER MOBILE SPECIFIC ────────────────────────── */
-@media (max-width: 480px) {
-    .reel-overlay {
-        background: linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
-        padding: 16px;
-        padding-bottom: calc(var(--bottom-nav-height) + 12px);
-    }
-    
-    .reel-actions {
-        position: absolute;
-        right: 12px;
-        bottom: calc(var(--bottom-nav-height) + 40px);
-        gap: 20px;
-    }
-    
-    .reel-info {
-        max-width: 85%;
+/* --- 5. DESKTOP GRID (min-width: 1201px) --- */
+@media (min-width: 1201px) {
+    /* Task Requirement: 3 Columns for Desktop */
+    .explore-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-lg);
     }
 }
 
-/* SAFE AREA SUPPORT (For Notch-phones) */
+/* --- 6. NOTCH SUPPORT (iPhone/Android) --- */
 @supports (padding: env(safe-area-inset-bottom)) {
     .bottom-nav {
         height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
         padding-bottom: env(safe-area-inset-bottom);
     }
-    
-    .main-content {
-        padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
-    }
 }
+
+/* --- 7. DEBUG LAYER (Toggle this to find hidden overlaps) --- */
+/* 
+* { outline: 1px solid rgba(255, 0, 0, 0.3) !important; }
+*/

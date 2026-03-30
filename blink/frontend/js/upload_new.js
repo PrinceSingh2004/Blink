@@ -170,11 +170,8 @@ class VideoUploader {
         try {
             window.app?.showLoading?.();
 
-            // Convert to base64
-            const base64 = await this.fileToBase64(this.selectedFile);
-
-            // Upload
-            const response = await window.api?.uploadVideo?.(base64, caption);
+            // Direct upload using File object (No Base64 - Optimized)
+            const response = await window.api?.uploadVideo?.(this.selectedFile, caption);
 
             window.app?.hideLoading?.();
 

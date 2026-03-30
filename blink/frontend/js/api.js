@@ -128,10 +128,14 @@ class BlinkAPI {
     /* VIDEO ENDPOINTS */
     /* ─────────────────────────────────────────────────────────────────────────── */
 
-    async uploadVideo(videoBase64, caption = '') {
+    async uploadVideo(videoFile, caption = '') {
+        const formData = new FormData();
+        formData.append('video', videoFile);
+        formData.append('caption', caption);
+
         return this.request('/upload/video', {
             method: 'POST',
-            body: JSON.stringify({ video: videoBase64, caption })
+            body: formData
         });
     }
 

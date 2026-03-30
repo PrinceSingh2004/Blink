@@ -5,6 +5,22 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
+/* --- 1. RESET & BASE FIX (Task Requirement) --- */
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden; /* Prevent horizontal glitching */
+    background: #000;
+}
+
 :root {
     /* --- Colors: Dark Mode (Default) --- */
     --bg-main: #000000;

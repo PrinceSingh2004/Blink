@@ -62,8 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!selectedFile) return showToast('Please select a video or image first.', 'info');
 
         const formData = new FormData();
-        formData.append('media',   selectedFile);
-        formData.append('user_id', me.id);
+        formData.append('video',   selectedFile);
         formData.append('caption', elements.caption.value || '');
 
         // UI State
@@ -75,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Task: Progress-based XHR for large media
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', window.Blink.API + '/posts/upload');
+            xhr.open('POST', window.Blink.API + '/upload/video');
             xhr.setRequestHeader('Authorization', 'Bearer ' + getToken());
 
             xhr.upload.onprogress = (e) => {

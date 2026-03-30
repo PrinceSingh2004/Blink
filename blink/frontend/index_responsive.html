@@ -13,104 +13,92 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     
-    <!-- Socket.io -->
-    <script src="https://cdn.socket.io/4.8.3/socket.io.min.js"></script>
-    
-    <!-- Responsive CSS -->
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/pages.css">
     <link rel="stylesheet" href="css/responsive.css">
 </head>
 <body>
-    <!-- ═════════════════════════════════════════════════════════════════════════ -->
-    <!-- MOBILE BOTTOM NAVIGATION (visible on mobile) -->
-    <!-- ═════════════════════════════════════════════════════════════════════════ -->
-    <nav class="mobile-nav">
-        <a href="#" class="nav-item active" data-page="feed">
-            <i class="bi bi-house-fill"></i>
-            <span>Home</span>
-        </a>
-        <a href="#" class="nav-item" data-page="explore">
-            <i class="bi bi-search"></i>
-            <span>Explore</span>
-        </a>
-        <a href="#" class="nav-item" data-page="create">
-            <i class="bi bi-plus-circle"></i>
-            <span>Create</span>
-        </a>
-        <a href="#" class="nav-item" data-page="messages">
-            <i class="bi bi-chat-dots"></i>
-            <span>Messages</span>
-        </a>
-        <a href="#" class="nav-item" data-page="profile">
-            <i class="bi bi-person"></i>
-            <span>Profile</span>
-        </a>
-    </nav>
-
-    <!-- ═════════════════════════════════════════════════════════════════════════ -->
-    <!-- DESKTOP SIDEBAR NAVIGATION -->
-    <!-- ═════════════════════════════════════════════════════════════════════════ -->
-    <aside class="desktop-sidebar">
-        <div class="sidebar-header">
-            <div class="logo">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar">
+            <div class="nav-logo">
                 <i class="bi bi-play-circle-fill"></i>
-                <span>Blink</span>
+                <h2>Blink</h2>
             </div>
-        </div>
-        
-        <nav class="desktop-nav">
-            <a href="#" class="nav-link active" data-page="feed">
+            
+            <nav class="nav-links">
+                <a href="#" class="nav-link active" data-page="feed">
+                    <i class="bi bi-house-fill"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="nav-link" data-page="explore">
+                    <i class="bi bi-search"></i>
+                    <span>Explore</span>
+                </a>
+                <a href="#" class="nav-link" data-page="live">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Live</span>
+                </a>
+                <a href="#" class="nav-link" data-page="messages">
+                    <i class="bi bi-chat-dots"></i>
+                    <span>Messages</span>
+                </a>
+                <a href="#" class="nav-link" data-page="profile">
+                    <i class="bi bi-person"></i>
+                    <span>Profile</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="#" class="nav-link" id="logout-btn">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Bottom Navigation (Mobile Only) -->
+        <nav class="bottom-nav">
+            <a href="#" class="bottom-link active" data-page="feed">
                 <i class="bi bi-house-fill"></i>
                 <span>Home</span>
             </a>
-            <a href="#" class="nav-link" data-page="explore">
+            <a href="#" class="bottom-link" data-page="explore">
                 <i class="bi bi-search"></i>
                 <span>Explore</span>
             </a>
-            <a href="#" class="nav-link" data-page="live">
-                <i class="bi bi-broadcast"></i>
-                <span>Live</span>
-            </a>
-            <a href="#" class="nav-link" data-page="create">
+            <a href="#" class="bottom-link" data-page="create">
                 <i class="bi bi-plus-circle"></i>
                 <span>Create</span>
             </a>
-            <a href="#" class="nav-link" data-page="messages">
+            <a href="#" class="bottom-link" data-page="messages">
                 <i class="bi bi-chat-dots"></i>
                 <span>Messages</span>
             </a>
-            <a href="#" class="nav-link" data-page="profile">
+            <a href="#" class="bottom-link" data-page="profile">
                 <i class="bi bi-person"></i>
                 <span>Profile</span>
             </a>
         </nav>
 
-        <div class="sidebar-footer">
-            <button class="logout-btn" id="logout-btn">
-                <i class="bi bi-box-arrow-right"></i>
-                <span>Logout</span>
-            </button>
-        </div>
-    </aside>
-
-    <!-- ═════════════════════════════════════════════════════════════════════════ -->
-    <!-- MAIN CONTENT AREA -->
-    <!-- ═════════════════════════════════════════════════════════════════════════ -->
-    <main class="main-content">
-        <!-- PAGE: FEED / REELS -->
-        <section id="feed-page" class="page active">
-            <div class="reels-container">
-                <div id="reels-feed" class="reels-feed"></div>
-                <div id="reels-loading" class="reels-loading">
-                    <div class="spinner"></div>
-                    <p>Loading videos...</p>
+            <main class="main-content">
+            <!-- PAGE: FEED / REELS -->
+            <section id="feed-page" class="page active">
+                <div class="reels-container" id="reelsContainer">
+                    <!-- Reels are dynamically injected here by feed.js -->
+                    <div class="flex-column flex-center" style="height: 100vh; gap: 20px;">
+                        <div class="loader"></div>
+                        <p style="color:var(--text-muted);">Syncing Blinks...</p>
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
         <!-- PAGE: CREATE / UPLOAD -->
         <section id="create-page" class="page">
@@ -363,10 +351,8 @@
         </div>
     </div>
 
-    <!-- ═════════════════════════════════════════════════════════════════════════ -->
-    <!-- TOAST NOTIFICATIONS -->
-    <!-- ═════════════════════════════════════════════════════════════════════════ -->
-    <div id="toast-container" class="toast-container"></div>
+    <!-- ── TOAST NOTIFICATIONS ─────────────────────────────────────── -->
+    <div id="toastContainer"></div>
 
     <!-- Hidden file inputs -->
     <input type="file" id="cover-input" accept="image/*" hidden>
