@@ -124,52 +124,23 @@ const errorHandler = (err, req, res, next) => {
     // Default error response
     let statusCode = err.status || err.statusCode || 500;
     let errorResponse = {
-        success: false,
-        error: 'Internal server error',
-        timestamp: new Date().toISOString()
+        error: err.message || 'Internal server error',
     };
 
-    // Handle different error types
-    if (err.code && err.code.startsWith('ER_')) {
+    // If it's a NotFoundError, ensure we use the specific format requested
+    if (err.name === 'NotFoundError' || statusCode === 404) {
+        errorResponse.error = `Route not found: ${req.method} ${req.originalUrl}`;
+        statusCode = 404;
+    } else if (err.code && err.code.startsWith('ER_')) {
         // MySQL database errors
         const dbError = handleDatabaseError(err);
-        errorResponse = { ...errorResponse, ...dbError };
-        statusCode = 500; // Database errors are server errors
+        errorResponse.error = dbError.message;
+        statusCode = 500;
     } else if (err.name === 'ValidationError' || err.isJoi) {
         // Validation errors
         const validationError = handleValidationError(err);
-        errorResponse = { ...errorResponse, ...validationError };
-        statusCode = 400; // Bad request
-    } else if (err.name === 'UnauthorizedError' || err.name === 'JsonWebTokenError') {
-        // JWT errors
-        errorResponse.error = 'Authentication failed';
-        errorResponse.message = 'Invalid or expired token';
-        statusCode = 401;
-    } else if (err.name === 'ForbiddenError') {
-        // Permission errors
-        errorResponse.error = 'Access denied';
-        errorResponse.message = 'Insufficient permissions';
-        statusCode = 403;
-    } else if (err.name === 'NotFoundError' || err.message.includes('not found')) {
-        // Not found errors
-        errorResponse.error = 'Not found';
-        errorResponse.message = err.message;
-        statusCode = 404;
-    } else if (err.type === 'entity.parse.failed') {
-        // JSON parsing errors
-        errorResponse.error = 'Invalid JSON';
-        errorResponse.message = 'Request body contains invalid JSON';
+        errorResponse.error = `Validation failed: ${JSON.stringify(validationError.errors)}`;
         statusCode = 400;
-    } else if (err.code === 'EBADCSRFTOKEN') {
-        // CSRF token errors
-        errorResponse.error = 'Security error';
-        errorResponse.message = 'Invalid CSRF token';
-        statusCode = 403;
-    }
-
-    // Add request ID for tracking
-    if (req.requestId) {
-        errorResponse.requestId = req.requestId;
     }
 
     // Add stack trace in development
@@ -194,7 +165,7 @@ const asyncHandler = (fn) => {
 // 404 HANDLER
 // ════════════════════════════════════════════════════════════════════════════════
 const notFoundHandler = (req, res, next) => {
-    const error = new Error(`Route ${req.originalUrl} not found`);
+    const error = new Error(`Route not found: ${req.method} ${req.originalUrl}`);
     error.name = 'NotFoundError';
     error.status = 404;
     next(error);
