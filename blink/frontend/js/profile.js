@@ -96,9 +96,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadGrid(type) {
         elements.grid.innerHTML = '<div style="grid-column: 1 / -1; padding:100px; text-align:center;"><div class="loader"></div></div>';
         try {
-            const data = await apiRequest(`/users/${targetUserId}/posts?type=${type}`);
-            renderFeed(data.posts || []);
+            // Task: Sync with new stabilized Video API
+            let endpoint = `/users/${targetUserId}/posts?type=${type}`;
+            if (type === 'videos') {
+                endpoint = `/videos/user/${targetUserId}`;
+            }
+
+            const data = await apiRequest(endpoint);
+            const items = data.posts || data.videos || [];
+            renderFeed(items);
         } catch (err) {
+            console.error('[Profile] Grid load fail:', err);
             elements.grid.innerHTML = '<p class="error">Universe content failed to load.</p>';
         }
     }
@@ -114,14 +122,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        elements.grid.innerHTML = posts.map(p => `
-            <div class="grid-item-blink animate-fade-in" onclick="window.location.href='index.html?p=${p.id}'">
-                ${p.media_type === 'video' ? `<video src="${p.media_url}"></video>` : `<img src="${p.media_url}" loading="lazy">`}
-                <div class="grid-overlay">
-                    <span><i class="bi bi-play-fill"></i> ${p.likes_count || 0}</span>
+        elements.grid.innerHTML = posts.map(p => {
+            const url = p.videoUrl || p.media_url;
+            return `
+                <div class="grid-item-blink animate-fade-in" onclick="window.location.href='index.html?p=${p.id}'">
+                    ${p.media_type === 'video' || p.videoUrl ? `<video src="${url}"></video>` : `<img src="${url}" loading="lazy">`}
+                    <div class="grid-overlay">
+                        <span><i class="bi bi-play-fill"></i> ${p.likes_count || 0}</span>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     // ── 4. INTERACTIONS ────────────────────────────────────────

@@ -86,19 +86,57 @@ app.get("/api/test-db", async (req, res) => {
   }
 });
 
-// ── TASK 3: PROFILE API ──────────────────────────────────────
-app.get("/api/videos/user/:id", async (req, res) => {
+// ── TASK 1, 2, 3, 4, 5, 9: PROFILE VIDEO API ──────────────────
+app.get("/api/videos/user/:identifier", async (req, res) => {
+    const { identifier } = req.params;
+    console.log("Fetching universe content for identity:", identifier);
+
     try {
+        // Step 1: Find user (Task 2)
+        let user;
+        if (isNaN(identifier)) {
+            // Find by username
+            const [users] = await pool.query("SELECT id FROM users WHERE username = ?", [identifier]);
+            user = users[0];
+        } else {
+            // Find by userId
+            const [users] = await pool.query("SELECT id FROM users WHERE id = ?", [identifier]);
+            user = users[0];
+        }
+
+        if (!user) {
+            console.warn("User exploration failed (404):", identifier);
+            return res.status(404).json({ success: false, error: "User vision not found" });
+        }
+
+        // Step 2: Fetch videos (Task 3)
         const [videos] = await pool.query(
             "SELECT * FROM videos WHERE user_id = ? ORDER BY created_at DESC",
-            [req.params.id]
+            [user.id]
         );
-        res.json({ success: true, videos });
+
+        // Task 4 & 6: Return formatted list or empty array
+        return res.status(200).json({
+            success: true,
+            videos: videos.map(v => ({
+                id: v.id,
+                videoUrl: v.url,
+                created_at: v.created_at,
+                user_id: v.user_id
+            }))
+        });
+
     } catch (err) {
-        console.error("[Profile ERROR]:", err);
-        res.status(500).json({ success: false, error: "Profile videos failed" });
+        console.error("❌ PROFILE API ERROR:", err);
+        return res.status(500).json({ success: false, error: "Internal universe error" });
     }
 });
+
+// Enable CORS (Task 7)
+app.use(cors({
+    origin: "*",
+    credentials: true
+}));
 
 // Static Frontend
 app.use(express.static(path.join(__dirname, '../frontend')));
