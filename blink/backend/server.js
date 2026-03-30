@@ -7,11 +7,14 @@ const app = express();
 const pool = require('./config/db');
 
 // --- SECURITY & MIDDLEWARE ---
+// Making CSP more permissive to allow your frontend inline scripts and Cloudinary images
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-            "script-src": ["'self'", "'unsafe-inline'"], // Allows your frontend scripts to run
+            "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"], 
+            "connect-src": ["'self'", "https://blink-yzoo.onrender.com", "http://localhost:5000"],
+            "img-src": ["'self'", "data:", "https://res.cloudinary.com"],
         },
     },
 }));
@@ -42,7 +45,7 @@ const initDB = async () => {
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
-app.use('/api', require('./routes/healthRoutes')); // Test endpoint: /api/health
+app.use('/api', require('./routes/healthRoutes')); 
 
 // Static Frontend
 app.use(express.static(path.join(__dirname, '../frontend')));
@@ -56,6 +59,6 @@ app.use((req, res) => res.status(404).json({ error: "Route not found" }));
 // --- STARTUP ---
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
-    await initDB(); // Run DB setup on serve start
+    await initDB(); 
     console.log(`🚀 Blink Backend running on port ${PORT}`);
 });
