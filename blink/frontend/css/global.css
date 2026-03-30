@@ -222,3 +222,24 @@ button {
         --space-lg: 16px;
     }
 }
+
+/* ── TASK 4: UI DESIGN FIX (Production Layout) ───── */
+.main-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: var(--space-xxl) var(--space-md);
+    min-height: calc(100vh - var(--bottom-nav-height));
+}
+
+.upload-studio-container {
+    max-width: 500px;
+    width: 100%;
+}
+
+.btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 700;
+}

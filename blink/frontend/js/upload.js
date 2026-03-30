@@ -57,52 +57,57 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('dropzoneContent').style.display = 'none';
     }
 
-    // ── 3. PRODUCTION UPLOAD (Task 1) ───────────────────────────
+    // ── 3. PRODUCTION UPLOAD (Task Fix: Fetch + Realistic Progress) ────
     elements.publishBtn.onclick = async () => {
         if (!selectedFile) return showToast('Please select a video or image first.', 'info');
 
         const formData = new FormData();
-        formData.append('video',   selectedFile);
+        formData.append('video', selectedFile);
         formData.append('caption', elements.caption.value || '');
 
-        // UI State
+        // UI State: Task 3 (Remove Fake 100%)
         elements.publishBtn.disabled = true;
-        elements.publishBtn.innerHTML = '<div class="loader" style="width:16px;height:16px;"></div> Publishing...';
-        elements.progress.style.display     = 'block';
+        elements.progress.style.display = 'block';
         elements.progressText.style.display = 'block';
+        
+        elements.progressText.textContent = "🚀 Starting Upload...";
+        elements.progressFill.style.width = "20%";
+
+        console.log("Selected File Details:", selectedFile);
 
         try {
-            // Task: Progress-based XHR for large media
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', window.Blink.API + '/upload/video');
-            xhr.setRequestHeader('Authorization', 'Bearer ' + getToken());
+            // Task 2: Use fetch instead of XHR
+            elements.progressText.textContent = "📤 Uploading to Blink Server...";
+            elements.progressFill.style.width = "50%";
 
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const percent = Math.round((e.loaded / e.total) * 100);
-                    elements.progressFill.style.width = percent + '%';
-                    elements.progressText.textContent = `Uploading ${percent}% (Compressing on server)`;
-                }
-            };
+            const response = await fetch(window.Blink.API + '/upload/video', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + getToken()
+                },
+                body: formData
+            });
 
-            xhr.onload = () => {
-                const res = JSON.parse(xhr.responseText);
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    showToast('🚀 Moment published successfully!', 'success');
-                    setTimeout(() => window.location.href = 'index.html', 1500);
-                } else {
-                    throw new Error(res.error || 'Server error during publish.');
-                }
-            };
+            elements.progressText.textContent = "⚙️ Processing Moment (Cloudinary)...";
+            elements.progressFill.style.width = "85%";
 
-            xhr.onerror = () => { throw new Error('Network error during upload.'); };
-            xhr.send(formData);
+            const data = await response.json();
+            console.log("Response from Server:", data);
+
+            if (data.success) {
+                elements.progressText.textContent = "✅ Completed!";
+                elements.progressFill.style.width = "100%";
+                showToast('🚀 Moment published successfully!', 'success');
+                setTimeout(() => window.location.href = 'index.html', 1500);
+            } else {
+                throw new Error(data.error || 'Server error during publish.');
+            }
 
         } catch (err) {
-            console.error('[Upload]', err);
-            showToast(err.message, 'error');
+            console.error('[Upload ERROR]:', err);
+            showToast('Upload error: ' + err.message, 'error');
             elements.publishBtn.disabled = false;
-            elements.publishBtn.textContent = 'Publish to Blink';
+            elements.progress.style.display = 'none';
         }
     };
 
