@@ -98,22 +98,26 @@ async function populateSidebar() {
 
     const renderUser = (u) => {
         if (!u) return;
-        const nameEl   = document.getElementById('sidebarName');
+        const nameEl   = document.getElementById('sidebarUsername');
         const handleEl = document.getElementById('sidebarHandle');
-        const avatarEl = document.getElementById('sidebarAvatar');
+        const avatarEl = document.getElementById('sidebarAvatarImg');
         const topAvEl  = document.getElementById('topNavAvatar');
 
         if (nameEl)   nameEl.textContent   = u.display_name || u.username || 'User';
         if (handleEl) handleEl.textContent = '@' + (u.username || '');
 
         const photo   = u.profile_pic || u.avatar_url || u.profile_photo;
-        const initial = (u.username || 'U')[0].toUpperCase();
-        const imgHtml = photo
-            ? `<img src="${photo}?t=${Date.now()}" alt="${u.username}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
-            : initial;
+        
+        if (avatarEl && photo) {
+            avatarEl.src = photo;
+        }
 
-        if (avatarEl) avatarEl.innerHTML = imgHtml;
-        if (topAvEl)  topAvEl.innerHTML  = imgHtml;
+        if (topAvEl) {
+            const initial = (u.username || 'U')[0].toUpperCase();
+            topAvEl.innerHTML = photo 
+                ? `<img src="${photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+                : initial;
+        }
         
         // Update notification badge  
         updateNotificationBadge();

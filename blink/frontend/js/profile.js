@@ -1,6 +1,6 @@
 /**
- * profile.js – Blink Next-Gen Profile v4.0 (Unique UI)
- * Masonry Grid, Tab Sliders, Hero Animations
+ * profile.js – Blink Universe Profile v5.0
+ * Vertical Stack, Overlapping Avatar, Premium Neon Stats
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -17,20 +17,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- DOM Elements ---
     const elements = {
+        username:    document.getElementById('profileUsername'),
         handle:      document.getElementById('profileHandle'),
-        displayName: document.getElementById('profileDisplayName'),
         bio:         document.getElementById('profileBio'),
-        avatar:      document.getElementById('profileAvatar'),
-        posts:       document.getElementById('postsCount'),
+        avatar:      document.querySelector('.profile-avatar-giant img'),
+        posts:       document.querySelector('.stat-box.active .stat-value'),
         followers:   document.getElementById('followersCount'),
         following:   document.getElementById('followingCount'),
+        likes:       document.getElementById('likesCount'),
         editBtn:     document.getElementById('editProfileBtn'),
         grid:        document.getElementById('postGrid'),
         modal:       document.getElementById('editProfileModal'),
         form:        document.getElementById('editProfileForm'),
         closeModal:  document.getElementById('closeEditModalBtn'),
-        tabBtns:     document.querySelectorAll('.tab-btn'),
-        slider:      document.getElementById('tabSlider')
+        tabBtns:     document.querySelectorAll('.tab-item'),
     };
 
     // ── 2. INITIAL LOAD ───────────────────────────────────────── (Task 8)
@@ -48,30 +48,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderIdentity(u) {
         document.title = `Blink | @${u.username}`;
-        elements.handle.textContent      = '@' + u.username;
-        elements.displayName.textContent = u.display_name || u.username;
-        elements.bio.textContent         = u.bio || 'This creator hasn\'t shared their universe vision yet.';
+        if (elements.username) elements.username.textContent = u.display_name || u.username;
+        if (elements.handle) elements.handle.textContent = '@' + u.username;
+        if (elements.bio) elements.bio.textContent = u.bio || 'The artist\'s canvas. User hasn\'t shared their universe vision yet.';
         
-        // Animated Stats (Task 3)
+        // Animated Stats
         animateValue(elements.posts, u.posts_count || 0);
         animateValue(elements.followers, u.followers_count || 0);
         animateValue(elements.following, u.following_count || 0);
+        if (elements.likes) animateValue(elements.likes, u.likes_count || 0);
 
         const photo = u.profile_pic || u.avatar_url || u.profile_photo;
-        if (photo) {
-            elements.avatar.innerHTML = `<img src="${photo}" alt="${u.username}" style="width:100%;height:100%;object-fit:cover;">`;
-            elements.avatar.style.background = 'transparent';
-        } else {
-            elements.avatar.textContent = (u.username || 'U')[0].toUpperCase();
+        if (photo && elements.avatar) {
+            elements.avatar.src = photo;
         }
-
+        
         if (!isOwner && elements.editBtn) {
-            elements.editBtn.innerHTML = '<i class="bi bi-person-plus-fill"></i> Experience Follow';
+            elements.editBtn.innerHTML = 'Follow';
+            elements.editBtn.className = 'btn-primary-gradient';
             elements.editBtn.onclick = () => followUser(u.id);
         }
     }
 
     function animateValue(obj, end, duration = 1000) {
+        if (!obj) return;
         let start = 0;
         let range = end - start;
         let increment = end > start ? 1 : -1;
@@ -83,14 +83,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, isFinite(stepTime) ? stepTime : 10);
     }
 
-    // ── 3. TABS & MASONRY ───────────────────────────────────── (Task 5 & 6)
+    // ── 3. TABS & MASONRY ─────────────────────────────────────
     async function switchTab(tabName, btn) {
-        // Move slider
-        const rect = btn.getBoundingClientRect();
-        const headerRect = btn.parentElement.getBoundingClientRect();
-        elements.slider.style.width = `${btn.offsetWidth}px`;
-        elements.slider.style.left = `${btn.offsetLeft}px`;
-
+        if (!btn) return;
         elements.tabBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
@@ -102,31 +97,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.grid.innerHTML = '<div style="grid-column: 1 / -1; padding:100px; text-align:center;"><div class="loader"></div></div>';
         try {
             const data = await apiRequest(`/users/${targetUserId}/posts?type=${type}`);
-            renderMasonry(data.posts || []);
+            renderFeed(data.posts || []);
         } catch (err) {
             elements.grid.innerHTML = '<p class="error">Universe content failed to load.</p>';
         }
     }
 
-    function renderMasonry(posts) {
+    function renderFeed(posts) {
         if (!posts.length) {
             elements.grid.innerHTML = `
-                <div style="grid-column: 1 / -1; padding: 100px; text-align: center; color: var(--text-muted); opacity: 0.2;">
-                    <i class="bi bi-stars" style="font-size: 80px; display: block; margin-bottom: 20px;"></i>
-                    <p>No visions found in this sector.</p>
+                <div class="empty-state">
+                    <i class="bi bi-collection-play"></i>
+                    <p>Share your story with the world</p>
                 </div>
             `;
             return;
         }
 
         elements.grid.innerHTML = posts.map(p => `
-            <div class="masonry-item animate-fade-in" onclick="window.location.href='index.html?p=${p.id}'">
-                <img src="${p.media_url}" alt="Blink" loading="lazy">
-                <div class="masonry-overlay">
-                    <span style="font-weight:700;"><i class="bi bi-heart-fill" style="color:#ff3b30;"></i> ${p.likes_count || 0}</span>
-                    <span style="background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:4px; font-size:10px; font-weight:800; text-transform:uppercase;">
-                        ${p.media_type === 'video' ? 'Reel' : 'Post'}
-                    </span>
+            <div class="grid-item-blink animate-fade-in" onclick="window.location.href='index.html?p=${p.id}'">
+                ${p.media_type === 'video' ? `<video src="${p.media_url}"></video>` : `<img src="${p.media_url}" loading="lazy">`}
+                <div class="grid-overlay">
+                    <span><i class="bi bi-play-fill"></i> ${p.likes_count || 0}</span>
                 </div>
             </div>
         `).join('');
@@ -134,7 +126,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ── 4. INTERACTIONS ────────────────────────────────────────
     elements.tabBtns.forEach(btn => {
-        btn.onclick = () => switchTab(btn.dataset.tab, btn);
+        btn.onclick = () => switchTab(btn.textContent.toLowerCase(), btn);
     });
 
     if (elements.editBtn && isOwner) {
@@ -143,7 +135,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const user = getUser();
             elements.form.display_name.value = user.display_name || '';
             elements.form.bio.value = user.bio || '';
-            elements.form.website.value = user.website || '';
         };
     }
 
@@ -154,18 +145,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             e.preventDefault();
             const btn = elements.form.querySelector('button');
             const oldText = btn.textContent;
-            btn.innerHTML = '<div class="loader" style="width:16px;height:16px;"></div> Modifying Universe...';
+            btn.innerHTML = '<div class="loader" style="width:16px;height:16px;"></div> Updating...';
             btn.disabled = true;
 
             const body = {
                 display_name: elements.form.display_name.value,
-                bio: elements.form.bio.value,
-                website: elements.form.website.value
+                bio: elements.form.bio.value
             };
 
             try {
-                const res = await apiRequest('/users/profile', { method: 'PUT', body: JSON.stringify(body) });
-                showToast('🚀 Profile universe updated!', 'success');
+                await apiRequest('/users/profile', { method: 'PUT', body: JSON.stringify(body) });
+                showToast('🚀 Identity updated!', 'success');
                 elements.modal.classList.remove('show');
                 loadIdentity();
                 window.Blink.populateSidebar();
