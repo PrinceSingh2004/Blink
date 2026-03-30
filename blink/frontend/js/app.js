@@ -126,9 +126,6 @@ class BlinkApp {
             case 'profile':
                 this.initProfilePage();
                 break;
-            case 'explore':
-                this.initExplorePage();
-                break;
         }
     }
 
@@ -180,14 +177,6 @@ class BlinkApp {
         }
     }
 
-    /**
-     * Initialize Explore Page
-     */
-    initExplorePage() {
-        if (window.explore && typeof window.explore.init === 'function') {
-            window.explore.init();
-        }
-    }
 
     /**
      * Setup page routing from URL
