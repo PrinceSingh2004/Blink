@@ -1,31 +1,17 @@
 /**
  * routes/userRoutes.js
  * ═══════════════════════════════════════════════════════════════════════════════
- * User Management Routes
+ * User Management Routes — Profile, Follow, Search, Upload
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { protect, optionalAuth } = require('../middleware/auth');
 
 // ════════════════════════════════════════════════════════════════════════════════
-// IMPORT CONTROLLER FUNCTIONS
+// IMPORT CONTROLLER
 // ════════════════════════════════════════════════════════════════════════════════
-const userController = require('../controllers/userController');
-
-// ════════════════════════════════════════════════════════════════════════════════
-// DEBUG VALIDATION (Saves server from crashing on undefined imports)
-// ════════════════════════════════════════════════════════════════════════════════
-const validateHandlers = (handlers) => {
-    Object.keys(handlers).forEach(key => {
-        if (!handlers[key]) {
-            console.error(`❌ [USER ROUTES] Controller function '${key}' is UNDEFINED. Check your controllers/userController.js exports.`);
-        }
-    });
-};
-validateHandlers(userController);
-
 const {
     getUser,
     getUserProfile,
@@ -34,27 +20,72 @@ const {
     updateCoverPic,
     followUser,
     unfollowUser,
+    searchUsers,
     getFollowers,
     getFollowing,
-    searchUsers
-} = userController;
+    checkFollowStatus,
+    deleteAccount,
+    uploadMiddleware
+} = require('../controllers/userController');
 
 // ════════════════════════════════════════════════════════════════════════════════
-// PUBLIC ROUTES
+// STARTUP VALIDATION — Catches undefined callbacks BEFORE Express throws
 // ════════════════════════════════════════════════════════════════════════════════
-router.get('/profile/:username', getUserProfile); // Fetch by username
-router.get('/search', searchUsers);               // Search users
-router.get('/:userId/followers', getFollowers);   // Get followers of someone
-router.get('/:userId/following', getFollowing);   // Get who someone follows
+const REQUIRED_HANDLERS = {
+    getUser, getUserProfile, updateProfile,
+    updateProfilePic, updateCoverPic,
+    followUser, unfollowUser,
+    searchUsers, getFollowers, getFollowing,
+    checkFollowStatus, deleteAccount,
+    uploadMiddleware
+};
+
+const missing = Object.entries(REQUIRED_HANDLERS)
+    .filter(([, fn]) => typeof fn !== 'function' && fn !== uploadMiddleware)
+    .map(([name]) => name);
+
+if (missing.length > 0) {
+    throw new Error(
+        `❌ [USER ROUTES] Undefined handlers: ${missing.join(', ')}. ` +
+        `Check exports in controllers/userController.js`
+    );
+}
 
 // ════════════════════════════════════════════════════════════════════════════════
-// PROTECTED ROUTES
+// ROUTES — Specific paths MUST come before parameterized paths
 // ════════════════════════════════════════════════════════════════════════════════
-router.get('/profile', protect, getUser);          // Get own profile (Example requested)
-router.put('/profile', protect, updateProfile);    // Update profile text
-router.post('/profile-pic', protect, updateProfilePic); // Update profile picture
-router.post('/cover-pic', protect, updateCoverPic);   // Update cover picture
-router.post('/follow/:userId', protect, followUser);  // Follow user
-router.post('/unfollow/:userId', protect, unfollowUser); // Unfollow user
+
+// ── Own Profile (auth required) ─────────────────────────────────────────────────
+router.get('/me', protect, getUser);                      // GET /api/users/me
+router.put('/profile', protect, updateProfile);            // PUT /api/users/profile
+
+// ── Search ──────────────────────────────────────────────────────────────────────
+router.get('/search', searchUsers);                        // GET /api/users/search?q=
+
+// ── Image Uploads (auth + multer) ───────────────────────────────────────────────
+router.post('/profile-pic',
+    protect,
+    uploadMiddleware.single('avatar'),
+    updateProfilePic
+);                                                          // POST /api/users/profile-pic
+
+router.post('/cover-pic',
+    protect,
+    uploadMiddleware.single('cover'),
+    updateCoverPic
+);                                                          // POST /api/users/cover-pic
+
+// ── Follow Actions ──────────────────────────────────────────────────────────────
+router.post('/follow/:userId', protect, followUser);        // POST /api/users/follow/:userId
+router.post('/unfollow/:userId', protect, unfollowUser);    // POST /api/users/unfollow/:userId
+router.get('/follow/status/:userId', protect, checkFollowStatus); // GET /api/users/follow/status/:userId
+
+// ── Account ─────────────────────────────────────────────────────────────────────
+router.delete('/account', protect, deleteAccount);          // DELETE /api/users/account
+
+// ── Parameterized routes LAST (so they don't swallow /me, /search, etc.) ────────
+router.get('/:userId/followers', getFollowers);             // GET /api/users/:userId/followers
+router.get('/:userId/following', getFollowing);             // GET /api/users/:userId/following
+router.get('/profile/:username', getUserProfile);           // GET /api/users/profile/:username
 
 module.exports = router;
