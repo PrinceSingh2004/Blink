@@ -1,117 +1,96 @@
 /**
- * feed.js – Blink Unified Reels Feed v4.0 (Performance Optimized)
- * Task: Fullscreen Vertical Scroll, Snap Scroll, Autoplay/Pause, No Demo Data
+ * feed.js – Blink Unified Reels Feed v5.0 (Task 1-8 Fixed)
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // ── 1. HELPERS & AUTH ───────────────────────────────────────
     if (!window.Blink) return console.error('[Blink] auth.js not loaded');
-    const { getToken, getUser, requireAuth, showToast, apiRequest } = window.Blink;
+    const { getToken, getUser, requireAuth, showToast } = window.Blink;
     
     if (!requireAuth()) return;
 
-    const me           = getUser();
     const reels        = document.getElementById('reelsContainer');
     let videoObserver  = null;
     let loading        = false;
 
-    // ── 2. LOAD DATA (Database Exclusive) ─────────────────────── (Task 6)
     async function loadFeed() {
         if (loading) return;
         loading = true;
         reels.innerHTML = '<div class="profile-error"><div class="loader"></div><p>Blink is fetching latest moments...</p></div>';
 
         try {
-            // Task: Fetch only user-uploaded content from MySQL meta
-            const data = await apiRequest('/posts/feed');
-            renderReels(data.posts || []);
+            console.log("Fetching Feed (Task 8)...");
+            const res = await fetch(window.Blink.API + '/videos', {
+                headers: { 'Authorization': 'Bearer ' + getToken() }
+            });
+            const data = await res.json();
+            
+            console.log("Feed Data (Task 8):", data);
+
+            if (data.success) {
+                renderReels(data.videos || []);
+            } else {
+                throw new Error(data.error || "Unable to load moments");
+            }
         } catch (err) {
-            console.error('[Feed] Failed to load:', err);
-            showToast('Failed to load feed.', 'error');
-            reels.innerHTML = '<p class="profile-error">Unable to load moments. Check your internet.</p>';
+            console.error('[Feed ERROR]:', err);
+            reels.innerHTML = `<div class="profile-error"><i class="bi bi-exclamation-triangle" style="font-size:48px;color:red;"></i><p>Failed to load data: ${err.message}</p></div>`;
+            showToast('Unable to load moments.', 'error');
         } finally {
             loading = false;
         }
     }
 
-    function renderReels(posts) {
-        if (!posts || posts.length === 0) {
+    function renderReels(videos) {
+        if (!videos || videos.length === 0) {
             reels.innerHTML = '<div class="profile-error"><i class="bi bi-camera-reels" style="font-size:48px;opacity:0.2;"></i><p>No moments posted yet.</p></div>';
             return;
         }
 
-        reels.innerHTML = ''; // Clear loader
-        posts.forEach(p => {
+        reels.innerHTML = '';
+        videos.forEach(v => {
             const reel = document.createElement('div');
             reel.className = 'reel-item animate-fade-in';
-            reel.dataset.id = p.id;
+            reel.dataset.id = v.id;
 
-            const avatarHtml = p.avatar
-                ? `<img src="${p.avatar}" alt="@${p.username}" class="avatar" style="width:100%;height:100%;object-fit:cover;">`
-                : (p.username || 'U')[0].toUpperCase();
+            const avatarHtml = v.profile_pic
+                ? `<img src="${v.profile_pic}" alt="@${v.username}" class="avatar" style="width:100%;height:100%;object-fit:cover;">`
+                : (v.username || 'U')[0].toUpperCase();
 
             reel.innerHTML = `
-                <!-- Task: Cloudinary URL with f_auto, q_auto -->
-                <video src="${p.media_url}" 
-                       loop muted playsinline 
-                       class="reel-video" 
-                       preload="metadata"></video>
+                <video src="${v.url}" loop muted playsinline class="reel-video" preload="metadata"></video>
                 
-                <!-- Side Actions Overlay (Task 6) -->
                 <div class="reel-actions">
-                    <div class="action-item" onclick="window.location.href='profile.html?id=${p.user_id}'">
+                    <div class="action-item" onclick="window.location.href='profile.html?id=${v.user_id}'">
                         <div class="story-ring" style="width:48px;height:48px;padding:2px;margin-bottom:10px;">
                             <div class="avatar" style="width:100%;height:100%;background:#333;display:flex;align-items:center;justify-content:center;font-size:18px;">
                                 ${avatarHtml}
                             </div>
                         </div>
                     </div>
-
                     <div class="action-item">
-                        <button class="btn-ghost action-btn like-btn ${p.liked_by_me ? 'liked' : ''}" data-id="${p.id}">
-                            <i class="bi ${p.liked_by_me ? 'bi-heart-fill' : 'bi-heart'}"></i>
-                        </button>
-                        <span class="action-count">${p.likes_count || 0}</span>
+                        <button class="btn-ghost action-btn like-btn" data-id="${v.id}"><i class="bi bi-heart"></i></button>
+                        <span class="action-count">0</span>
                     </div>
-
                     <div class="action-item">
-                        <button class="btn-ghost action-btn comment-btn" onclick="showToast('Comments coming soon!', 'info')">
-                            <i class="bi bi-chat-right-text-fill"></i>
-                        </button>
-                        <span class="action-count">${p.comments_count || 0}</span>
-                    </div>
-
-                    <div class="action-item">
-                        <button class="btn-ghost action-btn share-btn">
-                            <i class="bi bi-send-fill"></i>
-                        </button>
+                        <button class="btn-ghost action-btn share-btn" data-url="${v.url}"><i class="bi bi-send-fill"></i></button>
                     </div>
                 </div>
 
-                <!-- Bottom Info Overlay -->
                 <div class="reel-info">
-                    <div class="reel-user" onclick="window.location.href='profile.html?id=${p.user_id}'">
-                        <span class="reel-username">@${p.username}</span>
-                        ${p.is_verified ? `<i class="bi bi-patch-check-fill animate-pulse" style="color:var(--accent-secondary);font-size:14px;margin-left:4px;"></i>` : ''}
-                    </div>
-                    ${p.caption ? `<p class="reel-caption">${p.caption}</p>` : ''}
-                    <div class="reel-music" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;opacity:0.8;">
-                        <i class="bi bi-music-note-beamed"></i>
-                        <marquee scrollamount="3" style="width:150px;">Original Sound · Blink Originals · High Fidelity</marquee>
+                    <div class="reel-user" onclick="window.location.href='profile.html?id=${v.user_id}'">
+                        <span class="reel-username">@${v.username}</span>
                     </div>
                 </div>
-
                 <div class="tap-to-pause" style="position:absolute;top:0;left:0;right:0;bottom:100px;z-index:2;"></div>
             `;
 
             reels.appendChild(reel);
-            attachEvents(reel, p);
+            attachEvents(reel);
         });
 
         initVideoObserver();
     }
 
-    // ── 3. PERFORMANCE: AUTOPLAY & PAUSE ──────────────────────── (Task 9)
     function initVideoObserver() {
         if (!videoObserver) {
             videoObserver = new IntersectionObserver((entries) => {
@@ -119,45 +98,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const video = entry.target;
                     if (entry.isIntersecting) {
                         video.play().catch(() => {});
+                        console.log("Playing video (Task 8):", video.src);
                     } else {
                         video.pause();
-                        video.currentTime = 0; // Reset for performance
                     }
                 });
-            }, { threshold: 0.8 }); // Trigger only when 80% visible
+            }, { threshold: 0.7 });
         }
-
-        document.querySelectorAll('.reel-video').forEach(v => {
-            if (!v.dataset.observed) {
-                videoObserver.observe(v);
-                v.dataset.observed = '1';
-            }
-        });
+        document.querySelectorAll('.reel-video').forEach(v => videoObserver.observe(v));
     }
 
-    // ── 4. UI EVENTS ──────────────────────────────────────────
-    function attachEvents(reel, p) {
-        const video      = reel.querySelector('.reel-video');
+    function attachEvents(reel) {
+        const video = reel.querySelector('.reel-video');
         const tapOverlay = reel.querySelector('.tap-to-pause');
-        const shareBtn   = reel.querySelector('.share-btn');
+        const shareBtn = reel.querySelector('.share-btn');
 
-        // Tap to pause/play
         tapOverlay.onclick = () => {
             if (video.paused) video.play().catch(() => {});
             else video.pause();
         };
 
-        // Share native or clipboard
         shareBtn.onclick = () => {
-            if (navigator.share) {
-                navigator.share({ title: `Blink by @${p.username}`, url: p.media_url });
-            } else {
-                navigator.clipboard.writeText(p.media_url);
-                showToast('🔗 Link copied to clipboard!', 'success');
-            }
+            const url = shareBtn.dataset.url;
+            navigator.clipboard.writeText(url);
+            showToast('🔗 Link copied!', 'success');
         };
     }
 
-    // --- Start ---
     await loadFeed();
 });

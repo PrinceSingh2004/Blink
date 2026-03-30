@@ -28,7 +28,7 @@ const initDB = async () => {
         const queries = [
             `CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50) UNIQUE, email VARCHAR(100) UNIQUE, password VARCHAR(255), profile_pic TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
             `CREATE TABLE IF NOT EXISTS posts (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, media_url TEXT, caption TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`,
-            `CREATE TABLE IF NOT EXISTS videos (id INT AUTO_INCREMENT PRIMARY KEY, url TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+            `CREATE TABLE IF NOT EXISTS videos (id INT AUTO_INCREMENT PRIMARY KEY, url TEXT, user_id INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`,
             `CREATE TABLE IF NOT EXISTS likes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, post_id INT, UNIQUE KEY unique_like (user_id, post_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE)`,
             `CREATE TABLE IF NOT EXISTS comments (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, post_id INT, comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE)`
         ];
@@ -48,6 +48,34 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api', require('./routes/healthRoutes')); 
+
+// ── TASK 2: FEED API ─────────────────────────────────────────
+app.get("/api/videos", async (req, res) => {
+    try {
+        const [videos] = await pool.query(
+            "SELECT v.*, u.username, u.profile_pic FROM videos v JOIN users u ON v.user_id = u.id ORDER BY v.created_at DESC"
+        );
+        console.log("Videos fetched (Task 8):", videos.length);
+        res.json({ success: true, videos });
+    } catch (err) {
+        console.error("[Feed ERROR]:", err);
+        res.status(500).json({ success: false, error: "Failed to fetch videos" });
+    }
+});
+
+// ── TASK 3: PROFILE API ──────────────────────────────────────
+app.get("/api/videos/user/:id", async (req, res) => {
+    try {
+        const [videos] = await pool.query(
+            "SELECT * FROM videos WHERE user_id = ? ORDER BY created_at DESC",
+            [req.params.id]
+        );
+        res.json({ success: true, videos });
+    } catch (err) {
+        console.error("[Profile ERROR]:", err);
+        res.status(500).json({ success: false, error: "Profile videos failed" });
+    }
+});
 
 // Static Frontend
 app.use(express.static(path.join(__dirname, '../frontend')));

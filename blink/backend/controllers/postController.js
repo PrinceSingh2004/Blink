@@ -45,11 +45,12 @@ exports.createPost = async (req, res) => {
             [req.user.id, result.secure_url, caption || '']
         );
 
-        // 2. Insert into videos table (compatibility as requested)
+        // 2. Insert into videos table (Task 1: Fix Full Data)
         await pool.execute(
-            'INSERT INTO videos (url) VALUES (?)',
-            [result.secure_url]
+            'INSERT INTO videos (url, user_id, created_at) VALUES (?, ?, NOW())',
+            [result.secure_url, req.user.id]
         );
+        console.log("Database persistent (Task 8):", result.secure_url);
 
         return res.status(200).json({
             success: true,
