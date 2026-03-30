@@ -1,29 +1,37 @@
 /* 
- * global.css – Blink Platform Design System v4.0
- * Unified variables, resets, and core layout patterns.
+ * global.css – Blink Platform Design System v5.0
+ * Premium, Responsive, and Modern.
  */
 
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
 :root {
-    /* --- Colors --- */
+    /* --- Colors: Dark Mode (Default) --- */
     --bg-main: #000000;
-    --bg-surface: #121212;
-    --bg-surface-elevated: #1e1e1e;
-    --bg-input: #262626;
-    --bg-glass: rgba(18, 18, 18, 0.85);
+    --bg-surface: #0a0a0a;
+    --bg-surface-elevated: #161616;
+    --bg-input: #1c1c1c;
+    --bg-glass: rgba(10, 10, 10, 0.7);
     
     --text-primary: #ffffff;
     --text-secondary: #a8a8a8;
     --text-muted: #737373;
     
-    --accent-primary: #ff0050; /* Blink signature pink */
-    --accent-secondary: #00f2ea;
+    --accent-primary: #ff0050; /* Blink Pink */
+    --accent-secondary: #00f2ea; /* Blink Cyan */
     --accent-gradient: linear-gradient(135deg, #ff0050 0%, #00f2ea 100%);
-    --accent-gradient-text: linear-gradient(45deg, #ff0050, #ff8c00);
+    --accent-glow: 0 0 20px rgba(255, 0, 80, 0.3);
     
     --success: #00f2ea;
     --warning: #ffcc00;
     --danger: #ff3b30;
     --info: #007aff;
+    
+    /* --- Layout --- */
+    --container-max: 1280px;
+    --sidebar-width: 280px;
+    --navbar-height: 70px;
+    --bottom-nav-height: 70px;
     
     /* --- Spacing --- */
     --space-xs: 4px;
@@ -31,23 +39,22 @@
     --space-md: 16px;
     --space-lg: 24px;
     --space-xl: 32px;
-    --container-max: 1200px;
-    --sidebar-width: 250px;
-    --bottom-nav-height: 70px;
+    --space-xxl: 48px;
     
-    /* --- Effects --- */
+    /* --- Rounded Corners --- */
     --radius-sm: 8px;
     --radius-md: 12px;
-    --radius-lg: 16px;
+    --radius-lg: 20px;
+    --radius-xl: 32px;
     --radius-full: 9999px;
-    --glow-primary: 0 0 20px rgba(255, 0, 80, 0.4);
-    --shadow-sm: 0 4px 12px rgba(0,0,0,0.5);
-    --shadow-md: 0 8px 24px rgba(0,0,0,0.8);
-    --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    
+    /* --- Animations --- */
+    --transition-fast: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    --transition-mid: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
     --blur: blur(20px);
 }
 
-/* --- Resets --- */
+/* --- Base Resets --- */
 * {
     margin: 0;
     padding: 0;
@@ -55,27 +62,44 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
-    height: 100%;
-    background-color: var(--bg-main);
-    color: var(--text-primary);
-    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-    scrollbar-width: thin;
-    scrollbar-color: var(--bg-surface-elevated) var(--bg-main);
-    overflow-x: hidden;
+html {
+    scroll-behavior: smooth;
+    font-size: 16px; /* Base 1rem = 16px */
 }
 
 body {
-    display: flex;
-    flex-direction: column;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    min-height: 100vh;
 }
 
+/* --- Container --- */
+.app-wrapper {
+    max-width: var(--container-max);
+    margin: 0 auto;
+    width: 100%;
+}
+
+.main-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+    width: 100%;
+    padding: var(--space-md);
+}
+
+/* --- Links & Buttons --- */
 a {
     color: inherit;
     text-decoration: none;
-    transition: var(--transition);
+    transition: var(--transition-fast);
 }
 
 button {
@@ -84,18 +108,44 @@ button {
     cursor: pointer;
     font-family: inherit;
     color: inherit;
+    transition: var(--transition-fast);
+    outline: none;
 }
 
-ul {
-    list-style: none;
+/* --- Utility Classes --- */
+.flex { display: flex; }
+.flex-column { display: flex; flex-direction: column; }
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-items-center { display: flex; align-items: center; }
+
+.grid { display: grid; }
+.gap-sm { gap: var(--space-sm); }
+.gap-md { gap: var(--space-md); }
+.gap-lg { gap: var(--space-lg); }
+
+.hidden { display: none !important; }
+.block { display: block !important; }
+
+.text-center { text-align: center; }
+.text-gradient {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
 }
 
-img, video {
-    max-width: 100%;
-    display: block;
+.glass {
+    background: var(--bg-glass);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* --- Custom Scrollbar --- */
+.shadow-md { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+.shadow-lg { box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7); }
+
+/* --- Global Scrollbar --- */
 ::-webkit-scrollbar {
     width: 6px;
 }
@@ -110,44 +160,15 @@ img, video {
     background: var(--text-muted);
 }
 
-/* --- Global Layout Patterns --- */
-.app-container {
-    max-width: var(--container-max);
-    margin: 0 auto;
-    width: 100%;
-    padding: 0 var(--space-md);
-}
-
-.flex { display: flex; }
-.flex-center { display: flex; align-items: center; justify-content: center; }
-.flex-between { display: flex; align-items: center; justify-content: space-between; }
-.grid { display: grid; }
-
-.hidden { display: none !important; }
-
-/* --- Glass UI Utilities --- */
-.glass {
-    background: var(--bg-glass);
-    backdrop-filter: var(--blur);
-    -webkit-backdrop-filter: var(--blur);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.gradient-text {
-    background: var(--accent-gradient-text);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-weight: 800;
-}
-
 /* --- Animations --- */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 @keyframes pulse {
@@ -156,10 +177,10 @@ img, video {
     100% { transform: scale(1); }
 }
 
-.animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
-}
+.animate-slide-up { animation: slideUp 0.5s ease forwards; }
+.animate-fade-in { animation: fadeIn 0.4s ease forwards; }
 
+/* Loader Spinner */
 .loader {
     width: 24px;
     height: 24px;
@@ -169,10 +190,19 @@ img, video {
     animation: spin 0.8s linear infinite;
 }
 
-/* Responsive Hide Utilities */
-@media (max-width: 768px) {
-    .hide-mobile { display: none !important; }
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
-@media (min-width: 769px) {
-    .show-mobile-only { display: none !important; }
+
+/* Responsive Grid Columns (Utility) */
+.col-1 { grid-template-columns: 1fr; }
+.col-2 { grid-template-columns: repeat(2, 1fr); }
+.col-3 { grid-template-columns: repeat(3, 1fr); }
+
+/* --- Breakpoints --- */
+@media (max-width: 480px) {
+    :root { 
+        --space-md: 12px;
+        --space-lg: 16px;
+    }
 }

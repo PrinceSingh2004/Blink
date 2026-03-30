@@ -7,196 +7,159 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <!-- Styles -->
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/pages.css">
-    <style>
-        .upload-page {
-            min-height: 100vh;
-            display: flex;
-            align-items: center; justify-content: center;
-            padding: var(--space-xl);
-        }
-        @media (min-width: 769px) { .upload-page { padding-left: var(--sidebar-width); } }
-        
-        .upload-container {
-            width: 100%;
-            max-width: 900px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            background: var(--bg-surface);
-            border-radius: var(--radius-lg);
-            border: 1px solid rgba(255,255,255,0.1);
-            overflow: hidden;
-            box-shadow: var(--shadow-md);
-            animation: fadeIn 0.8s ease-out;
-        }
-
-        .dropzone-area {
-            background: rgba(255,255,255,0.02);
-            border: 2px dashed rgba(255,0,80,0.3);
-            border-radius: var(--radius-md);
-            margin: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            transition: var(--transition);
-            cursor: pointer;
-            aspect-ratio: 9/16;
-            position: relative;
-        }
-
-        .dropzone-area.dragover {
-            border-color: var(--accent-primary);
-            background: rgba(255,0,80,0.05);
-            transform: scale(0.98);
-        }
-
-        .dropzone-icon {
-            font-size: 64px;
-            color: var(--accent-primary);
-            margin-bottom: 20px;
-            opacity: 0.6;
-        }
-
-        .preview-media {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover;
-            border-radius: var(--radius-md);
-            display: none;
-        }
-
-        .upload-form-side {
-            padding: 40px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        @media (max-width: 768px) {
-            .upload-container { grid-template-columns: 1fr; }
-            .dropzone-area { aspect-ratio: 1/1; margin: 10px; }
-            .upload-form-side { padding: 20px; }
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 6px;
-            background: rgba(255,255,255,0.1);
-            border-radius: var(--radius-full);
-            overflow: hidden;
-            margin-top: 10px;
-            display: none;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: var(--accent-gradient);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-    </style>
+    <link rel="stylesheet" href="css/responsive.css">
 </head>
 
 <body>
 
-    <!-- ── SIDEBAR (Desktop) ─────────────────────────────────── -->
-    <aside class="sidebar glass hide-mobile">
-        <div class="sidebar-logo">
-            <span class="gradient-text auth-logo">B</span>
-            <h2 class="gradient-text">Blink</h2>
-        </div>
+    <div class="app-container">
         
-        <nav class="nav-links">
-            <a href="index.html" class="nav-link"><i class="bi bi-house-door"></i> <span>Home</span></a>
-            <a href="messages.html" class="nav-link"><i class="bi bi-chat-dots"></i> <span>Messages</span></a>
-            <a href="live.html" class="nav-link"><i class="bi bi-broadcast"></i> <span>Live</span></a>
-            <a href="upload.html" class="nav-link active"><i class="bi bi-plus-square-fill"></i> <span>Create</span></a>
-            <a href="profile.html" class="nav-link"><i class="bi bi-person"></i> <span>Profile</span></a>
-        </nav>
-    </aside>
-
-    <!-- ── UPLOAD CONTENT ────────────────────────────────────── -->
-    <main class="upload-page">
-        <div class="upload-container glass">
-            
-            <!-- LEFT: DROPZONE -->
-            <div class="dropzone-area" id="dropzone">
-                <input type="file" id="mediaInput" accept="video/*,image/*" hidden>
-                <div class="dropzone-content" id="dropzoneContent">
-                    <i class="bi bi-cloud-arrow-up-fill dropzone-icon"></i>
-                    <h3 style="margin-bottom:8px;">Drag & Drop a video</h3>
-                    <p style="color:var(--text-muted);font-size:14px;">Resolution must be vertical (9:16) for Reels</p>
-                    <button class="btn btn-secondary" style="margin-top:24px;">Select from Device</button>
-                </div>
-                <video id="videoPreview" class="preview-media" loop muted></video>
-                <img id="imagePreview" class="preview-media" alt="Preview">
+        <!-- ── SIDEBAR (Desktop / Tablet) ─────────────────────── -->
+        <aside class="app-sidebar">
+            <div class="nav-logo">
+                <span class="text-gradient" style="font-size: 40px; font-weight: 900;">B</span>
+                <h2 class="text-gradient">Blink</h2>
             </div>
+            
+            <nav class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <i class="bi bi-house-door-fill"></i>
+                    <span>Home</span>
+                </a>
+                <a href="explore.html" class="nav-link">
+                    <i class="bi bi-compass-fill"></i>
+                    <span>Explore</span>
+                </a>
+                <a href="live.html" class="nav-link">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Live</span>
+                </a>
+                <a href="messages.html" class="nav-link">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span>Messages</span>
+                </a>
+                <a href="upload.html" class="nav-link active">
+                    <i class="bi bi-plus-square-fill"></i>
+                    <span>Create</span>
+                </a>
+                <a href="profile.html" class="nav-link" id="sidebarProfileLink">
+                    <img id="sidebarAvatarImg" src="https://via.placeholder.com/32" class="avatar" style="width:32px; height:32px; border:2px solid var(--accent-primary);">
+                    <span>Profile</span>
+                </a>
+            </nav>
 
-            <!-- RIGHT: FORM -->
-            <div class="upload-form-side">
-                <div>
-                    <h2 style="font-size:24px;margin-bottom:4px;">Upload Reel</h2>
-                    <p style="color:var(--text-muted);font-size:14px;">Add a catchy caption and hashtags.</p>
-                </div>
-
-                <div class="form-group" style="margin-top:20px;">
-                    <label class="form-label">Caption</label>
-                    <div class="input-wrap" style="padding:0;">
-                         <textarea id="captionInput" class="form-input" style="height:120px;resize:none;padding-left:14px;" placeholder="Write something cinematic..."></textarea>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Category</label>
-                    <div class="input-wrap" style="padding:0;">
-                        <span class="input-icon"><i class="bi bi-hash"></i></span>
-                        <select id="typeInput" class="form-input">
-                            <option value="reel">Reel (Short Video)</option>
-                            <option value="post">Fixed Post (Photo/Video)</option>
-                            <option value="story">Story (Expires in 24h)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div id="uploadProgress" class="progress-bar">
-                    <div id="progressFill" class="progress-fill"></div>
-                </div>
-                <p id="progressText" style="font-size:12px;color:var(--text-muted);text-align:center;margin-top:4px;display:none;">Uploading 0%</p>
-
-                <div style="flex:1;"></div>
-
-                <button class="btn btn-primary" id="publishBtn" style="width:100%;height:52px;font-size:16px;">
-                    Publish to Blink <i class="bi bi-send-check-fill"></i>
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="nav-link" style="width:100%; text-align:left; border:none; background:none;">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Logout</span>
                 </button>
             </div>
+        </aside>
 
-        </div>
-    </main>
+        <!-- ── CREATE CONTENT AREA ────────────────────────────── -->
+        <main class="main-content flex-center" style="padding: var(--space-xl);">
+            <div class="app-wrapper" style="max-width: 900px;">
+                
+                <section class="animate-slide-up" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-xl);">
+                    
+                    <!-- DROPZONE AREA -->
+                    <div class="glass flex-column flex-center" id="dropzone" style="aspect-ratio: 9/16; border-radius: var(--radius-lg); border: 2px dashed rgba(255,0,80,0.3); cursor: pointer; position: relative; overflow: hidden; padding: 40px; background: rgba(255,255,255,0.02);">
+                        <input type="file" id="mediaInput" accept="video/*,image/*" hidden>
+                        
+                        <div id="dropzoneContent" class="text-center">
+                            <i class="bi bi-cloud-arrow-up-fill" style="font-size: 64px; color: var(--accent-primary); opacity: 0.8; margin-bottom: 20px; display: block;"></i>
+                            <h3 style="margin-bottom: 8px;">Upload Cinematic Blink</h3>
+                            <p style="color: var(--text-muted); font-size: 14px;">Select or Drag & Drop a vertical video (9:16 recommended)</p>
+                            <button class="btn btn-secondary" style="margin-top: 32px;">Browse Device</button>
+                        </div>
+                        
+                        <!-- PREVIEW MEDIA -->
+                        <video id="videoPreview" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none;" loop muted></video>
+                        <img id="imagePreview" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none;">
+                    </div>
 
-    <!-- ── BOTTOM NAV (Mobile) ────────────────────────────────── -->
-    <nav class="bottom-nav">
-        <a href="index.html" class="bottom-link"><i class="bi bi-house-door"></i> <span>Home</span></a>
-        <a href="live.html" class="bottom-link"><i class="bi bi-broadcast"></i> <span>Live</span></a>
-        <a href="upload.html" class="bottom-link active"><i class="bi bi-plus-square-fill"></i> <span>Create</span></a>
-        <a href="messages.html" class="bottom-link"><i class="bi bi-chat-dots"></i> <span>Chat</span></a>
-        <a href="profile.html" class="bottom-link"><i class="bi bi-person"></i> <span>Profile</span></a>
-    </nav>
+                    <!-- FORM AREA -->
+                    <div class="flex-column gap-lg" style="padding: var(--space-md);">
+                        <div>
+                            <h2 class="text-gradient">Share your story</h2>
+                            <p>Customize how your Blink appears to the world.</p>
+                        </div>
 
-    <!-- NOTIFICATIONS -->
+                        <div class="form-group">
+                            <label class="form-label">Caption</label>
+                            <div class="input-wrap">
+                                <textarea id="captionInput" class="form-input" style="height: 140px; resize: none;" placeholder="Write a compelling story..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Format Type</label>
+                            <div class="input-wrap">
+                                <select id="typeInput" class="form-input" style="appearance: none;">
+                                    <option value="reel">Reel (Vertical Short)</option>
+                                    <option value="post">Fixed Post (Square/Landscape)</option>
+                                    <option value="story">Daily Story (24h)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar Container -->
+                        <div id="uploadProgress" style="display: none; width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; margin-top: 20px;">
+                            <div id="progressFill" style="height: 100%; background: var(--accent-gradient); width: 0%; transition: width 0.3s ease;"></div>
+                        </div>
+                        <p id="progressText" style="display: none; text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 4px;">Uploading 0%</p>
+
+                        <div style="flex: 1;"></div>
+
+                        <button id="publishBtn" class="btn btn-primary" style="width: 100%; height: 56px; font-size: 16px;">
+                            Publish Blink <i class="bi bi-send-check-fill" style="margin-left: 8px;"></i>
+                        </button>
+                    </div>
+
+                </section>
+
+            </div>
+        </main>
+
+        <!-- ── BOTTOM NAVIGATION (Mobile Only) ─────────────────── -->
+        <nav class="bottom-nav">
+            <a href="index.html" class="bottom-link">
+                <i class="bi bi-house-door-fill"></i>
+                <span>Home</span>
+            </a>
+            <a href="explore.html" class="bottom-link">
+                <i class="bi bi-search"></i>
+                <span>Search</span>
+            </a>
+            <a href="upload.html" class="bottom-link active" style="transform: translateY(-2px);">
+                <i class="bi bi-plus-square-fill" style="font-size: 32px; color: var(--text-primary);"></i>
+            </a>
+            <a href="messages.html" class="bottom-link">
+                <i class="bi bi-chat-dots-fill"></i>
+                <span>Chat</span>
+            </a>
+            <a href="profile.html" class="bottom-link">
+                <img id="mobileAvatarImg" src="https://via.placeholder.com/24" class="avatar" style="width:24px; height:24px;">
+                <span>Profile</span>
+            </a>
+        </nav>
+
+    </div>
+
+    <!-- ── NOTIFICATIONS ─────────────────────────────────────── -->
     <div id="toastContainer"></div>
 
-    <!-- SCRIPTS -->
+    <!-- ── SCRIPTS ────────────────────────────────────────────── -->
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
     <script src="js/upload.js"></script>
 </body>
 </html>
