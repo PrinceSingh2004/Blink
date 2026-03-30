@@ -49,18 +49,41 @@ app.use('/api/posts', require('./routes/postRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api', require('./routes/healthRoutes')); 
 
-// ── TASK 2: FEED API ─────────────────────────────────────────
+// ── TASK 1 & 5: FEED API ─────────────────────────────────────
 app.get("/api/videos", async (req, res) => {
-    try {
-        const [videos] = await pool.query(
-            "SELECT v.*, u.username, u.profile_pic FROM videos v JOIN users u ON v.user_id = u.id ORDER BY v.created_at DESC"
-        );
-        console.log("Videos fetched (Task 8):", videos.length);
-        res.json({ success: true, videos });
-    } catch (err) {
-        console.error("[Feed ERROR]:", err);
-        res.status(500).json({ success: false, error: "Failed to fetch videos" });
+  try {
+    console.log("Fetching videos...");
+
+    const [videos] = await pool.query(
+      "SELECT * FROM videos ORDER BY created_at DESC"
+    );
+
+    console.log("Videos fetched (Task 8):", videos);
+
+    // Task 5: Handle Empty Data
+    if (!videos.length) {
+      return res.json({ success: true, videos: [] });
     }
+
+    res.json({ success: true, videos });
+
+  } catch (err) {
+    console.error("❌ ERROR in /api/videos:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// ── TASK 4: TEST DB ROUTE ─────────────────────────────────────
+app.get("/api/test-db", async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT 1");
+    res.json({ success: true });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
 });
 
 // ── TASK 3: PROFILE API ──────────────────────────────────────
