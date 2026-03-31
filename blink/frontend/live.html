@@ -2,248 +2,119 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
-    <title>Blink | Live Experience</title>
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Icons -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Live | Blink</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Styles -->
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/pages.css">
     <style>
-        .live-page {
-            min-height: 100vh;
+        .live-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            background: #000;
             display: flex;
             flex-direction: column;
-            background: var(--bg-main);
         }
-        @media (min-width: 769px) { .live-page { padding-left: var(--sidebar-width); } }
-        
-        /* Discovery Grid */
-        .live-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 20px;
-            padding: 24px;
-        }
-
-        .live-thumbnail {
+        #localVideo {
             width: 100%;
-            aspect-ratio: 9/16;
-            background: #111;
-            border-radius: var(--radius-md);
-            position: relative;
-            overflow: hidden;
-            border: 1px solid rgba(255,255,255,0.05);
-            transition: var(--transition);
-            cursor: pointer;
+            height: 100%;
+            object-fit: cover;
         }
-        .live-thumbnail:hover { transform: translateY(-4px); border-color: var(--accent-primary); }
-        .live-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
-        
-        .live-indicator {
+        .live-overlay {
             position: absolute;
-            top: 12px; left: 12px;
-            background: var(--accent-primary);
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.6) 100%);
+        }
+        .live-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+        }
+        .live-badge {
+            background: #ff0050;
             color: white;
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 4px;
-            font-weight: 800;
-            font-size: 10px;
-            display: flex; align-items: center; gap: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .live-indicator::before {
-            content: ''; width: 6px; height: 6px; background: white; border-radius: 50%;
-            animation: pulse 1s infinite;
+        .viewer-count {
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 14px;
         }
-
-        /* Fullscreen Player Container */
-        .stream-view {
-            position: fixed; inset: 0; background: #000; z-index: 3000;
-            display: flex; flex-direction: row;
+        .chat-container {
+            height: 300px;
+            overflow-y: auto;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+            mask-image: linear-gradient(to top, black 80%, transparent 100%);
         }
-        
-        .stream-video-wrap {
-            flex: 1; position: relative; background: #000;
-            display: flex; align-items: center; justify-content: center;
+        .chat-msg {
+            background: rgba(0,0,0,0.3);
+            padding: 6px 12px;
+            border-radius: 12px;
+            color: white;
+            font-size: 14px;
+            max-width: 80%;
+            width: fit-content;
         }
-        #liveVideo { width: 100%; height: 100%; object-fit: cover; background: #000; }
-
-        /* Overlays */
-        .stream-header {
-            position: absolute; top: 20px; left: 20px; right: 20px;
-            display: flex; justify-content: space-between; align-items: center;
-            z-index: 10;
+        .chat-msg b { color: var(--primary); margin-right: 6px; }
+        .live-controls {
+            display: flex;
+            gap: 12px;
+            pointer-events: auto;
         }
-        .stream-host-info { display: flex; align-items: center; gap: 12px; }
-        .stream-host-name { font-weight: 700; color: white; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-        .viewer-pill { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 6px 14px; border-radius: var(--radius-full); font-size: 13px; font-weight: 600; }
-
-        .stream-controls {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 16px; z-index: 10;
+        #chatInput {
+            flex: 1;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 10px 20px;
+            color: white;
         }
-        
-        /* Sidebar Chat */
-        .stream-chat {
-            width: 380px; background: var(--bg-surface);
-            border-left: 1px solid rgba(255,255,255,0.05);
-            display: flex; flex-direction: column;
-        }
-        
-        @media (max-width: 768px) {
-            .stream-view { flex-direction: column; }
-            .stream-chat { 
-                width: 100%; height: 40vh; border-left: none; 
-                background: linear-gradient(transparent, rgba(0,0,0,0.9));
-                position: absolute; bottom: 0; left: 0; z-index: 5;
-            }
-        }
-
-        .chat-msgs { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .chat-line { font-size: 14px; line-height: 1.4; color: white; }
-        .chat-line b { color: var(--accent-secondary); margin-right: 6px; }
-
-        .stream-status-overlay {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.8);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 20; color: white; gap: 20px; text-align: center;
-            transition: var(--transition); opacity: 0; pointer-events: none;
-        }
-        .stream-status-overlay.show { opacity: 1; pointer-events: all; }
     </style>
 </head>
-
 <body>
-
-    <!-- SIDEBAR (Desktop) -->
-    <aside class="sidebar glass hide-mobile">
-        <div class="sidebar-logo">
-            <span class="gradient-text auth-logo">B</span>
-            <h2 class="gradient-text">Blink</h2>
-        </div>
-        <nav class="nav-links">
-            <a href="index.html" class="nav-link"><i class="bi bi-house-door"></i> <span>Home</span></a>
-            <a href="messages.html" class="nav-link"><i class="bi bi-chat-dots"></i> <span>Messages</span></a>
-            <a href="live.html" class="nav-link active"><i class="bi bi-broadcast-pin"></i> <span>Live</span></a>
-            <a href="upload.html" class="nav-link"><i class="bi bi-plus-square"></i> <span>Create</span></a>
-            <a href="profile.html" class="nav-link" id="sidebarProfileLink">
-                <div id="sidebarAvatar" class="avatar" style="width:24px;height:24px;font-size:10px;">U</div>
-                <span id="sidebarName">Profile</span>
-            </a>
-        </nav>
-    </aside>
-
-    <main class="live-page">
-        <!-- HEADER -->
-        <header style="padding: 30px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h1 style="font-size: 32px; font-weight: 800;">Discovery <span class="gradient-text">Live</span></h1>
-                <p style="color:var(--text-muted);">Watch world-class creators in real-time.</p>
+    <div class="live-container">
+        <video id="localVideo" autoplay muted playsinline></video>
+        
+        <div class="live-overlay">
+            <div class="live-header">
+                <div class="live-badge">🔴 LIVE</div>
+                <div class="viewer-count" id="viewerCount">👁️ 0</div>
+                <button class="btn btn-secondary btn-sm" onclick="window.location.href='index.html'">End</button>
             </div>
-            <button class="btn btn-primary" id="goLiveBtn" style="height: 50px; padding: 0 24px; font-weight: 700;">
-                <i class="bi bi-camera-reels-fill" style="margin-right: 10px;"></i> Start Broadcast
-            </button>
-        </header>
 
-        <!-- DISCOVERY -->
-        <div id="liveFeed" class="live-grid">
-            <!-- INJECTED BY JS -->
-            <div id="loadingFeed" style="grid-column: 1 / -1; padding: 100px; text-align: center;">
-                <div class="loader" style="margin: 0 auto 20px;"></div>
-                <p style="color:var(--text-muted);">Scanning for active streams...</p>
-            </div>
-        </div>
-
-        <div id="noLive" style="display:none; padding: 100px; text-align: center; color:var(--text-muted);">
-            <i class="bi bi-broadcast" style="font-size: 64px; opacity: 0.1; margin-bottom: 20px; display: block;"></i>
-            <h3>Quiet on the front...</h3>
-            <p>Nobody is broadcasting right now. Be the first!</p>
-        </div>
-
-        <!-- FULLSCREEN BROADCAST VIEW -->
-        <div id="streamView" class="stream-view" style="display:none;">
-            
-            <div class="stream-video-wrap">
-                <!-- Video Element -->
-                <video id="liveVideo" autoplay playsinline></video>
+            <div class="live-footer">
+                <div id="chatBox" class="chat-container"></div>
                 
-                <!-- Status Overlay (Task 7) -->
-                <div id="streamStatus" class="stream-status-overlay">
-                    <div class="loader"></div>
-                    <h3 id="statusText">Connecting to Stream...</h3>
-                </div>
-
-                <!-- Live Header -->
-                <div class="stream-header">
-                    <div class="stream-host-info">
-                        <div class="avatar" id="hostAvatar" style="width:44px;height:44px;background:#333;"></div>
-                        <div>
-                            <div class="stream-host-name" id="hostName">@username</div>
-                            <div class="viewer-pill"><i class="bi bi-people-fill"></i> <span id="viewCount">0</span> watching</div>
-                        </div>
-                    </div>
-                    <button class="icon-btn btn-ghost" id="endStreamBtn" style="background:rgba(255,255,255,0.1); width:44px; height:44px;">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
-                </div>
-
-                <!-- Host Controls (Task 2) -->
-                <div id="hostControls" class="stream-controls" style="display:none;">
-                    <button class="icon-btn glass" id="toggleCamBtn"><i class="bi bi-camera-video"></i></button>
-                    <button class="icon-btn glass" id="toggleMicBtn"><i class="bi bi-mic"></i></button>
-                    <button class="btn btn-primary" id="stopBroadcastBtn" style="background:#ff3b30; border:none; border-radius:30px; padding:0 30px;">
-                        End Broadcast
-                    </button>
-                </div>
-
-                <!-- Viewer Actions (Task 3/6) -->
-                <div id="viewerControls" class="stream-controls" style="display:none;">
-                    <button class="btn glass" style="border-radius:30px; padding:0 24px;"><i class="bi bi-heart-fill" style="color:#ff3b30; margin-right:8px;"></i> Send Love</button>
-                    <button class="btn glass" style="border-radius:30px; padding:0 24px;"><i class="bi bi-share-fill" style="margin-right:8px;"></i> Share</button>
+                <div class="live-controls">
+                    <input type="text" id="chatInput" placeholder="Say something...">
+                    <button class="btn btn-primary" id="startBtn">Go Live</button>
                 </div>
             </div>
-
-            <!-- Live Chat (Task 4) -->
-            <div class="stream-chat">
-                <div style="padding:20px; border-bottom:1px solid rgba(255,255,255,0.05);">
-                    <h3 style="font-size:18px;">Live Chat</h3>
-                </div>
-                <div id="chatBox" class="chat-msgs">
-                    <!-- Messages Injected -->
-                </div>
-                <div style="padding:20px; background:rgba(0,0,0,0.2);">
-                    <div class="input-wrap" style="padding:0;">
-                         <input type="text" id="streamChatInput" class="form-input" style="padding-right:60px;" placeholder="Say something...">
-                         <button id="sendChatBtn" class="icon-btn" style="position:absolute; right:10px; top:5px; width:40px; height:40px; background:var(--accent-primary);">
-                             <i class="bi bi-send-fill" style="color:white;"></i>
-                         </button>
-                    </div>
-                </div>
-            </div>
-
         </div>
-    </main>
+    </div>
 
-    <!-- BOTTOM NAV (Mobile) -->
-    <nav class="bottom-nav">
-        <a href="index.html" class="bottom-link"><i class="bi bi-house-door"></i></a>
-        <a href="messages.html" class="bottom-link"><i class="bi bi-chat-dots"></i></a>
-        <a href="upload.html" class="bottom-link"><i class="bi bi-plus-square"></i></a>
-        <a href="live.html" class="bottom-link active"><i class="bi bi-broadcast-pin"></i></a>
-        <a href="profile.html" class="bottom-link"><i class="bi bi-person"></i></a>
-    </nav>
-
-    <!-- NOTIFICATIONS -->
-    <div id="toastContainer"></div>
-
-    <!-- SCRIPTS -->
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="js/config.js"></script>
+    <!-- Required Libraries -->
+    <script src="/socket.io/socket.io.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/live.js"></script>
 </body>
