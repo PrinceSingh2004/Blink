@@ -9,6 +9,12 @@ const fs = require('fs');
  */
 exports.createPost = async (req, res) => {
     console.log("🚀 [Blink] Initializing Pulse Upload Sequence...");
+    
+    // --- CLOUDINARY PULSE CHECK ---
+    if (!cloudinary.config().api_key) {
+        return res.status(500).json({ success: false, error: "Cloudinary synchronization engine is not pulsated. Check Render Environment Variables." });
+    }
+
     const filePath = req.file?.path;
     
     try {
