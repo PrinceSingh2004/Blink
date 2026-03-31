@@ -7,7 +7,6 @@ const app = express();
 const pool = require('./config/db');
 
 // --- SECURITY & MIDDLEWARE ---
-// Making CSP more permissive to allow your frontend inline scripts and Cloudinary images
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -18,7 +17,27 @@ app.use(helmet({
         },
     },
 }));
-app.use(cors());
+
+// ── TASK 5: FIX CORS ───────────────────────────────────────────
+app.use(cors({
+  origin: [
+    'https://blink-yzoo.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:5000'
+  ],
+  credentials: true,
+  methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization']
+}));
+app.options('*', cors());
+
+// ── TASK 4: ROUTE DEBUGGING ──────────────────────────────────
+app.use('/api', (req, res, next) => {
+  console.log(`[API] ${req.method} ${req.path}`, 
+    'Auth:', !!req.headers.authorization);
+  next();
+});
+
 app.use(express.json());
 
 // --- DATABASE INITIALIZATION ---
@@ -126,11 +145,6 @@ app.get("/api/videos/user/:identifier", async (req, res) => {
     }
 });
 
-// Enable CORS (Task 7)
-app.use(cors({
-    origin: "*",
-    credentials: true
-}));
 
 // Static Frontend
 app.use(express.static(path.join(__dirname, '../frontend')));

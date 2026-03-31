@@ -82,3 +82,51 @@ exports.getPosts = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+// ── TASK 3: FIX getMyPosts controller (v6.0 Fix) ────────────────
+exports.getMyPosts = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({
+        error: true,
+        message: 'Not authenticated'
+      });
+    }
+
+    const page  = parseInt(req.query.page)  || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const offset = (page - 1) * limit;
+
+    // Use videos table (the main source for Blinks)
+    const [posts] = await pool.query(
+      `SELECT 
+        id, 
+        user_id, 
+        caption, 
+        url AS video_url, 
+        created_at 
+      FROM videos
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?`,
+      [userId, limit, offset]
+    );
+
+    // Success response, even for empty arrays
+    res.json({
+      success: true,
+      posts: posts,
+      page,
+      limit,
+      total: posts.length
+    });
+
+  } catch (err) {
+    console.error('❌ getMyPosts:', err.message);
+    res.status(500).json({
+      error: true,
+      message: 'Failed to load posts'
+    });
+  }
+};

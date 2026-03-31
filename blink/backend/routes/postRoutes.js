@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createPost, getPosts } = require('../controllers/postController');
+const { createPost, getPosts, getMyPosts } = require('../controllers/postController');
 const { protect } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 
@@ -9,5 +9,8 @@ router.post('/', protect, upload.single('video'), createPost);
 
 // GET /api/posts - Public feed
 router.get('/', getPosts);
+
+// GET /api/posts/my - User's private collection
+router.get('/my', protect, getMyPosts);
 
 module.exports = router;
