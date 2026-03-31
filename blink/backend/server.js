@@ -207,37 +207,53 @@ app.use('/api/users', userRoutes);
 app.use('/api/social', engagementRoutes); // New Engagement Engine
 app.use('/api/videos', postRoutes); // Legacy feed alias
 
-// ── FEED API ────────────────────────────────────────────────
+// ── FEED API (PRODUCTION v6.0) ──────────────────────────────
 app.get("/api/videos", async (req, res) => {
     try {
+        console.log('🔍 Syncing Smart Universe Feed...');
+
+        // Dynamic Column Detection: Find the user identity link
+        const [cols] = await pool.query('DESCRIBE videos');
+        const colNames = cols.map(c => c.Field);
+        const userCol = colNames.find(c => ['user_id', 'uploader_id', 'creator_id', 'uid'].includes(c)) || 'user_id';
+
         const [videos] = await pool.query(
-            "SELECT v.*, u.username, u.profile_pic FROM videos v JOIN users u ON v.user_id = u.id ORDER BY v.created_at DESC"
+            `SELECT
+                v.*,
+                u.username,
+                u.profile_pic,
+                (v.likes_count * 2 + v.views_count + (100 / (TIMESTAMPDIFF(HOUR, v.created_at, NOW()) + 1))) as rank_score
+             FROM videos v
+             LEFT JOIN users u ON v.${userCol} = u.id
+             WHERE v.is_active = TRUE
+             ORDER BY rank_score DESC, v.created_at DESC
+             LIMIT 50`
         );
+
+        res.setHeader('Access-Control-Allow-Origin', '*'); 
         res.json({ success: true, videos });
+
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        console.error('❌ ERROR in /api/videos:', err.message);
+        res.status(500).json({ success: false, error: "Universe feed pulse failure." });
     }
 });
 
-// ── PROFILE VIDEO API ──────────────────
-app.get("/api/videos/user/:identifier", async (req, res) => {
-    const { identifier } = req.params;
+// ── VIEW TRACKING API (NON-CRITICAL) ────────────────────────
+app.post('/api/posts/view', async (req, res) => {
     try {
-        let user;
-        if (isNaN(identifier)) {
-            const [users] = await pool.query("SELECT id FROM users WHERE username = ?", [identifier]);
-            user = users[0];
-        } else {
-            const [users] = await pool.query("SELECT id FROM users WHERE id = ?", [identifier]);
-            user = users[0];
+        const { id, videoId } = req.body;
+        const targetId = id || videoId;
+
+        if (targetId) {
+            await pool.execute(
+                `UPDATE videos SET views_count = COALESCE(views_count, 0) + 1 WHERE id = ?`,
+                [targetId]
+            );
         }
-        if (!user) return res.status(404).json({ success: false, error: "User not found" });
-        const [videos] = await pool.query(
-            "SELECT * FROM videos WHERE user_id = ? ORDER BY created_at DESC", [user.id]
-        );
-        res.json({ success: true, videos: videos.map(v => ({ id: v.id, video_url: v.video_url, created_at: v.created_at, user_id: v.user_id })) });
+        res.json({ success: true }); // Always return success for metrics
     } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
+        res.status(200).json({ success: true }); // Silent fail
     }
 });
 
