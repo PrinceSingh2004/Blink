@@ -362,9 +362,12 @@ if (loginForm) {
         }
 
         try {
+            console.log("🚀 Login process started for identifier:", identifier);
+            
             btn.disabled  = true;
-            if (btn.querySelector?.('.btn-label')) btn.querySelector('.btn-label').textContent = 'Signing in...';
-            else btn.textContent = 'Signing in...';
+            if (btn.querySelector?.('.btn-label')) btn.querySelector('.btn-label').textContent = 'Authenticating...';
+            else btn.textContent = 'Authenticating...';
+            
             if (alert) { alert.textContent = ''; alert.className = 'auth-alert'; }
 
             const data = await apiRequest('/auth/login', {
@@ -372,19 +375,33 @@ if (loginForm) {
                 body: JSON.stringify({ identifier, password })
             });
 
+            console.log("📦 Login Result:", data);
+
             if (data?.token) {
+                console.log("✅ Identity verified. Initializing universe sync...");
                 setAuth(data.token, data.user);
-                window.location.href = 'index.html';
+                
+                showToast(`Welcome back, ${data.user.username}!`, 'success');
+                
+                // Small delay for toast visibility
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 800);
+            } else {
+                throw new Error("Invalid response from server");
             }
         } catch (err) {
+            console.error("❌ Login Failure:", err.message);
             showToast(err.message || 'Login failed', 'error');
+            
             if (alert) {
-                alert.textContent = err.message || 'Login failed';
+                alert.textContent = err.message || 'Verification failed. Please check your credentials.';
                 alert.className   = 'auth-alert error';
             }
+            
             btn.disabled = false;
-            if (btn.querySelector?.('.btn-label')) btn.querySelector('.btn-label').innerHTML = 'Sign In <i class="bi bi-arrow-right"></i>';
-            else btn.textContent = 'Sign In';
+            if (btn.querySelector?.('.btn-label')) btn.querySelector('.btn-label').innerHTML = 'Sign in to Blink';
+            else btn.textContent = 'Sign in to Blink';
         }
     });
 }

@@ -30,17 +30,61 @@ exports.register = async (req, res) => {
 
 
 exports.login = async (req, res) => {
+    console.log("🚀 Login API Hit - Looking for identifier:", req.body.identifier || req.body.email);
+    
     try {
-        const { email, password } = req.body;
-        const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+        const { identifier, email, password } = req.body;
+        const id = identifier || email; // Support both names for identifier
 
-        if (rows.length === 0 || !(await bcrypt.compare(password, rows[0].password))) {
-            return res.status(401).json({ error: "Invalid email or password" });
+        if (!id || !password) {
+            console.warn("⚠️ Login failed: Missing credentials in request body.");
+            return res.status(400).json({ error: "Missing identifier or password" });
         }
 
-        const token = jwt.sign({ id: rows[0].id }, process.env.JWT_SECRET, { expiresIn: '7d' });
-        res.json({ success: true, token, user: { id: rows[0].id, username: rows[0].username } });
+        // Search by email OR username
+        const [rows] = await pool.query(
+            'SELECT * FROM users WHERE email = ? OR username = ?', 
+            [id, id]
+        );
+
+        console.log("🔍 Database lookup result count:", rows.length);
+
+        if (rows.length === 0) {
+            console.warn("❌ Login failed: No user found for identifier:", id);
+            return res.status(401).json({ error: "Invalid credentials" });
+        }
+
+        const user = rows[0];
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (!isMatch) {
+            console.warn("❌ Login failed: Password mismatch for user:", user.username);
+            return res.status(401).json({ error: "Invalid credentials" });
+        }
+
+        // Generate JWT
+        if (!process.env.JWT_SECRET) {
+            console.error("❌ ERROR: JWT_SECRET is not defined in environment variables!");
+            return res.status(500).json({ error: "Server configuration error" });
+        }
+
+        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        
+        console.log("✅ Login Success for:", user.username);
+
+        res.json({ 
+            success: true, 
+            token, 
+            user: { 
+                id: user.id, 
+                username: user.username,
+                email: user.email,
+                profile_pic: user.profile_pic
+            } 
+        });
+
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("❌ Login system error:", err);
+        res.status(500).json({ error: "Internal server error" });
     }
 };
