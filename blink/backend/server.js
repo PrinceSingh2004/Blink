@@ -70,6 +70,8 @@ const initDB = async () => {
                 video_url TEXT NOT NULL,
                 thumbnail_url TEXT,
                 caption TEXT,
+                hashtags TEXT,
+                duration DECIMAL(10,2),
                 views_count INT DEFAULT 0,
                 likes_count INT DEFAULT 0,
                 is_active BOOLEAN DEFAULT TRUE,

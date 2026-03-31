@@ -13,4 +13,10 @@ router.get('/', getPosts);
 // GET /api/posts/my - User's private collection
 router.get('/my', protect, getMyPosts);
 
+// POST /api/posts/like - Like a moment
+router.post('/like', protect, likeVideo);
+
+// POST /api/posts/view - Register a view (Pulse)
+router.post('/view', viewVideo);
+
 module.exports = router;

@@ -1,6 +1,6 @@
 /**
- * feed.js – Blink Feed Engine v6.0
- * Optimized for Vertical Video Scroll & Snap
+ * feed.js – Blink Feed Engine Pro v6.0
+ * Vertical Reels Logic, Infinite Scroll, Pulse (Views), and Global Mute
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -10,52 +10,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     const reelsContainer = document.getElementById('reelsContainer');
     let videoObserver = null;
     let loading = false;
+    let page = 1;
+    const limit = 10;
+    
+    // Global State
+    let isMuted = true;
 
     async function loadFeed() {
         if (loading) return;
         loading = true;
 
         try {
-            console.log("🚀 Syncing Blinks...");
-            const res = await fetch(`${API}/videos`, {
+            console.log(`🚀 Syncing Universe (Page ${page})...`);
+            const res = await fetch(`${API}/videos?page=${page}&limit=${limit}`, {
                 headers: { 'Authorization': `Bearer ${getToken()}` }
             });
             const data = await res.json();
 
             if (data.success) {
                 renderReels(data.videos || []);
+                page++;
             } else {
                 throw new Error(data.error || "Failed to load feed");
             }
         } catch (err) {
             console.error('[Feed ERROR]:', err);
-            reelsContainer.innerHTML = `
-                <div class="flex-center flex-col h-full gap-2 text-center" style="padding: 40px;">
-                    <i class="bi bi-exclamation-triangle" style="font-size:48px; color:var(--primary);"></i>
-                    <h3>Connectivity Lost</h3>
-                    <p style="color:var(--text-muted); max-width: 280px;">Blink was unable to synchronize your universe. Check your connection.</p>
-                    <button class="btn btn-secondary btn-sm" onclick="location.reload()">Retry Connection</button>
-                </div>
-            `;
+            if (page === 1) showError();
         } finally {
             loading = false;
         }
     }
 
     function renderReels(videos) {
-        if (!videos.length) {
-            reelsContainer.innerHTML = `
-                <div class="flex-center flex-col h-full gap-2 text-center">
-                    <i class="bi bi-camera-reels" style="font-size:48px; opacity:0.2;"></i>
-                    <h3 style="color:var(--text-muted);">The Universe is Quiet</h3>
-                    <p style="color:var(--text-muted); font-size: 14px;">Be the first to share a moment today.</p>
-                    <a href="upload.html" class="btn btn-primary btn-sm" style="margin-top:12px;">Create First Blink</a>
-                </div>
-            `;
-            return;
-        }
-
-        reelsContainer.innerHTML = '';
+        if (page === 1) reelsContainer.innerHTML = '';
+        
         videos.forEach((v, index) => {
             const reel = document.createElement('div');
             reel.className = 'reel-item';
@@ -67,8 +55,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             reel.innerHTML = `
                 <div class="video-loading"><div class="loader"></div></div>
-                <video src="${v.url}" loop muted playsinline class="reel-video" data-index="${index}"></video>
+                <video src="${v.video_url}" loop playsinline class="reel-video" ${isMuted ? 'muted' : ''}></video>
                 
+                <div class="mute-btn"><i class="bi ${isMuted ? 'bi-volume-mute-fill' : 'bi-volume-up-fill'}"></i></div>
+
                 <div class="reel-actions">
                     <div class="action-item" onclick="window.location.href='profile.html?id=${v.user_id}'">
                         ${avatarHtml}
@@ -80,7 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <span class="action-count">${v.likes_count || 0}</span>
                     </div>
                     <div class="action-item">
-                        <button class="action-btn share-btn" data-url="${v.url}">
+                        <button class="action-btn share-btn" data-url="${v.video_url}">
                             <i class="bi bi-send-fill"></i>
                         </button>
                     </div>
@@ -91,8 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <span class="reel-username">@${v.username}</span>
                     </div>
                     <p class="reel-caption">${v.caption || ''}</p>
+                    <div class="reel-hashtags">${v.hashtags || ''}</div>
                 </div>
-                <div class="tap-to-pause"></div>
+                <div class="tap-overlay"></div>
             `;
 
             reelsContainer.appendChild(reel);
@@ -111,52 +102,96 @@ document.addEventListener('DOMContentLoaded', async () => {
             entries.forEach(entry => {
                 const video = entry.target;
                 if (entry.isIntersecting) {
-                    // Pause other videos
+                    // Autoplay logic
                     document.querySelectorAll('.reel-video').forEach(v => {
                         if (v !== video) v.pause();
                     });
                     
                     video.parentElement.querySelector('.video-loading')?.classList.add('invisible');
                     video.play().catch(e => console.warn("Autoplay blocked:", e.message));
+                    
+                    // Register View (Pulse)
+                    registerPulse(video.closest('.reel-item').dataset.id);
                 } else {
                     video.pause();
                 }
             });
-        }, { threshold: 0.7 });
+        }, { threshold: 0.8 });
 
         document.querySelectorAll('.reel-video').forEach(v => videoObserver.observe(v));
     }
 
+    async function registerPulse(id) {
+        try {
+            await fetch(`${API}/posts/view`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+        } catch (e) { /* background task silent */ }
+    }
+
     function attachEvents(reel) {
         const video = reel.querySelector('.reel-video');
-        const tapOverlay = reel.querySelector('.tap-to-pause');
-        const shareBtn = reel.querySelector('.share-btn');
+        const muteBtn = reel.querySelector('.mute-btn');
+        const tapOverlay = reel.querySelector('.tap-overlay');
         const likeBtn = reel.querySelector('.like-btn');
+        const shareBtn = reel.querySelector('.share-btn');
 
-        if (tapOverlay && video) {
-            tapOverlay.onclick = () => {
-                if (video.paused) video.play().catch(() => {});
-                else video.pause();
+        const toggleMute = () => {
+            isMuted = !isMuted;
+            document.querySelectorAll('.reel-video').forEach(v => v.muted = isMuted);
+            document.querySelectorAll('.mute-btn i').forEach(i => {
+                i.className = `bi ${isMuted ? 'bi-volume-mute-fill' : 'bi-volume-up-fill'}`;
+            });
+        };
+
+        if (muteBtn) muteBtn.onclick = toggleMute;
+        if (tapOverlay) tapOverlay.onclick = toggleMute;
+
+        if (likeBtn) {
+            likeBtn.onclick = async () => {
+                const id = likeBtn.dataset.id;
+                try {
+                    const res = await fetch(`${API}/posts/like`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getToken()}`
+                        },
+                        body: JSON.stringify({ id })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        likeBtn.classList.add('active');
+                        const count = likeBtn.parentElement.querySelector('.action-count');
+                        count.textContent = parseInt(count.textContent) + 1;
+                        showToast('❤️ Moment added to your heart collection.', 'success');
+                    }
+                } catch (e) {
+                    showToast('Failed to pulse like.', 'error');
+                }
             };
         }
 
         if (shareBtn) {
             shareBtn.onclick = () => {
-                const url = shareBtn.dataset.url;
-                navigator.clipboard.writeText(url);
-                showToast('🔗 Link copied to clipboard!', 'success');
-            };
-        }
-
-        if (likeBtn) {
-            likeBtn.onclick = () => {
-                likeBtn.classList.toggle('active');
-                const count = likeBtn.parentElement.querySelector('.action-count');
-                const current = parseInt(count.textContent);
-                count.textContent = likeBtn.classList.contains('active') ? current + 1 : current - 1;
+                navigator.clipboard.writeText(shareBtn.dataset.url);
+                showToast('🔗 Scene link copied!', 'success');
             };
         }
     }
+
+    function showError() {
+        reelsContainer.innerHTML = `<div class="flex-center h-full"><p>Connectivity issue. Try reloading.</p></div>`;
+    }
+
+    // Infinite Scroll
+    reelsContainer.onscroll = () => {
+        if (reelsContainer.scrollTop + reelsContainer.innerHeight >= reelsContainer.scrollHeight - 500) {
+            loadFeed();
+        }
+    };
 
     loadFeed();
 });

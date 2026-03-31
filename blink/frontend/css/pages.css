@@ -167,7 +167,7 @@
 
 .drop-zone {
     width: 100%;
-    aspect-ratio: 16/9;
+    aspect-ratio: 9/16;
     border: 2px dashed var(--border-low);
     border-radius: var(--radius-lg);
     display: flex;
@@ -178,13 +178,23 @@
     color: var(--text-muted);
     cursor: pointer;
     transition: var(--transition-fast);
+    position: relative;
+    overflow: hidden;
 }
-.drop-zone:hover {
+.drop-zone.active {
     border-color: var(--primary);
     background: rgba(255, 0, 80, 0.05);
     color: var(--text-primary);
 }
 .drop-zone i { font-size: 48px; }
+
+.preview-player {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    position: absolute;
+    top: 0; left: 0;
+}
 
 .preview-container {
     width: 100%;
