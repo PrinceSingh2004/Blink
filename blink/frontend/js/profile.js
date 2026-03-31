@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const actionArea = document.getElementById('profileActionArea');
         if (isSelf) {
             actionArea.innerHTML = `<button class="btn btn-secondary btn-sm" id="editProfileBtn">Edit Profile</button>`;
+            initEditProfile(user);
         } else {
             actionArea.innerHTML = `
                 <button class="btn btn-primary btn-sm" id="followBtn" data-id="${user.id}">Follow</button>
@@ -131,6 +132,53 @@ document.addEventListener('DOMContentLoaded', () => {
         if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
         if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
         return String(n);
+    }
+
+    // ── 4. IDENTITY PULSE SYNC (Edit Profile) ──────────────────
+    function initEditProfile(user) {
+        const editBtn = document.getElementById('editProfileBtn');
+        const modal = document.getElementById('editProfileModal');
+        const form = document.getElementById('editProfileForm');
+
+        if (!editBtn || !modal || !form) return;
+
+        editBtn.onclick = () => {
+            document.getElementById('editUsername').value = user.username;
+            document.getElementById('editBio').value = user.bio || '';
+            document.getElementById('editAvatar').value = user.profile_pic || '';
+            modal.style.display = 'flex';
+        };
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('editUsername').value;
+            const bio = document.getElementById('editBio').value;
+            const profile_pic = document.getElementById('editAvatar').value;
+
+            try {
+                const res = await fetch(`${API}/users/update-profile`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({ username, bio, profile_pic })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("Universe identity synchronized.", "success");
+                    modal.style.display = 'none';
+                    loadProfile(); // Refresh UI
+                } else {
+                    showToast(data.error || "Sync failure.", "error");
+                }
+            } catch (err) {
+                showToast("Failed to pulse identity.", "error");
+            }
+        };
+
+        // Close modal on outside click
+        window.onclick = (e) => { if (e.target == modal) modal.style.display = 'none'; };
     }
 
     loadProfile();

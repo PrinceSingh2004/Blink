@@ -51,10 +51,19 @@ exports.getUser = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
     try {
-        const { profile_pic } = req.body; // URL from Cloudinary
-        await pool.execute('UPDATE users SET profile_pic = ? WHERE id = ?', [profile_pic, req.user.id]);
-        res.json({ success: true, message: "Profile updated" });
+        const { username, bio, profile_pic } = req.body;
+        const userId = req.user.id;
+
+        if (!username) return res.status(400).json({ error: "Username pulse cannot be empty." });
+
+        await pool.execute(
+            'UPDATE users SET username = ?, bio = ?, profile_pic = ? WHERE id = ?', 
+            [username, bio, profile_pic, userId]
+        );
+
+        res.json({ success: true, message: "Universe identity pulsated successfully." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('❌ UPDATE PROFILE FAILURE:', err.message);
+        res.status(500).json({ error: "Failed to synchronize your identity pulse." });
     }
 };

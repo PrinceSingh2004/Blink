@@ -62,6 +62,7 @@ const initDB = async () => {
                 email VARCHAR(100) UNIQUE NOT NULL, 
                 password VARCHAR(255) NOT NULL, 
                 profile_pic TEXT, 
+                bio TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )`,
             `CREATE TABLE IF NOT EXISTS videos (
@@ -143,12 +144,12 @@ const initDB = async () => {
             }
         }
 
-        // --- Live Stream Status Patch ---
-        const [liveCols] = await pool.query("SHOW COLUMNS FROM live_streams");
-        const liveNames = liveCols.map(c => c.Field);
-        if (!liveNames.includes('status')) {
-            console.log('🛠️ Patching live_streams status column...');
-            await pool.query("ALTER TABLE live_streams ADD COLUMN status ENUM('active', 'ended') DEFAULT 'active'");
+        // --- User Profile Patch ---
+        const [userCols] = await pool.query("SHOW COLUMNS FROM users");
+        const userNames = userCols.map(c => c.Field);
+        if (!userNames.includes('bio')) {
+            console.log('🛠️ Patching users bio column...');
+            await pool.query("ALTER TABLE users ADD COLUMN bio TEXT AFTER profile_pic");
         }
 
         console.log('✅ Blink Universe Database Schema Pulsating!');
