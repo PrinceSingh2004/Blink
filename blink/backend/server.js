@@ -12,7 +12,7 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-            "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"], 
+            "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
             "connect-src": ["'self'", "https://blink-yzoo.onrender.com", "http://localhost:5000"],
             "img-src": ["'self'", "data:", "https://res.cloudinary.com"],
         },
@@ -28,7 +28,7 @@ const initDB = async () => {
         const queries = [
             `CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50) UNIQUE, email VARCHAR(100) UNIQUE, password VARCHAR(255), profile_pic TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
             `CREATE TABLE IF NOT EXISTS posts (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, media_url TEXT, caption TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`,
-            `CREATE TABLE IF NOT EXISTS videos (id INT AUTO_INCREMENT PRIMARY KEY, url TEXT, user_id INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`,
+            `CREATE TABLE IF NOT EXISTS videos (id INT AUTO_INCREMENT PRIMARY KEY, url TEXT, user_id INT, caption TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`,
             `CREATE TABLE IF NOT EXISTS likes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, post_id INT, UNIQUE KEY unique_like (user_id, post_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE)`,
             `CREATE TABLE IF NOT EXISTS comments (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, post_id INT, comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE)`
         ];
@@ -47,52 +47,46 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/posts', require('./routes/postRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
-app.use('/api', require('./routes/healthRoutes')); 
+app.use('/api', require('./routes/healthRoutes'));
 
 // ── TASK 1 & 5: FEED API ─────────────────────────────────────
 app.get("/api/videos", async (req, res) => {
-  try {
-    console.log("Fetching videos...");
+    try {
+        console.log("Fetching videos...");
 
-    const [videos] = await pool.query(
-      "SELECT * FROM videos ORDER BY created_at DESC"
-    );
+        const [videos] = await pool.query(
+            "SELECT v.*, u.username, u.profile_pic FROM videos v JOIN users u ON v.user_id = u.id ORDER BY v.created_at DESC"
+        );
 
-    console.log("Videos fetched (Task 8):", videos);
+        console.log(`Fetched ${videos.length} videos`);
 
-    // Task 5: Handle Empty Data
-    if (!videos.length) {
-      return res.json({ success: true, videos: [] });
+        res.json({ success: true, videos });
+
+    } catch (err) {
+        console.error("❌ ERROR in /api/videos:", err);
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
     }
-
-    res.json({ success: true, videos });
-
-  } catch (err) {
-    console.error("❌ ERROR in /api/videos:", err);
-    res.status(500).json({
-      success: false,
-      error: err.message
-    });
-  }
 });
 
 // ── TASK 4: TEST DB ROUTE ─────────────────────────────────────
 app.get("/api/test-db", async (req, res) => {
-  try {
-    const [rows] = await pool.query("SELECT 1");
-    res.json({ success: true });
-  } catch (err) {
-    res.json({ success: false, error: err.message });
-  }
+    try {
+        const [rows] = await pool.query("SELECT 1");
+        res.json({ success: true });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
 });
 
-// ── TASK 1, 2, 3, 4, 5, 9: PROFILE VIDEO API ──────────────────
+// ── PROFILE VIDEO API ──────────────────
 app.get("/api/videos/user/:identifier", async (req, res) => {
     const { identifier } = req.params;
     console.log("Fetching universe content for identity:", identifier);
 
     try {
-        // Step 1: Find user (Task 2)
         let user;
         if (isNaN(identifier)) {
             // Find by username
@@ -153,6 +147,6 @@ app.use((req, res) => res.status(404).json({ error: "Route not found" }));
 // --- STARTUP ---
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
-    await initDB(); 
+    await initDB();
     console.log(`🚀 Blink Backend running on port ${PORT}`);
 });

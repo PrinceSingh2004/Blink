@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('dropzoneContent').style.display = 'none';
     }
 
-    // ── 3. PRODUCTION UPLOAD (Task Fix: Fetch + Realistic Progress) ────
+    // ── 3. PRODUCTION UPLOAD (Real Progress Tracking) ────
     elements.publishBtn.onclick = async () => {
         if (!selectedFile) return showToast('Please select a video or image first.', 'info');
 
@@ -65,50 +65,53 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('video', selectedFile);
         formData.append('caption', elements.caption.value || '');
 
-        // UI State: Task 3 (Remove Fake 100%)
         elements.publishBtn.disabled = true;
         elements.progress.style.display = 'block';
         elements.progressText.style.display = 'block';
+        elements.progressFill.style.width = "0%";
         
-        elements.progressText.textContent = "🚀 Starting Upload...";
-        elements.progressFill.style.width = "20%";
+        console.log("🚀 Starting upload for:", selectedFile.name);
 
-        console.log("Selected File Details:", selectedFile);
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', window.Blink.API + '/upload/video', true);
+        xhr.setRequestHeader('Authorization', 'Bearer ' + getToken());
 
-        try {
-            // Task 2: Use fetch instead of XHR
-            elements.progressText.textContent = "📤 Uploading to Blink Server...";
-            elements.progressFill.style.width = "50%";
-
-            const response = await fetch(window.Blink.API + '/upload/video', {
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + getToken()
-                },
-                body: formData
-            });
-
-            elements.progressText.textContent = "⚙️ Processing Moment (Cloudinary)...";
-            elements.progressFill.style.width = "85%";
-
-            const data = await response.json();
-            console.log("Response from Server:", data);
-
-            if (data.success) {
-                elements.progressText.textContent = "✅ Completed!";
-                elements.progressFill.style.width = "100%";
-                showToast('🚀 Moment published successfully!', 'success');
-                setTimeout(() => window.location.href = 'index.html', 1500);
-            } else {
-                throw new Error(data.error || 'Server error during publish.');
+        // Tracking Upload Progress
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 90); // 90% is upload
+                elements.progressFill.style.width = percent + "%";
+                elements.progressText.textContent = `📤 Uploading... ${percent}%`;
             }
+        };
 
-        } catch (err) {
-            console.error('[Upload ERROR]:', err);
-            showToast('Upload error: ' + err.message, 'error');
+        xhr.onload = () => {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    elements.progressFill.style.width = "100%";
+                    elements.progressText.textContent = "✅ Upload Successful!";
+                    showToast('🚀 Moment published successfully!', 'success');
+                    
+                    // Immediately redirect to feed to see the new video
+                    setTimeout(() => window.location.href = 'index.html', 1200);
+                } else {
+                    throw new Error(data.error || 'Server error during publish.');
+                }
+            } catch (err) {
+                console.error('Upload Parse Error:', err);
+                showToast('Upload failed: ' + err.message, 'error');
+                elements.publishBtn.disabled = false;
+            }
+        };
+
+        xhr.onerror = () => {
+            console.error('XHR Error');
+            showToast('Network error during upload.', 'error');
             elements.publishBtn.disabled = false;
-            elements.progress.style.display = 'none';
-        }
+        };
+
+        xhr.send(formData);
     };
 
     // --- Drag & Drop Decorators ---

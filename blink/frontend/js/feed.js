@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         reels.innerHTML = '';
-        videos.forEach(v => {
+        videos.forEach((v, index) => {
             const reel = document.createElement('div');
             reel.className = 'reel-item animate-fade-in';
             reel.dataset.id = v.id;
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : (v.username || 'U')[0].toUpperCase();
 
             reel.innerHTML = `
-                <video src="${v.url}" loop muted playsinline class="reel-video" preload="metadata"></video>
+                <video src="${v.url}" loop muted playsinline class="reel-video" preload="metadata" data-index="${index}"></video>
                 
                 <div class="reel-actions">
                     <div class="action-item" onclick="window.location.href='profile.html?id=${v.user_id}'">
@@ -80,6 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="reel-user" onclick="window.location.href='profile.html?id=${v.user_id}'">
                         <span class="reel-username">@${v.username}</span>
                     </div>
+                    <p class="reel-caption">${v.caption || ''}</p>
                 </div>
                 <div class="tap-to-pause" style="position:absolute;top:0;left:0;right:0;bottom:100px;z-index:2;"></div>
             `;
@@ -92,19 +93,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function initVideoObserver() {
-        if (!videoObserver) {
-            videoObserver = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    const video = entry.target;
-                    if (entry.isIntersecting) {
-                        video.play().catch(() => {});
-                        console.log("Playing video (Task 8):", video.src);
-                    } else {
-                        video.pause();
-                    }
-                });
-            }, { threshold: 0.7 });
+        if (videoObserver) {
+            // Cleanup old observer
+            document.querySelectorAll('.reel-video').forEach(v => videoObserver.unobserve(v));
         }
+
+        videoObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const video = entry.target;
+                if (entry.isIntersecting) {
+                    // Pause all other videos first to prevent random playback
+                    document.querySelectorAll('.reel-video').forEach(v => {
+                        if (v !== video) v.pause();
+                    });
+                    
+                    console.log("Playing:", video.src);
+                    video.play().catch(e => console.warn("Autoplay blocked:", e.message));
+                } else {
+                    video.pause();
+                }
+            });
+        }, { threshold: 0.8 });
+
         document.querySelectorAll('.reel-video').forEach(v => videoObserver.observe(v));
     }
 
@@ -113,16 +123,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         const tapOverlay = reel.querySelector('.tap-to-pause');
         const shareBtn = reel.querySelector('.share-btn');
 
-        tapOverlay.onclick = () => {
-            if (video.paused) video.play().catch(() => {});
-            else video.pause();
-        };
+        if (tapOverlay && video) {
+            tapOverlay.onclick = () => {
+                if (video.paused) video.play().catch(() => {});
+                else video.pause();
+            };
+        }
 
-        shareBtn.onclick = () => {
-            const url = shareBtn.dataset.url;
-            navigator.clipboard.writeText(url);
-            showToast('🔗 Link copied!', 'success');
-        };
+        if (shareBtn) {
+            shareBtn.onclick = () => {
+                const url = shareBtn.dataset.url;
+                navigator.clipboard.writeText(url);
+                showToast('🔗 Link copied!', 'success');
+            };
+        }
     }
 
     await loadFeed();

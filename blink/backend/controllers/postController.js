@@ -36,31 +36,39 @@ exports.createPost = async (req, res) => {
         };
 
         const result = await streamUpload(req.file.buffer);
-        console.log("Cloudinary Upload Success:", result.secure_url);
+        console.log("✅ Cloudinary Upload Success:", result.secure_url);
 
-        // ── PERSISTENCE (Step 5) ──────────────────────────────────
-        // 1. Insert into main posts table for the feed
+        // ── PERSISTENCE ──────────────────────────────────
+        // 1. Insert into main posts table for backward compatibility/other features
         await pool.execute(
             'INSERT INTO posts (user_id, media_url, caption) VALUES (?, ?, ?)',
             [req.user.id, result.secure_url, caption || '']
         );
 
-        // 2. Insert into videos table (Task 1: Fix Full Data)
+        // 2. Insert into videos table with caption (Task Fix)
         await pool.execute(
-            'INSERT INTO videos (url, user_id, created_at) VALUES (?, ?, NOW())',
-            [result.secure_url, req.user.id]
+            'INSERT INTO videos (url, user_id, caption, created_at) VALUES (?, ?, ?, NOW())',
+            [result.secure_url, req.user.id, caption || '']
         );
-        console.log("Database persistent (Task 8):", result.secure_url);
+        console.log("✅ Database record created for video:", result.secure_url);
 
         return res.status(200).json({
             success: true,
-            url: result.secure_url,
-            message: "Upload successful!"
+            video: {
+                url: result.secure_url,
+                caption: caption || '',
+                user_id: req.user.id
+            },
+            message: "Video uploaded and saved successfully!"
         });
 
     } catch (err) {
-        console.error("UPLOAD ERROR:", err);
-        return res.status(500).json({ success: false, error: err.message || "Upload failed" });
+        console.error("❌ UPLOAD ERROR:", err);
+        return res.status(500).json({ 
+            success: false, 
+            error: err.message || "Upload failed",
+            details: err
+        });
     }
 };
 
