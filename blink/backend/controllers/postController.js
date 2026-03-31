@@ -7,24 +7,25 @@ const streamifier = require('streamifier');
  * @desc    Upload video to Cloudinary and save to MySQL
  * @access  Private
  */
+// ── TASK 3 & 4: FIX VIDEO UPLOAD & FEED ──────────────────────
 exports.createPost = async (req, res) => {
+    console.log("🚀 [Blink] Starting Video Upload Sequence...");
     try {
-        console.log("File received:", req.file ? req.file.originalname : 'None');
         const { caption } = req.body;
+        const userId = req.user.id; // From Protect Middleware
 
         if (!req.file) {
-            return res.status(400).json({ success: false, error: "No video file provided" });
+            return res.status(400).json({ success: false, error: "Missing scene file." });
         }
 
-        // ── TASK 1: Robust Stream Upload ────────────────────────── (Step Fix)
+        // Cloudinary Stream Upload
         const streamUpload = (buffer) => {
             return new Promise((resolve, reject) => {
                 const stream = cloudinary.uploader.upload_stream(
                     {
                         resource_type: "video",
-                        folder: "blink_posts",
-                        format: "mp4",
-                        chunk_size: 6000000, 
+                        folder: "blink_production",
+                        format: "mp4"
                     },
                     (error, result) => {
                         if (result) resolve(result);
@@ -36,97 +37,83 @@ exports.createPost = async (req, res) => {
         };
 
         const result = await streamUpload(req.file.buffer);
-        console.log("✅ Cloudinary Upload Success:", result.secure_url);
+        console.log("✅ Cloudinary Success:", result.secure_url);
 
-        // ── PERSISTENCE ──────────────────────────────────
-        // 1. Insert into main posts table for backward compatibility/other features
-        await pool.execute(
-            'INSERT INTO posts (user_id, media_url, caption) VALUES (?, ?, ?)',
-            [req.user.id, result.secure_url, caption || '']
+        // Standardized Insert (Production Schema)
+        const [dbResult] = await pool.execute(
+            `INSERT INTO videos 
+                (user_id, video_url, thumbnail_url, caption, created_at) 
+             VALUES (?, ?, ?, ?, NOW())`,
+            [userId, result.secure_url, result.thumbnail_url || null, caption || '']
         );
 
-        // 2. Insert into videos table with caption (Task Fix)
-        await pool.execute(
-            'INSERT INTO videos (url, user_id, caption, created_at) VALUES (?, ?, ?, NOW())',
-            [result.secure_url, req.user.id, caption || '']
-        );
-        console.log("✅ Database record created for video:", result.secure_url);
+        console.log("✅ Database Insight Created ID:", dbResult.insertId);
 
-        return res.status(200).json({
+        return res.status(201).json({
             success: true,
             video: {
-                url: result.secure_url,
-                caption: caption || '',
-                user_id: req.user.id
-            },
-            message: "Video uploaded and saved successfully!"
+                id: dbResult.insertId,
+                video_url: result.secure_url,
+                caption: caption || ''
+            }
         });
 
     } catch (err) {
-        console.error("❌ UPLOAD ERROR:", err);
-        return res.status(500).json({ 
-            success: false, 
-            error: err.message || "Upload failed",
-            details: err
-        });
+        console.error("❌ COMPONENT FAILURE (Upload):", err);
+        return res.status(500).json({ success: false, error: "Universe synchronization failed." });
     }
 };
 
 exports.getPosts = async (req, res) => {
+    console.log("🔍 Fetching global feed...");
     try {
         const [rows] = await pool.query(
-            'SELECT p.*, u.username, u.profile_pic FROM posts p JOIN users u ON p.user_id = u.id ORDER BY p.created_at DESC'
+            `SELECT 
+                v.*, 
+                u.username, 
+                u.profile_pic 
+             FROM videos v 
+             INNER JOIN users u ON v.user_id = u.id 
+             WHERE v.is_active = TRUE
+             ORDER BY v.created_at DESC 
+             LIMIT 50`
         );
-        res.json({ success: true, posts: rows });
+        res.json({ success: true, videos: rows });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("❌ SQL ERROR (/api/videos):", err.message);
+        res.status(500).json({ error: "Failed to load moments." });
     }
 };
 
-// ── TASK 3: FIX getMyPosts controller (v6.0 Fix) ────────────────
 exports.getMyPosts = async (req, res) => {
+  const userId = req.user?.id;
+  console.log(`🔍 Fetching momentum for user ID: ${userId}`);
+  
+  if (!userId) return res.status(401).json({ error: "Unauthorized access" });
+
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      return res.status(401).json({
-        error: true,
-        message: 'Not authenticated'
-      });
-    }
-
-    const page  = parseInt(req.query.page)  || 1;
-    const limit = parseInt(req.query.limit) || 12;
-    const offset = (page - 1) * limit;
-
-    // Use videos table (the main source for Blinks)
     const [posts] = await pool.query(
       `SELECT 
         id, 
         user_id, 
         caption, 
-        url AS video_url, 
+        video_url, 
+        thumbnail_url,
+        views_count,
         created_at 
       FROM videos
       WHERE user_id = ?
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?`,
-      [userId, limit, offset]
+      ORDER BY created_at DESC`,
+      [userId]
     );
 
-    // Success response, even for empty arrays
     res.json({
       success: true,
-      posts: posts,
-      page,
-      limit,
-      total: posts.length
+      posts: posts
     });
 
   } catch (err) {
-    console.error('❌ getMyPosts:', err.message);
-    res.status(500).json({
-      error: true,
-      message: 'Failed to load posts'
-    });
+    console.error('❌ SQL ERROR (getMyPosts):', err.message);
+    res.status(500).json({ error: "Failed to load individual universe." });
   }
 };

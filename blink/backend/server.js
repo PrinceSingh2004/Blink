@@ -40,24 +40,79 @@ app.use('/api', (req, res, next) => {
 
 app.use(express.json());
 
-// --- DATABASE INITIALIZATION ---
+// --- DATABASE INITIALIZATION & MIGRATION ---
 const initDB = async () => {
+    console.log('🔄 Initializing Production Database Schema...');
     try {
-        console.log('🔄 Initializing Database Tables...');
-        const queries = [
-            `CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50) UNIQUE, email VARCHAR(100) UNIQUE, password VARCHAR(255), profile_pic TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-            `CREATE TABLE IF NOT EXISTS posts (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, media_url TEXT, caption TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`,
-            `CREATE TABLE IF NOT EXISTS videos (id INT AUTO_INCREMENT PRIMARY KEY, url TEXT, user_id INT, caption TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`,
-            `CREATE TABLE IF NOT EXISTS likes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, post_id INT, UNIQUE KEY unique_like (user_id, post_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE)`,
-            `CREATE TABLE IF NOT EXISTS comments (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, post_id INT, comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE)`
+        // 1. Create Core Tables with new structure
+        const baseQueries = [
+            `CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY, 
+                username VARCHAR(50) UNIQUE NOT NULL, 
+                email VARCHAR(100) UNIQUE NOT NULL, 
+                password VARCHAR(255) NOT NULL, 
+                profile_pic TEXT, 
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )`,
+            `CREATE TABLE IF NOT EXISTS videos (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                video_url TEXT NOT NULL,
+                thumbnail_url TEXT,
+                caption TEXT,
+                views_count INT DEFAULT 0,
+                likes_count INT DEFAULT 0,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )`,
+            `CREATE TABLE IF NOT EXISTS likes (
+                id INT AUTO_INCREMENT PRIMARY KEY, 
+                user_id INT, 
+                video_id INT, 
+                UNIQUE KEY unique_like (user_id, video_id), 
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )`
         ];
 
-        for (let query of queries) {
-            await pool.query(query);
+        for (let q of baseQueries) await pool.query(q);
+
+        // 2. 🚨 CRITICAL MIGRATION: Fix 'Unknown column user_id' or 'url' vs 'video_url'
+        console.log('👷 Checking table migrations...');
+        const [columns] = await pool.query("SHOW COLUMNS FROM videos");
+        const columnNames = columns.map(c => c.Field);
+
+        // Check for 'url' instead of 'video_url'
+        if (columnNames.includes('url') && !columnNames.includes('video_url')) {
+            console.log('🛠️ Renaming legacy "url" to "video_url"...');
+            await pool.query("ALTER TABLE videos CHANGE COLUMN url video_url TEXT NOT NULL");
         }
-        console.log('✅ Database Tables Verified/Created!');
+
+        // Check for missing 'user_id'
+        if (!columnNames.includes('user_id')) {
+            console.warn('⚡ CRITICAL: Missing user_id in videos table. Patching...');
+            await pool.query("ALTER TABLE videos ADD COLUMN user_id INT AFTER id");
+        }
+
+        // Check for missing metadata columns
+        const needed = {
+            'thumbnail_url': 'TEXT',
+            'views_count': 'INT DEFAULT 0',
+            'likes_count': 'INT DEFAULT 0',
+            'is_active': 'BOOLEAN DEFAULT TRUE'
+        };
+
+        for (const [col, type] of Object.entries(needed)) {
+            if (!columnNames.includes(col)) {
+                console.log(`🛠️ Adding missing column: ${col}...`);
+                await pool.query(`ALTER TABLE videos ADD COLUMN ${col} ${type}`);
+            }
+        }
+
+        console.log('✅ Production Database Schema Verified!');
     } catch (err) {
-        console.error('❌ Failed to Initialize DB:', err.message);
+        console.error('❌ Database Initialization FAILED:', err.message);
+        // Important: Still run the app but log specifically
     }
 };
 
