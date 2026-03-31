@@ -101,6 +101,7 @@ const initDB = async () => {
             'video_url': 'TEXT',
             'public_id': 'VARCHAR(255)',
             'thumbnail_url': 'TEXT',
+            'caption': 'TEXT',
             'hashtags': 'TEXT',
             'duration': 'DECIMAL(10,2)',
             'views_count': 'INT DEFAULT 0',

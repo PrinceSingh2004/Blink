@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { createPost, getPosts, getMyPosts } = require('../controllers/postController');
+const { 
+    createPost, 
+    getPosts, 
+    getMyPosts, 
+    likeVideo, 
+    viewVideo 
+} = require('../controllers/postController');
 const { protect } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 

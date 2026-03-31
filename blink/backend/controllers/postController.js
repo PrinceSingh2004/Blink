@@ -31,7 +31,15 @@ exports.createPost = async (req, res) => {
 
         console.log("✅ Cloudinary Sync Success:", result.public_id);
 
-        // --- 2. DATABASE PERSISTENCE ---
+        // --- 2. GENERATE THUMBNAIL (1 second into the video) ---
+        // Cloudinary transformation magic: Seek to 1s (so_1), web-optimized width
+        const thumbUrl = result.secure_url
+            .replace("/video/upload/", "/video/upload/so_1,w_500,c_fill/")
+            .replace(/\.[^/.]+$/, ".jpg"); 
+
+        console.log("📸 Thumbnail generated:", thumbUrl);
+
+        // --- 3. DATABASE PERSISTENCE ---
         const [dbResult] = await pool.execute(
             `INSERT INTO videos 
                 (user_id, video_url, public_id, thumbnail_url, caption, hashtags, duration) 
@@ -40,7 +48,7 @@ exports.createPost = async (req, res) => {
                 userId, 
                 result.secure_url, 
                 result.public_id,
-                result.thumbnail_url || result.secure_url.replace('.mp4', '.jpg'), 
+                thumbUrl, 
                 caption || 'A Blink Moment', 
                 hashtags || '#foryou',
                 result.duration || 0
