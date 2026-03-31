@@ -1,84 +1,67 @@
 const pool = require('../config/db');
-const cloudinary = require('cloudinary').v2;
-const streamifier = require('streamifier');
+const cloudinary = require('../config/cloudinary');
+const fs = require('fs');
 
 /**
- * @route   POST /api/posts
- * @desc    Upload video to Cloudinary and save to MySQL
+ * @route   POST /api/upload/video
+ * @desc    Standardized Production Video Upload (Cloudinary Large Support)
  * @access  Private
  */
-// ── TASK 3 & 4: FIX VIDEO UPLOAD & FEED ──────────────────────
 exports.createPost = async (req, res) => {
-    console.log("🚀 [Blink] Starting Advanced Upload Sequence...");
+    console.log("🚀 [Blink] Initializing Pulse Upload Sequence...");
+    const filePath = req.file?.path;
+    
     try {
         const { caption, hashtags } = req.body;
         const userId = req.user.id; 
 
-        if (!req.file) {
-            return res.status(400).json({ success: false, error: "Missing scene file." });
+        if (!filePath) {
+            return res.status(400).json({ success: false, error: "No video file received." });
         }
 
-        // --- SMART: DUPLICATE DETECTION ---
-        const [existing] = await pool.query(
-            "SELECT id FROM videos WHERE user_id = ? AND caption = ? AND created_at > (NOW() - INTERVAL 5 MINUTE)",
-            [userId, caption || '']
-        );
-        if (existing.length > 0) {
-            return res.status(400).json({ success: false, error: "Duplicate upload detected. Space-time rift prevented." });
-        }
+        // --- 1. CLOUDINARY UPLOAD (Chunked for Stability) ---
+        console.log("📤 Transmitting to Cloudinary...");
+        const result = await cloudinary.uploader.upload(filePath, {
+            resource_type: "video",
+            folder: "blink_production",
+            chunk_size: 6000000, // 6MB Chunks for reliability
+            eager: [{ width: 400, height: 711, crop: "pad", audio_codec: "none" }],
+            eager_async: true
+        });
 
-        // Cloudinary Stream Upload
-        const streamUpload = (buffer) => {
-            return new Promise((resolve, reject) => {
-                const stream = cloudinary.uploader.upload_stream(
-                    {
-                        resource_type: "video",
-                        folder: "blink_production",
-                        format: "mp4",
-                        image_metadata: true
-                    },
-                    (error, result) => {
-                        if (result) resolve(result);
-                        else reject(error);
-                    }
-                );
-                streamifier.createReadStream(buffer).pipe(stream);
-            });
-        };
+        console.log("✅ Cloudinary Sync Success:", result.public_id);
 
-        const result = await streamUpload(req.file.buffer);
-        console.log("✅ Cloudinary Insight:", result.secure_url, "Duration:", result.duration);
-
-        // Standardized Insert (Production Schema)
+        // --- 2. DATABASE PERSISTENCE ---
         const [dbResult] = await pool.execute(
             `INSERT INTO videos 
-                (user_id, video_url, thumbnail_url, caption, hashtags, duration, created_at) 
-             VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+                (user_id, video_url, public_id, thumbnail_url, caption, hashtags, duration) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
                 userId, 
                 result.secure_url, 
+                result.public_id,
                 result.thumbnail_url || result.secure_url.replace('.mp4', '.jpg'), 
-                caption || 'Untitled Blink', 
-                hashtags || '#foryou #trending',
+                caption || 'A Blink Moment', 
+                hashtags || '#foryou',
                 result.duration || 0
             ]
         );
 
-        console.log("✅ Database Insight Created ID:", dbResult.insertId);
+        // Clean up temporary local file
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
         return res.status(201).json({
             success: true,
-            video: {
-                id: dbResult.insertId,
-                video_url: result.secure_url,
-                caption: caption || '',
-                duration: result.duration
-            }
+            id: dbResult.insertId,
+            video_url: result.secure_url,
+            message: "Scene synchronized successfully!"
         });
 
     } catch (err) {
-        console.error("❌ COMPONENT FAILURE (Upload):", err);
-        return res.status(500).json({ success: false, error: "Universe synchronization failed. " + err.message });
+        console.error("❌ UPLOAD ENGINE FAILURE:", err);
+        // Clean up on failure
+        if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        return res.status(500).json({ success: false, error: "Universe pulse failure: " + err.message });
     }
 };
 

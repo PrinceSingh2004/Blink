@@ -68,6 +68,7 @@ const initDB = async () => {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
                 video_url TEXT NOT NULL,
+                public_id VARCHAR(255),
                 thumbnail_url TEXT,
                 caption TEXT,
                 hashtags TEXT,
@@ -95,6 +96,18 @@ const initDB = async () => {
         const [columns] = await pool.query("SHOW COLUMNS FROM videos");
         const columnNames = columns.map(c => c.Field);
 
+        // Check for missing metadata columns
+        const needed = {
+            'video_url': 'TEXT',
+            'public_id': 'VARCHAR(255)',
+            'thumbnail_url': 'TEXT',
+            'hashtags': 'TEXT',
+            'duration': 'DECIMAL(10,2)',
+            'views_count': 'INT DEFAULT 0',
+            'likes_count': 'INT DEFAULT 0',
+            'is_active': 'BOOLEAN DEFAULT TRUE'
+        };
+
         if (columnNames.includes('url') && !columnNames.includes('video_url')) {
             console.log('🛠️ Renaming legacy "url" to "video_url"...');
             await pool.query("ALTER TABLE videos CHANGE COLUMN url video_url TEXT NOT NULL");
@@ -102,6 +115,12 @@ const initDB = async () => {
         if (!columnNames.includes('user_id')) {
             console.log('🛠️ Patching missing user_id...');
             await pool.query("ALTER TABLE videos ADD COLUMN user_id INT AFTER id");
+        }
+        for (const [col, type] of Object.entries(needed)) {
+            if (!columnNames.includes(col)) {
+                console.log(`🛠️ Patching missing column: ${col}...`);
+                await pool.query(`ALTER TABLE videos ADD COLUMN ${col} ${type}`);
+            }
         }
 
         console.log('✅ Production Database Schema Verified!');

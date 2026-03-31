@@ -1,25 +1,35 @@
-// Cloudinary SDK automatically picks up CLOUDINARY_URL from .env
 const multer = require('multer');
-const { v2: cloudinary } = require('cloudinary');
+const path = require('path');
+const fs = require('fs');
 
-// Using memory storage for high-performance streaming
-const storage = multer.memoryStorage();
-const upload = multer({ 
-    storage, 
-    limits: { fileSize: 200 * 1024 * 1024 } // Allow high-quality videos (200mb)
+// Ensure upload directory exists for production stability
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Disk storage is safer for large (100MB+) video files than memory storage
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
 });
 
-const clUpload = (buffer, folder, resourceType = 'auto') => {
-    return new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-            { folder, resource_type: resourceType },
-            (error, result) => {
-                if (result) resolve(result);
-                else reject(error);
-            }
-        );
-        stream.end(buffer);
-    });
+const fileFilter = (req, file, cb) => {
+    const allowed = ['video/mp4', 'video/webm', 'video/quicktime'];
+    if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Invalid video format. Use MP4 or WebM.'), false);
+    }
 };
 
-module.exports = { upload, clUpload };
+const upload = multer({ 
+    storage, 
+    fileFilter,
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+});
+
+module.exports = { upload };
