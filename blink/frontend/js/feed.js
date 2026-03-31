@@ -1,6 +1,6 @@
 /**
- * feed.js – Blink Feed Engine Pro v6.0 (Black Screen Fix)
- * Optimized for: Muted Autoplay, iOS Safari, and High-Fidelity Engagement
+ * feed.js – Blink Feed Engine Pro v7.0 (TikTok-Level Optimization)
+ * Features: Smart Preloading, Memory Buffering, Snap-Scroll Detection, iOS-Safe Autoplay
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,81 +9,98 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const reelsContainer = document.getElementById('reelsContainer');
     let globalMuted = true;
-    const observer = initVideoObserver();
+    let allVideosData = [];
+    const videoObserver = initVideoObserver();
 
-    // ── VIDEO ELEMENT FACTORY ─────────────────────────────
-    function createVideoElement(videoData) {
+    // ── 1. SMART PRELOADING SYSTEM ───────────────────────
+    function manageVideoBuffering(currentIndex) {
+        const reels = document.querySelectorAll('.reel-item');
+        
+        reels.forEach((reel, i) => {
+            const video = reel.querySelector('video');
+            if (!video) return;
+
+            // Maintain max 3 videos loaded (i-1, i, i+1)
+            if (i >= currentIndex - 1 && i <= currentIndex + 1) {
+                if (video.getAttribute('preload') !== 'auto') {
+                    console.log(`🧠 Preloading Buffer: Video ${i}`);
+                    video.preload = 'auto';
+                    // Re-assign src if it was removed for memory
+                    if (!video.src && allVideosData[i]) {
+                        video.src = allVideosData[i].video_url;
+                    }
+                }
+            } else {
+                // Unload distant videos to save memory/data
+                video.preload = 'none';
+                video.pause();
+                video.src = ''; // Atomic unload
+                video.load();   // Force clear buffer
+            }
+        });
+    }
+
+    // ── 2. VIDEO ELEMENT FACTORY ──────────────────────────
+    function createVideoElement(videoData, index) {
         const video = document.createElement('video');
         
-        // Required attributes for autoplay & iOS
-        video.src = videoData.video_url || '';
+        // High-Performance standard attributes
         video.muted = true;
         video.loop = true;
         video.playsInline = true;
-        video.autoplay = false; // Controlled by observer
-        video.preload = 'metadata';
-        video.controls = false;
+        video.autoplay = false;
+        video.preload = index <= 1 ? 'auto' : 'none'; // Only preload first two
         video.crossOrigin = 'anonymous';
         video.className = 'reel-video';
-
-        // Redundant attributes for deep browser compatibility
-        video.setAttribute('muted', '');
-        video.setAttribute('playsinline', '');
-        video.setAttribute('loop', '');
-        video.setAttribute('preload', 'metadata');
-
+        
+        if (index <= 1) video.src = videoData.video_url;
         if (videoData.thumbnail_url) video.poster = videoData.thumbnail_url;
 
-        // Feedback Listeners
+        // Visual Feedback
         video.onplaying = () => hideLoader(video);
         video.onwaiting = () => showLoader(video);
-        video.oncanplay = () => hideLoader(video);
-        video.onerror = () => showVideoError(video);
+        video.onerror = () => handleVideoError(video);
 
         return video;
     }
 
-    // ── SAFE PLAY/PAUSE ────────────────────────────────────
-    async function safePlay(video) {
-        if (!video || !video.src || video.src === window.location.href) return;
-        try {
-            video.muted = globalMuted;
-            const playPromise = video.play();
-            if (playPromise !== undefined) {
-                await playPromise;
-            }
-        } catch (err) {
-            if (err.name === 'NotAllowedError') showPlayOverlay(video);
-            console.warn("Playback prevented:", err.message);
-        }
-    }
-
-    function safePause(video) {
-        if (video && !video.paused) video.pause();
-    }
-
-    // ── INTERSECTION OBSERVER (TikTok Style) ───────────────
+    // ── 3. SNAP-SCROLL OBSERVER ───────────────────────────
     function initVideoObserver() {
         return new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 const reel = entry.target;
                 const video = reel.querySelector('video');
-                if (!video) return;
+                const index = parseInt(reel.dataset.index);
 
                 if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
-                    safePlay(video);
+                    console.log(`🎬 Active Reel: ${index}`);
+                    
+                    // Sync buffering
+                    manageVideoBuffering(index);
+                    
+                    // Instant Play Pulse
+                    if (!video.src && allVideosData[index]) {
+                        video.src = allVideosData[index].video_url;
+                    }
+                    
+                    video.muted = globalMuted;
+                    video.play().catch(err => {
+                        if (err.name === 'NotAllowedError') showPlayOverlay(reel, video);
+                    });
+                    
                     trackView(reel.dataset.id);
                 } else {
-                    safePause(video);
-                    video.currentTime = 0; // Reset
+                    if (video) {
+                        video.pause();
+                        video.currentTime = 0;
+                    }
                 }
             });
         }, { threshold: 0.7 });
     }
 
-    // ── TRACK VIEW (FIX Auth:false) ────────────────────────
+    // ── 4. ANALYTICS & SOCIAL ────────────────────────────
     async function trackView(videoId) {
-        if (!videoId) return;
         try {
             await fetch(`${API}/posts/view`, {
                 method: 'POST',
@@ -91,21 +108,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${getToken()}` 
                 },
-                body: JSON.stringify({ id: videoId, videoId }) // Support both aliases
+                body: JSON.stringify({ id: videoId })
             });
-        } catch (err) { /* Non-critical */ }
+        } catch (e) {}
     }
 
-    // ── FEED LOADER & RENDERER ─────────────────────────────
+    // ── 5. FEED ARCHITECTURE ─────────────────────────────
     async function loadFeed() {
         try {
             const res = await fetch(`${API}/videos`, {
                 headers: { 'Authorization': `Bearer ${getToken()}` }
             });
             const data = await res.json();
-            if (data.success) renderFeed(data.videos || []);
+            if (data.success) {
+                allVideosData = data.videos || [];
+                renderFeed(allVideosData);
+            }
         } catch (err) {
-            console.error("Feed Sync Error:", err);
             showToast("Universe pulse failed.", "error");
         }
     }
@@ -116,8 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const reel = document.createElement('div');
             reel.className = 'reel-item';
             reel.dataset.id = v.id;
+            reel.dataset.index = index;
 
-            const video = createVideoElement(v);
+            const video = createVideoElement(v, index);
             const videoWrap = document.createElement('div');
             videoWrap.className = 'video-wrapper';
             videoWrap.appendChild(video);
@@ -140,16 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         </button>
                         <span class="action-count">${v.likes_count || 0}</span>
                     </div>
-                    <div class="action-item">
-                        <button class="action-btn comment-btn" data-id="${v.id}">
-                            <i class="bi bi-chat-fill"></i>
-                        </button>
-                    </div>
-                    <div class="action-item">
-                        <button class="action-btn share-btn" data-url="${v.video_url}">
-                            <i class="bi bi-send-fill"></i>
-                        </button>
-                    </div>
+                    <div class="action-item"><button class="action-btn comment-btn"><i class="bi bi-chat-fill"></i></button></div>
+                    <div class="action-item"><button class="action-btn share-btn"><i class="bi bi-send-fill"></i></button></div>
                 </div>
 
                 <div class="reel-info">
@@ -164,15 +176,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             reel.prepend(videoWrap);
             reelsContainer.appendChild(reel);
-            
-            // Attach tap to play/pause
+
+            // Interaction Listeners
             const tapOverlay = reel.querySelector('.tap-overlay');
             tapOverlay.onclick = () => {
-                if (video.paused) safePlay(video);
-                else safePause(video);
+                if (video.paused) video.play(); else video.pause();
             };
 
-            // Global Mute Toggle
             const muteBtn = reel.querySelector('.mute-btn-global');
             muteBtn.onclick = () => {
                 globalMuted = !globalMuted;
@@ -182,38 +192,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             };
 
-            observer.observe(reel);
+            videoObserver.observe(reel);
         });
 
-        // Auto-play first video
+        // Trigger first video manually for zero-lag start
         setTimeout(() => {
-            const firstVideo = reelsContainer.querySelector('video');
-            if (firstVideo) safePlay(firstVideo);
-        }, 500);
+            const first = reelsContainer.querySelector('video');
+            if (first) {
+                first.muted = globalMuted;
+                first.play().catch(() => {});
+            }
+        }, 100);
     }
 
-    // ── UI HELPERS ─────────────────────────────────────────
-    function showLoader(video) {
-        video.closest('.reel-item').querySelector('.video-loading').style.display = 'flex';
+    // ── 6. UI UTILITIES ──────────────────────────────────
+    function showLoader(v) { 
+        const loader = v.closest('.reel-item').querySelector('.video-loading');
+        if (loader) loader.style.display = 'flex'; 
     }
-    function hideLoader(video) {
-        video.closest('.reel-item').querySelector('.video-loading').style.display = 'none';
+    function hideLoader(v) { 
+        const loader = v.closest('.reel-item').querySelector('.video-loading');
+        if (loader) loader.style.display = 'none'; 
     }
-    function showVideoError(video) {
-        const item = video.closest('.reel-item');
-        item.innerHTML = `<div class="video-error flex-center">⚠️ Video unavailable</div>`;
+    function handleVideoError(v) {
+        const item = v.closest('.reel-item');
+        item.style.background = '#111';
+        item.querySelector('.video-loading').innerHTML = `<p style="color:#666;">⚠️ Content Offline</p>`;
     }
-    function showPlayOverlay(video) {
-        const item = video.closest('.reel-item');
-        if (item.querySelector('.play-overlay')) return;
-        const overlay = document.createElement('div');
-        overlay.className = 'play-overlay flex-center';
-        overlay.innerHTML = '<i class="bi bi-play-fill"></i>';
-        overlay.onclick = () => {
-            overlay.remove();
-            safePlay(video);
-        };
-        item.appendChild(overlay);
+    function showPlayOverlay(reel, video) {
+        if (reel.querySelector('.play-overlay')) return;
+        const o = document.createElement('div');
+        o.className = 'play-overlay flex-center';
+        o.innerHTML = '<i class="bi bi-play-fill"></i>';
+        o.onclick = () => { o.remove(); video.play(); };
+        reel.appendChild(o);
     }
 
     loadFeed();
