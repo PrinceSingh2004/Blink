@@ -1,78 +1,88 @@
 /**
- * feed.js – Blink Unified Reels Feed v5.0 (Task 1-8 Fixed)
+ * feed.js – Blink Feed Engine v6.0
+ * Optimized for Vertical Video Scroll & Snap
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    if (!window.Blink) return console.error('[Blink] auth.js not loaded');
-    const { getToken, getUser, requireAuth, showToast } = window.Blink;
-    
+    const { getToken, requireAuth, showToast, API } = window.Blink;
     if (!requireAuth()) return;
 
-    const reels        = document.getElementById('reelsContainer');
-    let videoObserver  = null;
-    let loading        = false;
+    const reelsContainer = document.getElementById('reelsContainer');
+    let videoObserver = null;
+    let loading = false;
 
     async function loadFeed() {
         if (loading) return;
         loading = true;
-        reels.innerHTML = '<div class="profile-error"><div class="loader"></div><p>Blink is fetching latest moments...</p></div>';
 
         try {
-            console.log("Fetching Feed (Task 8)...");
-            const res = await fetch(window.Blink.API + '/videos', {
-                headers: { 'Authorization': 'Bearer ' + getToken() }
+            console.log("🚀 Syncing Blinks...");
+            const res = await fetch(`${API}/videos`, {
+                headers: { 'Authorization': `Bearer ${getToken()}` }
             });
             const data = await res.json();
-            
-            console.log("Feed Data (Task 8):", data);
 
             if (data.success) {
                 renderReels(data.videos || []);
             } else {
-                throw new Error(data.error || "Unable to load moments");
+                throw new Error(data.error || "Failed to load feed");
             }
         } catch (err) {
             console.error('[Feed ERROR]:', err);
-            reels.innerHTML = `<div class="profile-error"><i class="bi bi-exclamation-triangle" style="font-size:48px;color:red;"></i><p>Failed to load data: ${err.message}</p></div>`;
-            showToast('Unable to load moments.', 'error');
+            reelsContainer.innerHTML = `
+                <div class="flex-center flex-col h-full gap-2 text-center" style="padding: 40px;">
+                    <i class="bi bi-exclamation-triangle" style="font-size:48px; color:var(--primary);"></i>
+                    <h3>Connectivity Lost</h3>
+                    <p style="color:var(--text-muted); max-width: 280px;">Blink was unable to synchronize your universe. Check your connection.</p>
+                    <button class="btn btn-secondary btn-sm" onclick="location.reload()">Retry Connection</button>
+                </div>
+            `;
         } finally {
             loading = false;
         }
     }
 
     function renderReels(videos) {
-        if (!videos || videos.length === 0) {
-            reels.innerHTML = '<div class="profile-error"><i class="bi bi-camera-reels" style="font-size:48px;opacity:0.2;"></i><p>No moments posted yet.</p></div>';
+        if (!videos.length) {
+            reelsContainer.innerHTML = `
+                <div class="flex-center flex-col h-full gap-2 text-center">
+                    <i class="bi bi-camera-reels" style="font-size:48px; opacity:0.2;"></i>
+                    <h3 style="color:var(--text-muted);">The Universe is Quiet</h3>
+                    <p style="color:var(--text-muted); font-size: 14px;">Be the first to share a moment today.</p>
+                    <a href="upload.html" class="btn btn-primary btn-sm" style="margin-top:12px;">Create First Blink</a>
+                </div>
+            `;
             return;
         }
 
-        reels.innerHTML = '';
+        reelsContainer.innerHTML = '';
         videos.forEach((v, index) => {
             const reel = document.createElement('div');
-            reel.className = 'reel-item animate-fade-in';
+            reel.className = 'reel-item';
             reel.dataset.id = v.id;
 
             const avatarHtml = v.profile_pic
-                ? `<img src="${v.profile_pic}" alt="@${v.username}" class="avatar" style="width:100%;height:100%;object-fit:cover;">`
-                : (v.username || 'U')[0].toUpperCase();
+                ? `<img src="${v.profile_pic}" alt="@${v.username}" class="avatar">`
+                : `<div class="avatar flex-center" style="background:var(--bg-elevated); font-weight:800;">${(v.username || 'U')[0].toUpperCase()}</div>`;
 
             reel.innerHTML = `
-                <video src="${v.url}" loop muted playsinline class="reel-video" preload="metadata" data-index="${index}"></video>
+                <div class="video-loading"><div class="loader"></div></div>
+                <video src="${v.url}" loop muted playsinline class="reel-video" data-index="${index}"></video>
                 
                 <div class="reel-actions">
                     <div class="action-item" onclick="window.location.href='profile.html?id=${v.user_id}'">
-                        <div class="story-ring" style="width:48px;height:48px;padding:2px;margin-bottom:10px;">
-                            <div class="avatar" style="width:100%;height:100%;background:#333;display:flex;align-items:center;justify-content:center;font-size:18px;">
-                                ${avatarHtml}
-                            </div>
-                        </div>
+                        ${avatarHtml}
                     </div>
                     <div class="action-item">
-                        <button class="btn-ghost action-btn like-btn" data-id="${v.id}"><i class="bi bi-heart"></i></button>
-                        <span class="action-count">0</span>
+                        <button class="action-btn like-btn" data-id="${v.id}">
+                            <i class="bi bi-heart-fill"></i>
+                        </button>
+                        <span class="action-count">${v.likes_count || 0}</span>
                     </div>
                     <div class="action-item">
-                        <button class="btn-ghost action-btn share-btn" data-url="${v.url}"><i class="bi bi-send-fill"></i></button>
+                        <button class="action-btn share-btn" data-url="${v.url}">
+                            <i class="bi bi-send-fill"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -82,10 +92,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                     <p class="reel-caption">${v.caption || ''}</p>
                 </div>
-                <div class="tap-to-pause" style="position:absolute;top:0;left:0;right:0;bottom:100px;z-index:2;"></div>
+                <div class="tap-to-pause"></div>
             `;
 
-            reels.appendChild(reel);
+            reelsContainer.appendChild(reel);
             attachEvents(reel);
         });
 
@@ -94,7 +104,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function initVideoObserver() {
         if (videoObserver) {
-            // Cleanup old observer
             document.querySelectorAll('.reel-video').forEach(v => videoObserver.unobserve(v));
         }
 
@@ -102,18 +111,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             entries.forEach(entry => {
                 const video = entry.target;
                 if (entry.isIntersecting) {
-                    // Pause all other videos first to prevent random playback
+                    // Pause other videos
                     document.querySelectorAll('.reel-video').forEach(v => {
                         if (v !== video) v.pause();
                     });
                     
-                    console.log("Playing:", video.src);
+                    video.parentElement.querySelector('.video-loading')?.classList.add('invisible');
                     video.play().catch(e => console.warn("Autoplay blocked:", e.message));
                 } else {
                     video.pause();
                 }
             });
-        }, { threshold: 0.8 });
+        }, { threshold: 0.7 });
 
         document.querySelectorAll('.reel-video').forEach(v => videoObserver.observe(v));
     }
@@ -122,6 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const video = reel.querySelector('.reel-video');
         const tapOverlay = reel.querySelector('.tap-to-pause');
         const shareBtn = reel.querySelector('.share-btn');
+        const likeBtn = reel.querySelector('.like-btn');
 
         if (tapOverlay && video) {
             tapOverlay.onclick = () => {
@@ -134,10 +144,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             shareBtn.onclick = () => {
                 const url = shareBtn.dataset.url;
                 navigator.clipboard.writeText(url);
-                showToast('🔗 Link copied!', 'success');
+                showToast('🔗 Link copied to clipboard!', 'success');
+            };
+        }
+
+        if (likeBtn) {
+            likeBtn.onclick = () => {
+                likeBtn.classList.toggle('active');
+                const count = likeBtn.parentElement.querySelector('.action-count');
+                const current = parseInt(count.textContent);
+                count.textContent = likeBtn.classList.contains('active') ? current + 1 : current - 1;
             };
         }
     }
 
-    await loadFeed();
+    loadFeed();
 });

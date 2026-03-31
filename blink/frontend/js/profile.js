@@ -1,13 +1,10 @@
 /**
- * profile.js – Blink Universe Profile v5.0
- * Vertical Stack, Overlapping Avatar, Premium Neon Stats
+ * profile.js – Blink Profile Management v6.0
+ * Responsive Grid Rendering, Identity Sync, Stats
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // ── 1. HELPERS & AUTH ───────────────────────────────────────
-    if (!window.Blink) return console.error('[Blink] auth.js not loaded');
     const { getToken, getUser, requireAuth, apiRequest, showToast } = window.Blink;
-    
     if (!requireAuth()) return;
 
     const me = getUser();
@@ -15,25 +12,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const targetUserId = urlParams.get('id') || me.id;
     const isOwner = parseInt(targetUserId) === parseInt(me.id);
 
-    // --- DOM Elements ---
     const elements = {
         username:    document.getElementById('profileUsername'),
-        handle:      document.getElementById('profileHandle'),
         bio:         document.getElementById('profileBio'),
-        avatar:      document.querySelector('.profile-avatar-giant img'),
-        posts:       document.querySelector('.stat-box.active .stat-value'),
-        followers:   document.getElementById('followersCount'),
-        following:   document.getElementById('followingCount'),
-        likes:       document.getElementById('likesCount'),
-        editBtn:     document.getElementById('editProfileBtn'),
-        grid:        document.getElementById('postGrid'),
-        modal:       document.getElementById('editProfileModal'),
-        form:        document.getElementById('editProfileForm'),
-        closeModal:  document.getElementById('closeEditModalBtn'),
-        tabBtns:     document.querySelectorAll('.tab-item'),
+        avatar:      document.getElementById('profileAvatarImg'),
+        postCount:   document.getElementById('postCount'),
+        followerCount: document.getElementById('followerCount'),
+        followingCount: document.getElementById('followingCount'),
+        videoGrid:   document.getElementById('videoGrid'),
+        editBtn:     document.getElementById('editProfileBtn')
     };
 
-    // ── 2. INITIAL LOAD ───────────────────────────────────────── (Task 8)
     async function loadIdentity() {
         try {
             const data = await apiRequest(`/users/${targetUserId}`);
@@ -42,21 +31,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (err) {
             console.error('[Profile] Identity fail:', err);
-            showToast('User connectivity lost.', 'error');
+            showToast('Unable to synchronize profile universe.', 'error');
         }
     }
 
     function renderIdentity(u) {
         document.title = `Blink | @${u.username}`;
         if (elements.username) elements.username.textContent = u.display_name || u.username;
-        if (elements.handle) elements.handle.textContent = '@' + u.username;
-        if (elements.bio) elements.bio.textContent = u.bio || 'The artist\'s canvas. User hasn\'t shared their universe vision yet.';
+        if (elements.bio) elements.bio.textContent = u.bio || 'Share your story with the world.';
         
-        // Animated Stats
-        animateValue(elements.posts, u.posts_count || 0);
-        animateValue(elements.followers, u.followers_count || 0);
-        animateValue(elements.following, u.following_count || 0);
-        if (elements.likes) animateValue(elements.likes, u.likes_count || 0);
+        // Update Stats
+        elements.postCount.textContent = formatStat(u.posts_count || 0);
+        elements.followerCount.textContent = formatStat(u.followers_count || 0);
+        elements.followingCount.textContent = formatStat(u.followingCount || 0);
 
         const photo = u.profile_pic || u.avatar_url || u.profile_photo;
         if (photo && elements.avatar) {
@@ -64,130 +51,77 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         if (!isOwner && elements.editBtn) {
-            elements.editBtn.innerHTML = 'Follow';
-            elements.editBtn.className = 'btn-primary-gradient';
+            elements.editBtn.innerHTML = 'Follow Artist';
+            elements.editBtn.className = 'btn btn-primary btn-sm';
             elements.editBtn.onclick = () => followUser(u.id);
         }
     }
 
-    function animateValue(obj, end, duration = 1000) {
-        if (!obj) return;
-        let start = 0;
-        let range = end - start;
-        let increment = end > start ? 1 : -1;
-        let stepTime = Math.abs(Math.floor(duration / range));
-        let timer = setInterval(() => {
-            start += increment;
-            obj.innerHTML = start;
-            if (start == end) clearInterval(timer);
-        }, isFinite(stepTime) ? stepTime : 10);
+    function formatStat(num) {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
     }
 
-    // ── 3. TABS & MASONRY ─────────────────────────────────────
-    async function switchTab(tabName, btn) {
-        if (!btn) return;
-        elements.tabBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        // Fetch Grid
-        loadGrid(tabName);
-    }
-
-    async function loadGrid(type) {
-        elements.grid.innerHTML = '<div style="grid-column: 1 / -1; padding:100px; text-align:center;"><div class="loader"></div></div>';
+    async function loadGrid() {
+        elements.videoGrid.innerHTML = `
+            <div style="grid-column: 1 / -1; min-height:300px;" class="flex-center flex-col gap-2">
+                <div class="loader"></div>
+                <p style="color:var(--text-muted); font-size:14px;">Syncing your vision universe...</p>
+            </div>
+        `;
         try {
-            // Task: Sync with new stabilized Video API
-            let endpoint = `/users/${targetUserId}/posts?type=${type}`;
-            if (type === 'videos') {
-                endpoint = `/videos/user/${targetUserId}`;
-            }
-
-            const data = await apiRequest(endpoint);
-            const items = data.posts || data.videos || [];
-            renderFeed(items);
+            const data = await apiRequest(`/videos/user/${targetUserId}`);
+            const items = data.videos || [];
+            renderGrid(items);
         } catch (err) {
             console.error('[Profile] Grid load fail:', err);
-            elements.grid.innerHTML = '<p class="error">Universe content failed to load.</p>';
+            elements.videoGrid.innerHTML = `
+                <div class="grid-placeholder">
+                    <i class="bi bi-cloud-slash"></i>
+                    <p>Connectivity failure with the vision universe.</p>
+                </div>
+            `;
         }
     }
 
-    function renderFeed(posts) {
-        if (!posts.length) {
-            elements.grid.innerHTML = `
-                <div class="empty-state">
-                    <i class="bi bi-collection-play"></i>
-                    <p>Share your story with the world</p>
+    function renderGrid(videos) {
+        if (!videos.length) {
+            elements.videoGrid.innerHTML = `
+                <div class="grid-placeholder">
+                    <i class="bi bi-camera-reels"></i>
+                    <p>No moments posted to this universe yet.</p>
                 </div>
             `;
             return;
         }
 
-        elements.grid.innerHTML = posts.map(p => {
-            const url = p.videoUrl || p.media_url;
-            return `
-                <div class="grid-item-blink animate-fade-in" onclick="window.location.href='index.html?p=${p.id}'">
-                    ${p.media_type === 'video' || p.videoUrl ? `<video src="${url}"></video>` : `<img src="${url}" loading="lazy">`}
-                    <div class="grid-overlay">
-                        <span><i class="bi bi-play-fill"></i> ${p.likes_count || 0}</span>
-                    </div>
+        elements.videoGrid.className = 'profile-grid';
+        elements.videoGrid.innerHTML = videos.map(v => `
+            <div class="grid-item" onclick="window.location.href='index.html?v=${v.id}'">
+                <video src="${v.url}" muted></video>
+                <div class="flex-center" style="position:absolute; inset:0; opacity:0; hover:opacity:1; background:rgba(0,0,0,0.4); color:white; transition:all 0.2s;">
+                    <i class="bi bi-play-fill" style="font-size:24px;"></i>
                 </div>
-            `;
-        }).join('');
-    }
-
-    // ── 4. INTERACTIONS ────────────────────────────────────────
-    elements.tabBtns.forEach(btn => {
-        btn.onclick = () => switchTab(btn.textContent.toLowerCase(), btn);
-    });
-
-    if (elements.editBtn && isOwner) {
-        elements.editBtn.onclick = () => {
-            elements.modal.classList.add('show');
-            const user = getUser();
-            elements.form.display_name.value = user.display_name || '';
-            elements.form.bio.value = user.bio || '';
-        };
-    }
-
-    if (elements.closeModal) elements.closeModal.onclick = () => elements.modal.classList.remove('show');
-
-    if (elements.form) {
-        elements.form.onsubmit = async (e) => {
-            e.preventDefault();
-            const btn = elements.form.querySelector('button');
-            const oldText = btn.textContent;
-            btn.innerHTML = '<div class="loader" style="width:16px;height:16px;"></div> Updating...';
-            btn.disabled = true;
-
-            const body = {
-                display_name: elements.form.display_name.value,
-                bio: elements.form.bio.value
-            };
-
-            try {
-                await apiRequest('/users/profile', { method: 'PUT', body: JSON.stringify(body) });
-                showToast('🚀 Identity updated!', 'success');
-                elements.modal.classList.remove('show');
-                loadIdentity();
-                window.Blink.populateSidebar();
-            } catch (err) {
-                showToast(err.message, 'error');
-            } finally {
-                btn.textContent = oldText;
-                btn.disabled = false;
-            }
-        };
+            </div>
+        `).join('');
     }
 
     const followUser = async (id) => {
         try {
+            elements.editBtn.disabled = true;
+            elements.editBtn.textContent = 'Processing...';
             const res = await apiRequest(`/users/follow/${id}`, { method: 'POST' });
             showToast(res.following ? 'Joined vision universe!' : 'Left vision universe.', 'info');
             loadIdentity();
-        } catch {}
+        } catch (err) {
+            showToast('Vision sync failure.', 'error');
+        } finally {
+            elements.editBtn.disabled = false;
+        }
     };
 
-    // --- Start ---
+    // Initial load
     await loadIdentity();
-    switchTab('videos', elements.tabBtns[0]); // Default tab
+    await loadGrid();
 });

@@ -1,26 +1,25 @@
 /**
- * upload.js – Blink Creator Studio v4.0 (Production Optimized)
- * Task: Progress Tracking, Compression Backgrounding, Unified Media Handling
+ * upload.js – Blink Creator Studio v6.0
+ * Real Progress Tracking, Preview Logic, Robust Validation
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     // ── 1. HELPERS & AUTH ───────────────────────────────────────
     if (!window.Blink) return console.error('[Blink] auth.js not loaded');
-    const { getToken, getUser, requireAuth, showToast, apiRequest } = window.Blink;
+    const { getToken, getUser, requireAuth, showToast, API } = window.Blink;
     
     if (!requireAuth()) return;
 
-    const me = getUser();
     const elements = {
         dropzone:    document.getElementById('dropzone'),
         mediaInput:  document.getElementById('mediaInput'),
         vidPreview:  document.getElementById('videoPreview'),
-        imgPreview:  document.getElementById('imagePreview'),
         caption:     document.getElementById('captionInput'),
         publishBtn:  document.getElementById('publishBtn'),
         progress:    document.getElementById('uploadProgress'),
         progressFill:document.getElementById('progressFill'),
-        progressText:document.getElementById('progressText')
+        progressText:document.getElementById('progressText'),
+        dropContent: document.getElementById('dropzoneContent')
     };
 
     let selectedFile = null;
@@ -32,56 +31,54 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Validation (Task 1: Accept only mp4, jpg, png)
-        const allowed = ['video/mp4', 'image/jpeg', 'image/png'];
+        // Validation (Task Requirement: Performance & Type)
+        const allowed = ['video/mp4', 'video/quicktime', 'video/webm', 'image/jpeg', 'image/png'];
         if (!allowed.includes(file.type)) {
-            showToast('Invalid format: Only mp4, jpg, and png allowed.', 'error');
+            showToast('Invalid format. Use high-quality MP4/MOV or JPG/PNG.', 'error');
             return;
         }
 
         selectedFile = file;
-        renderPreview(file);
-    };
-
-    function renderPreview(file) {
         const url = URL.createObjectURL(file);
+        
         if (file.type.startsWith('video')) {
             elements.vidPreview.src = url;
             elements.vidPreview.style.display = 'block';
-            elements.imgPreview.style.display = 'none';
         } else {
-            elements.imgPreview.src = url;
-            elements.imgPreview.style.display = 'block';
+            // For future image support in Reels if needed, though Reels are usually videos
             elements.vidPreview.style.display = 'none';
         }
-        document.getElementById('dropzoneContent').style.display = 'none';
-    }
+        
+        elements.dropContent.style.display = 'none';
+        showToast('Scene synchronized!', 'success');
+    };
 
-    // ── 3. PRODUCTION UPLOAD (Real Progress Tracking) ────
+    // ── 3. PRODUCTION UPLOAD EXECUTION ──────────────────────────
     elements.publishBtn.onclick = async () => {
-        if (!selectedFile) return showToast('Please select a video or image first.', 'info');
+        if (!selectedFile) return showToast('Please select a video first.', 'info');
 
         const formData = new FormData();
         formData.append('video', selectedFile);
-        formData.append('caption', elements.caption.value || '');
+        formData.append('caption', (elements.caption.value || '').trim());
 
+        // UI State: Performance Feedback
         elements.publishBtn.disabled = true;
-        elements.progress.style.display = 'block';
-        elements.progressText.style.display = 'block';
-        elements.progressFill.style.width = "0%";
+        elements.progress.classList.remove('hidden');
+        elements.progressFill.style.width = "4%";
+        elements.progressText.textContent = "🚀 Launching scene...";
         
         console.log("🚀 Starting upload for:", selectedFile.name);
 
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', window.Blink.API + '/upload/video', true);
-        xhr.setRequestHeader('Authorization', 'Bearer ' + getToken());
+        xhr.open('POST', `${API}/upload/video`, true);
+        xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
 
-        // Tracking Upload Progress
+        // Tracking Native Progress
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 90); // 90% is upload
                 elements.progressFill.style.width = percent + "%";
-                elements.progressText.textContent = `📤 Uploading... ${percent}%`;
+                elements.progressText.textContent = `📤 Uploading vision... ${percent}%`;
             }
         };
 
@@ -91,38 +88,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
                     elements.progressFill.style.width = "100%";
                     elements.progressText.textContent = "✅ Upload Successful!";
-                    showToast('🚀 Moment published successfully!', 'success');
+                    showToast('🚀 Moment published to the universe!', 'success');
                     
-                    // Immediately redirect to feed to see the new video
-                    setTimeout(() => window.location.href = 'index.html', 1200);
+                    // Immediately redirect to witness the bloom
+                    setTimeout(() => window.location.href = 'index.html', 1500);
                 } else {
-                    throw new Error(data.error || 'Server error during publish.');
+                    throw new Error(data.error || 'Synchronization failed.');
                 }
             } catch (err) {
-                console.error('Upload Parse Error:', err);
-                showToast('Upload failed: ' + err.message, 'error');
-                elements.publishBtn.disabled = false;
+                console.error('Upload Parse Failure:', err);
+                resetUI(err.message || 'Server error during publish.');
             }
         };
 
-        xhr.onerror = () => {
-            console.error('XHR Error');
-            showToast('Network error during upload.', 'error');
-            elements.publishBtn.disabled = false;
-        };
-
+        xhr.onerror = () => resetUI('Network connectivity failure.');
         xhr.send(formData);
     };
 
-    // --- Drag & Drop Decorators ---
+    function resetUI(error) {
+        showToast(error, 'error');
+        elements.publishBtn.disabled = false;
+        elements.progress.classList.add('hidden');
+    }
+
+    // Drag & Drop Decorative Interactions
     elements.dropzone.ondragover = (e) => {
         e.preventDefault();
-        elements.dropzone.classList.add('dragover');
+        elements.dropzone.style.borderColor = 'var(--primary)';
+        elements.dropzone.style.background = 'rgba(255, 0, 80, 0.05)';
     };
-    elements.dropzone.ondragleave = () => elements.dropzone.classList.remove('dragover');
+    elements.dropzone.ondragleave = () => {
+        elements.dropzone.style.borderColor = 'var(--border-low)';
+        elements.dropzone.style.background = 'none';
+    };
     elements.dropzone.ondrop = (e) => {
         e.preventDefault();
-        elements.dropzone.classList.remove('dragover');
+        elements.dropzone.style.borderColor = 'var(--border-low)';
+        elements.dropzone.style.background = 'none';
         const file = e.dataTransfer.files[0];
         if (file) {
             elements.mediaInput.files = e.dataTransfer.files;

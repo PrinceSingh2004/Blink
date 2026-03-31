@@ -1,373 +1,216 @@
-/* 
- * pages.css – Blink Platform Page Layouts v5.0
- * Reels, Explore, and Profile.
+/**
+ * pages.css – Blink Page Specific Layouts v6.0
+ * Profile, Upload Studio, etc.
  */
 
-/* ── REELS FEED (MOBILE & DESKTOP) ─────────────────────────── */
-.reels-container {
+/* --- Profile Page v6.0 --- */
+.profile-header {
     width: 100%;
-    height: 100vh;
-    background: #000;
-    overflow-y: scroll;
-    scroll-snap-type: y mandatory;
-    scrollbar-width: none; /* Hide scrollbar Firefox */
-}
-
-.reels-container::-webkit-scrollbar { display: none; } /* Hide scrollbar Chrome/Safari */
-
-.reel-item {
-    width: 100%;
-    height: 100vh;
-    position: relative;
-    scroll-snap-align: start;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #000;
-}
-
-.reel-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* Reels Overlay Content */
-.reel-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: var(--space-xl) var(--space-md) calc(var(--bottom-nav-height) + var(--space-md));
-    background: linear-gradient(transparent, rgba(0,0,0,0.8));
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    pointer-events: none;
-}
-
-.reel-info {
-    flex: 1;
-    pointer-events: auto;
-}
-
-.reel-author {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    margin-bottom: var(--space-md);
-}
-
-.reel-avatar {
-    width: 44px;
-    height: 44px;
-    border: 2px solid #fff;
-}
-
-.reel-username {
-    font-weight: 800;
-    font-size: 16px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-}
-
-.reel-caption {
-    font-size: 14px;
-    color: #fff;
-    line-height: 1.4;
-    max-width: 80%;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-}
-
-.reel-actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xl);
-    pointer-events: auto;
-    margin-left: var(--space-lg);
-}
-
-.action-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-xs);
-    cursor: pointer;
-}
-
-.action-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.15);
-    backdrop-filter: blur(10px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    transition: var(--transition-fast);
-}
-
-.action-item:hover .action-icon { transform: scale(1.1); background: rgba(255,255,255,0.3); }
-.action-item:active .action-icon { transform: scale(0.9); }
-.action-count { font-size: 12px; font-weight: 700; color: #fff; }
-
-/* ── PROFILE PAGE (BLINK UNIVERSE v5.0) ─────────────────── */
-.main-content {
-    background: #000;
-}
-
-.profile-banner {
-    width: 100%;
-    height: 320px;
-    position: relative;
-    background: linear-gradient(135deg, #0e0026 0%, #1a0044 100%);
-    overflow: hidden;
-}
-
-.banner-overlay {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at top right, rgba(255,0,80,0.1), transparent);
-}
-
-.banner-actions {
-    position: absolute;
-    top: 30px;
-    right: 40px;
-    display: flex;
-    gap: 15px;
-    z-index: 10;
-}
-
-.profile-container {
-    max-width: 1200px;
+    max-width: 935px;
     margin: 0 auto;
-    padding: 0 40px;
-    position: relative;
-}
-
-.profile-header-alt {
+    padding: var(--space-xl) var(--space-md);
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding-bottom: 40px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.profile-avatar-giant {
-    position: relative;
-    margin-top: -85px; /* Important overlap */
-    margin-bottom: 20px;
-    z-index: 5;
-}
-
-.profile-avatar-giant .avatar {
-    width: 180px;
-    height: 180px;
-    border: 5px solid #000;
-    background: var(--accent-gradient);
-    padding: 2px;
-}
-
-.verified-badge {
-    position: absolute;
-    bottom: 10px;
-    right: 15px;
-    width: 28px;
-    height: 28px;
-    background: var(--bg-main);
-    border-radius: 50%;
-    display: flex;
+    gap: var(--space-hugh);
     align-items: center;
-    justify-content: center;
-    color: #00f2ff;
-    font-size: 20px;
-    box-shadow: 0 0 10px rgba(0,242,255,0.3);
-}
-
-.profile-main-info h1 {
-    font-size: 42px;
-    font-weight: 900;
-    margin-bottom: 2px;
-}
-
-.profile-main-info #profileHandle {
-    color: var(--text-muted);
-    font-size: 18px;
-    margin-bottom: 15px;
-}
-
-.bio-text {
-    font-size: 16px;
-    color: var(--text-secondary);
-    margin-bottom: 30px;
-}
-
-/* Stats Bar */
-.profile-stats-bar {
-    display: flex;
-    gap: 50px;
-    margin-top: 20px;
-}
-
-.stat-box {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: pointer;
-    position: relative;
-}
-
-.stat-box .stat-value {
-    font-size: 24px;
-    font-weight: 900;
-    color: var(--text-primary);
-}
-
-.stat-box .stat-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: capitalize;
-}
-
-.stat-box.active::after {
-    content: '';
-    position: absolute;
-    bottom: -10px;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background: var(--text-primary);
-    border-radius: 2px;
-}
-
-/* Grid Tabs */
-.profile-grid-tabs {
-    display: flex;
-    gap: 40px;
-    padding: 30px 0;
-    border-bottom: 2px solid rgba(255,255,255,0.02);
-}
-
-.tab-item {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-weight: 700;
-    font-size: 18px;
-    cursor: pointer;
-    padding-bottom: 5px;
-    transition: var(--transition-fast);
-}
-
-.tab-item.active {
-    color: var(--text-primary);
-}
-
-/* Post Grid */
-.profile-grid-feed {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 15px;
-    padding: 30px 0;
-}
-
-.empty-state {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 100px 0;
-    color: var(--text-muted);
-}
-
-.empty-state i {
-    font-size: 64px;
-    margin-bottom: 20px;
-    display: block;
-    opacity: 0.2;
-}
-
-/* Custom Buttons for Profile */
-.btn-glass {
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #fff;
-    padding: 10px 24px;
-    border-radius: 12px;
-    font-weight: 700;
-}
-
-.btn-glass-icon {
-    width: 44px;
-    height: 44px;
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #fff;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-primary-gradient {
-    background: var(--accent-gradient);
-    border: none;
-    color: #fff;
-    padding: 10px 32px;
-    border-radius: 12px;
-    font-weight: 800;
-    box-shadow: 0 4px 15px rgba(255,0,80,0.3);
-}
-
-/* ── TASK 7: UI LAYOUT FIX ───────────────────────── */
-.app-container {
-    display: flex; /* Sidebar + Main Content */
-}
-
-.main-content {
-    flex: 1;
-    padding: 20px;
-    background: #000;
-}
-
-.reel-item {
-    max-width: 400px;
-    margin: 0 auto; /* Center video cards */
-    height: calc(100vh - 40px); /* Adjust for padding */
-    border-radius: var(--radius-xl);
-    overflow: hidden;
-    position: relative;
-    scroll-snap-align: start;
-}
-
-/* ── RESPONSIVE ADAPTATIONS (BLINK UNIVERSE) ────────────────────────── */
-@media (max-width: 1200px) {
-    .profile-container { padding: 0 var(--space-xl); }
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 @media (max-width: 768px) {
-    .profile-banner { height: 200px; }
-    .profile-avatar-giant {
-        margin-top: -60px;
+    .profile-header {
+        flex-direction: column;
+        gap: var(--space-lg);
+        text-align: center;
+        padding: var(--space-lg) var(--space-md);
     }
-    .profile-avatar-giant .avatar {
-        width: 120px;
-        height: 120px;
-    }
-    .profile-main-info h1 { font-size: 32px; }
-    .banner-actions {
-        top: 20px;
-        right: 20px;
-    }
-    .profile-stats-bar { gap: var(--space-xl); width: 100%; justify-content: space-between; }
-    .main-content { padding: 10px; }
-    .reel-item { max-width: 100%; height: 100vh; border-radius: 0; }
 }
 
-@media (max-width: 480px) {
-    .profile-banner { height: 160px; }
-    .profile-grid-feed { grid-template-columns: repeat(2, 1fr); gap: 5px; }
-    .profile-container { padding: 0 var(--space-md); }
+.profile-avatar-wrap {
+    flex-shrink: 0;
+}
+.profile-avatar {
+    width: 150px;
+    height: 150px;
+    border: 4px solid var(--bg-surface);
+    box-shadow: 0 0 0 2px var(--border-subtle);
+}
+
+@media (max-width: 768px) {
+    .profile-avatar { width: 96px; height: 96px; }
+}
+
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    flex: 1;
+}
+
+.profile-top {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+}
+
+@media (max-width: 768px) {
+    .profile-top { flex-direction: column; gap: var(--space-sm); }
+}
+
+.profile-username {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.profile-stats {
+    display: flex;
+    gap: var(--space-xl);
+}
+
+@media (max-width: 768px) {
+    .profile-stats { justify-content: center; width: 100%; padding: var(--space-md) 0; }
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+.stat-value {
+    color: var(--text-primary);
+    font-weight: 800;
+    font-size: 18px;
+}
+
+.profile-bio {
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.5;
+    max-width: 400px;
+}
+
+/* --- Profile Content Grid --- */
+.profile-content {
+    max-width: 935px;
+    margin: 0 auto;
+    padding: var(--space-lg) var(--space-md);
+}
+
+.profile-tabs {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-hugh);
+    margin-bottom: var(--space-lg);
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--space-md);
+}
+
+.profile-tab {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    position: relative;
+    transition: var(--transition-fast);
+}
+
+.profile-tab.active { color: white; }
+.profile-tab.active::after {
+    content: '';
+    position: absolute;
+    top: -16px;
+    left: 0;
+    right: 0;
+    height: 1.5px;
+    background: white;
+}
+
+.grid-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-hugh);
+    color: var(--text-muted);
+    opacity: 0.5;
+    gap: var(--space-md);
+}
+.grid-placeholder i { font-size: 48px; }
+
+/* --- Upload Studio v6.0 --- */
+.upload-container {
+    padding: var(--space-xxl) var(--space-md);
+    max-width: 600px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+}
+
+.upload-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+}
+
+.drop-zone {
+    width: 100%;
+    aspect-ratio: 16/9;
+    border: 2px dashed var(--border-low);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-md);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+.drop-zone:hover {
+    border-color: var(--primary);
+    background: rgba(255, 0, 80, 0.05);
+    color: var(--text-primary);
+}
+.drop-zone i { font-size: 48px; }
+
+.preview-container {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid var(--border-subtle);
+}
+.preview-player {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.upload-progress {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    background: var(--accent-gradient);
+    width: 0%;
+    transition: width 0.3s ease;
 }
