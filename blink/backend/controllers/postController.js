@@ -80,8 +80,9 @@ exports.createPost = async (req, res) => {
 };
 
 exports.getPosts = async (req, res) => {
-    console.log("🔍 Fetching global feed...");
+    console.log("🔍 Syncing Smart Universe Feed...");
     try {
+        // Algorithm: Trending = (Likes*2 + Views) / (Age_in_Hours + 1)
         const [rows] = await pool.query(
             `SELECT 
                 v.id,
@@ -95,17 +96,18 @@ exports.getPosts = async (req, res) => {
                 v.likes_count,
                 v.created_at,
                 u.username, 
-                u.profile_pic 
+                u.profile_pic,
+                (v.likes_count * 2 + v.views_count + (100 / (TIMESTAMPDIFF(HOUR, v.created_at, NOW()) + 1))) as rank_score
              FROM videos v 
              INNER JOIN users u ON v.user_id = u.id 
              WHERE v.is_active = TRUE
-             ORDER BY v.created_at DESC 
+             ORDER BY rank_score DESC, v.created_at DESC 
              LIMIT 50`
         );
         res.json({ success: true, videos: rows });
     } catch (err) {
-        console.error("❌ SQL ERROR (/api/videos):", err.message);
-        res.status(500).json({ error: "Failed to load moments." });
+        console.error("❌ ALGORITHM FAILURE (/api/videos):", err.message);
+        res.status(500).json({ error: "Failed to synchronize the smart universe." });
     }
 };
 

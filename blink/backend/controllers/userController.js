@@ -12,48 +12,40 @@ exports.getProfile = async (req, res) => {
     }
 };
 
-// ── TASK 3: FIX getUser controller (v6.0 Fix) ────────────────
+// ── TASK 3: ADVANCED PROFILE ENGINE (v6.0) ──────────────────
 exports.getUser = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
+    // Priority: Explicit ID (View Other) > Auth ID (View Self)
+    const targetUserId = req.params.id || req.user?.id;
 
-    if (!userId) {
-      return res.status(401).json({
-        error: true,
-        message: 'Not authenticated'
-      });
+    if (!targetUserId) {
+      return res.status(401).json({ error: true, message: 'Identity pulse missing.' });
     }
 
     const [rows] = await pool.query(
       `SELECT 
-        id, 
-        username, 
-        profile_pic,
-        created_at,
+        u.id, 
+        u.username, 
+        u.profile_pic,
+        u.created_at,
         (SELECT COUNT(*) FROM videos WHERE user_id = u.id) AS posts_count,
-        0 AS followers_count,
-        0 AS following_count,
-        'Experience the universe through Blink.' AS bio
+        (SELECT COUNT(*) FROM followers WHERE following_id = u.id) AS followers_count,
+        (SELECT COUNT(*) FROM followers WHERE follower_id = u.id) AS following_count,
+        'Member of the Blink universe since ' + DATE_FORMAT(u.created_at, '%M %Y') AS bio
       FROM users u
-      WHERE id = ?`,
-      [userId]
+      WHERE u.id = ?`,
+      [targetUserId]
     );
 
     if (!rows.length) {
-      return res.status(404).json({
-        error: true,
-        message: 'User not found'
-      });
+        return res.status(404).json({ error: true, message: 'Universe inhabitant not found.' });
     }
 
     res.json({ success: true, data: rows[0] });
 
   } catch (err) {
-    console.error('❌ getUser:', err.message);
-    res.status(500).json({
-      error: true,
-      message: 'Failed to load profile'
-    });
+    console.error('❌ PROFILE ENGINE ERROR:', err.message);
+    res.status(500).json({ error: true, message: 'Failed to synchronize user universe.' });
   }
 };
 

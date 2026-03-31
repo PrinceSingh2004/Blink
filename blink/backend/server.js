@@ -75,14 +75,43 @@ const initDB = async () => {
                 duration DECIMAL(10,2),
                 views_count INT DEFAULT 0,
                 likes_count INT DEFAULT 0,
+                score DECIMAL(15,2) DEFAULT 0,
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )`,
+            `CREATE TABLE IF NOT EXISTS likes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                video_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_like (user_id, video_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+            )`,
+            `CREATE TABLE IF NOT EXISTS followers (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                follower_id INT NOT NULL,
+                following_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_follow (follower_id, following_id),
+                FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (following_id) REFERENCES users(id) ON DELETE CASCADE
+            )`,
+            `CREATE TABLE IF NOT EXISTS comments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                video_id INT NOT NULL,
+                text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
             )`,
             `CREATE TABLE IF NOT EXISTS live_streams (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
                 title VARCHAR(255),
+                status ENUM('active', 'ended') DEFAULT 'active',
                 is_live BOOLEAN DEFAULT TRUE,
                 started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -91,32 +120,22 @@ const initDB = async () => {
 
         for (let q of baseQueries) await pool.query(q);
 
-        // Migration Check: Fix missing columns or renamed ones
-        console.log('👷 Checking table migrations...');
+        // Migration Check: Precise column verification for advanced engagement
+        console.log('👷 Synchronizing social media pulse (Migrations)...');
         const [columns] = await pool.query("SHOW COLUMNS FROM videos");
         const columnNames = columns.map(c => c.Field);
 
-        // Check for missing metadata columns
         const needed = {
-            'video_url': 'TEXT',
+            'score': 'DECIMAL(15,2) DEFAULT 0',
             'public_id': 'VARCHAR(255)',
             'thumbnail_url': 'TEXT',
             'caption': 'TEXT',
             'hashtags': 'TEXT',
             'duration': 'DECIMAL(10,2)',
             'views_count': 'INT DEFAULT 0',
-            'likes_count': 'INT DEFAULT 0',
-            'is_active': 'BOOLEAN DEFAULT TRUE'
+            'likes_count': 'INT DEFAULT 0'
         };
 
-        if (columnNames.includes('url') && !columnNames.includes('video_url')) {
-            console.log('🛠️ Renaming legacy "url" to "video_url"...');
-            await pool.query("ALTER TABLE videos CHANGE COLUMN url video_url TEXT NOT NULL");
-        }
-        if (!columnNames.includes('user_id')) {
-            console.log('🛠️ Patching missing user_id...');
-            await pool.query("ALTER TABLE videos ADD COLUMN user_id INT AFTER id");
-        }
         for (const [col, type] of Object.entries(needed)) {
             if (!columnNames.includes(col)) {
                 console.log(`🛠️ Patching missing column: ${col}...`);
@@ -124,9 +143,17 @@ const initDB = async () => {
             }
         }
 
-        console.log('✅ Production Database Schema Verified!');
+        // --- Live Stream Status Patch ---
+        const [liveCols] = await pool.query("SHOW COLUMNS FROM live_streams");
+        const liveNames = liveCols.map(c => c.Field);
+        if (!liveNames.includes('status')) {
+            console.log('🛠️ Patching live_streams status column...');
+            await pool.query("ALTER TABLE live_streams ADD COLUMN status ENUM('active', 'ended') DEFAULT 'active'");
+        }
+
+        console.log('✅ Blink Universe Database Schema Pulsating!');
     } catch (err) {
-        console.error('❌ Database Initialization FAILED:', err.message);
+        console.error('❌ Database Pulse FAILURE:', err.message);
     }
 };
 
@@ -166,10 +193,18 @@ io.on('connection', (socket) => {
 });
 
 // --- ROUTES ---
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/posts', require('./routes/postRoutes'));
-app.use('/api/upload', require('./routes/uploadRoutes'));
+const postRoutes = require('./routes/postRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const engagementRoutes = require('./routes/engagementRoutes');
+
+app.use('/api/posts', postRoutes);
+app.use('/api/upload', uploadRoutes); // Dedicated upload routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/social', engagementRoutes); // New Engagement Engine
+app.use('/api/videos', postRoutes); // Legacy feed alias
 
 // ── FEED API ────────────────────────────────────────────────
 app.get("/api/videos", async (req, res) => {
@@ -210,33 +245,51 @@ app.post('/api/live/start', async (req, res) => {
     try {
         const { userId, title } = req.body;
         const [result] = await pool.query(
-            'INSERT INTO live_streams (user_id, title, is_live) VALUES (?, ?, TRUE)',
-            [userId, title]
+            'INSERT INTO live_streams (user_id, title, status, is_live) VALUES (?, ?, "active", TRUE)',
+            [userId, title || "Live Pulse"]
         );
         res.json({ success: true, streamId: result.insertId });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Failed to initialize live pulse." });
     }
 });
 
 app.post('/api/live/stop', async (req, res) => {
     try {
-        const { streamId } = req.body;
-        await pool.query('UPDATE live_streams SET is_live = FALSE WHERE id = ?', [streamId]);
-        res.json({ success: true });
+        const { streamId, userId } = req.body;
+        
+        // Security: Ensure owner identity
+        const [stream] = await pool.query("SELECT user_id FROM live_streams WHERE id = ?", [streamId]);
+        if (!stream.length || stream[0].user_id != userId) {
+            return res.status(403).json({ error: "Unauthorized stream termination attempted." });
+        }
+
+        await pool.query(
+            'UPDATE live_streams SET status = "ended", is_live = FALSE WHERE id = ?',
+            [streamId]
+        );
+
+        // Real-time Pulse: Notify all observers
+        io.to(`stream-${streamId}`).emit('stream-ended');
+        
+        res.json({ success: true, message: "Universe broadcast terminated." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Failed to terminate broadcast." });
     }
 });
 
 app.get('/api/live', async (req, res) => {
     try {
-        const [rows] = await pool.query(
-            'SELECT ls.*, u.username, u.profile_pic FROM live_streams ls JOIN users u ON ls.user_id = u.id WHERE ls.is_live = TRUE'
+        const [streams] = await pool.query(
+            `SELECT l.*, u.username, u.profile_pic 
+             FROM live_streams l 
+             JOIN users u ON l.user_id = u.id 
+             WHERE l.is_live = TRUE AND l.status = "active" 
+             ORDER BY l.started_at DESC`
         );
-        res.json({ success: true, streams: rows });
+        res.json({ success: true, streams });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: "Failed to load active broadcasts." });
     }
 });
 

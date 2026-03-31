@@ -1,104 +1,113 @@
 /**
- * live.js – Blink Streamer Logic v6.0
- * One-to-Many WebRTC implementation
+ * live.js – Blink Streamer Engine Pro v6.0
+ * Features: High-Fidelity WebRTC, Creator Controls, Real-time Chat, View Counts
  */
 
 const socket = io();
+const { getToken, getUser, showToast, API } = window.Blink;
+
 let localStream;
-let peerConnections = {}; // Track ID -> RTCPeerConnection mapping
-const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+let peerConnections = {}; // PeerID -> PeerConnection
+const rtcConfig = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
 const videoEl = document.getElementById('localVideo');
 const startBtn = document.getElementById('startBtn');
+const endBtn = document.getElementById('endStreamBtn');
 const chatBox = document.getElementById('chatBox');
 const chatInput = document.getElementById('chatInput');
-const user = JSON.parse(localStorage.getItem('blink_user')) || { username: 'Anonymous', id: 0 };
+const user = getUser();
 let currentStreamId = null;
 
-// ── TASK 4: MEDIA ACCESS ──────────────────────────────────────
-async function initStream() {
+// ── 1. MEDIA HUB ──────────────────────────────────────────
+async function initMedia() {
     try {
-        console.log("🎬 Requesting camera access...");
+        console.log("🎬 Requesting camera pulse...");
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         videoEl.srcObject = localStream;
-        console.log("✅ Camera access granted");
+        console.log("✅ Camera pulse stabilized");
     } catch (err) {
-        console.error("❌ Permission Failure:", err);
-        alert("Camera and Mic permissions are required to go live.");
+        showToast("Camera and Mic permissions are required for live pulse.", "error");
     }
 }
 
-// ── TASK 1: START STREAM ──────────────────────────────────────
+// ── 2. BROADCAST LIFECYCLE ────────────────────────────────
 startBtn.onclick = async () => {
-    if (!localStream) return alert("Initialize camera first!");
+    if (!localStream) return showToast("Initialize camera pulse first!", "info");
     
     startBtn.disabled = true;
-    startBtn.textContent = "Connecting...";
+    startBtn.textContent = "Connecting Universe...";
 
     try {
-        // Register in DB
-        const res = await fetch('/api/live/start', {
+        // Register in DB Pulse
+        const res = await fetch(`${API}/live/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, title: `${user.username}'s Live Universe` })
+            body: JSON.stringify({ userId: user.id, title: `${user.username}'s Active Universe` })
         });
         const data = await res.json();
-        currentStreamId = data.streamId;
+        if (!data.success) throw new Error(data.error);
 
-        // Join Signaling Room
-        socket.emit('join-stream', `room-${currentStreamId}`);
-        startBtn.textContent = "Currently Live";
-        
-        console.log(`🚀 We are LIVE in room: room-${currentStreamId}`);
+        currentStreamId = data.streamId;
+        startBtn.style.display = 'none';
+        endBtn.style.display = 'block';
+
+        // Join Signaling Pulse
+        socket.emit('join-stream', `stream-${currentStreamId}`);
+        console.log(`🚀 Pulse LIVE in room: stream-${currentStreamId}`);
+        showToast("The universe is watching.", "success");
     } catch (err) {
-        console.error("❌ Signal Failure:", err);
+        showToast("Pulse stabilization failed.", "error");
+        startBtn.disabled = false;
+        startBtn.textContent = "Go Live";
     }
 };
 
-// ── TASK 3 & 4: WEBRTC SIGNALING ───────────────────────────
+endBtn.onclick = async () => {
+    const confirmEnd = confirm("Complete the session and terminate the pulse?");
+    if (!confirmEnd) return;
+
+    try {
+        await fetch(`${API}/live/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ streamId: currentStreamId, userId: user.id })
+        });
+        window.location.href = 'index.html';
+    } catch (err) {
+        showToast("Termination signal failed.", "error");
+    }
+};
+
+// ── 3. SIGNALING OVERLAY ──────────────────────────────────
 socket.on('user-joined', async (peerId) => {
-    console.log(`📡 Peer joined: ${peerId}. Creating bridge...`);
+    console.log(`📡 Peer joined: ${peerId}. Creating bridge pulse...`);
     
-    const pc = new RTCPeerConnection(config);
+    const pc = new RTCPeerConnection(rtcConfig);
     peerConnections[peerId] = pc;
 
-    // Add local tracks to the connection
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    // Handle ICE candidates
-    pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('ice-candidate', { target: peerId, candidate: event.candidate });
-        }
+    pc.onicecandidate = (e) => {
+        if (e.candidate) socket.emit('ice-candidate', { target: peerId, candidate: e.candidate });
     };
 
-    // Create Offer
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    
     socket.emit('offer', { target: peerId, sdp: pc.localDescription });
+    
+    updateViewerStats();
 });
 
-socket.on('answer', async (data) => {
-    console.log(`📦 Answer received from: ${data.sender}`);
-    const pc = peerConnections[data.sender];
-    if (pc) {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-    }
-});
+function updateViewerStats() {
+    const count = Object.keys(peerConnections).length;
+    document.getElementById('viewerCount').textContent = `👁️ ${count}`;
+}
 
-socket.on('ice-candidate', async (data) => {
-    const pc = peerConnections[data.sender];
-    if (pc) {
-        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-    }
-});
-
-// ── CHAT SYSTEM ──────────────────────────────────────────────
+// ── 4. CHAT HUB ───────────────────────────────────────────
 chatInput.onkeydown = (e) => {
-    if (e.key === 'Enter' && chatInput.value.trim()) {
+    if (e.key === 'Enter' && chatInput.value.trim() && currentStreamId) {
         socket.emit('send-message', {
-            roomId: `room-${currentStreamId}`,
+            roomId: `stream-${currentStreamId}`,
             username: user.username,
             text: chatInput.value.trim()
         });
@@ -109,16 +118,10 @@ chatInput.onkeydown = (e) => {
 socket.on('receive-message', (data) => {
     const msg = document.createElement('div');
     msg.className = 'chat-msg';
-    msg.innerHTML = `<b>${data.username}</b> ${data.text}`;
+    msg.innerHTML = `<b>@${data.username}</b> ${data.text}`;
     chatBox.appendChild(msg);
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// Sync visual stats
-socket.on('user-joined', () => {
-    const count = Object.keys(peerConnections).length;
-    document.getElementById('viewerCount').textContent = `👁️ ${count}`;
-});
-
-// Initialize on page load
-initStream();
+// Auto-init
+initMedia();

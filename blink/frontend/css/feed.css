@@ -183,6 +183,59 @@
     }
 }
 
+/* --- Comment Drawer (Bottom Sheet) --- */
+.comment-drawer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 70vh;
+    background: var(--bg-surface);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+}
+.comment-drawer.active { transform: translateY(0); }
+
+.comment-header {
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--border-low);
+    text-align: center;
+    font-weight: 700;
+}
+
+.comment-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-md);
+}
+
+.comment-item {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+}
+
+.comment-input-area {
+    padding: var(--space-md);
+    border-top: 1px solid var(--border-low);
+    display: flex;
+    gap: var(--space-sm);
+}
+
+/* --- Like Animation --- */
+.action-btn.liked i { 
+    color: var(--primary);
+    animation: heartPulse 0.4s ease;
+}
+
+@keyframes heartPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+}
+
 /* --- Profile Grid (Backward compatible) --- */
 .profile-grid {
     display: grid;
