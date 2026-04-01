@@ -380,6 +380,30 @@ app.get('/api/video/:id', async (req, res) => {
     }
 });
 
+// GET /api/search
+app.get('/api/search', async (req, res) => {
+    try {
+        const query = req.query.q;
+        if (!query) return res.json({ users: [], videos: [] });
+
+        // Search Users
+        const [users] = await pool.query(
+            "SELECT id, username, profile_pic FROM users WHERE username LIKE ? LIMIT 5",
+            [`%${query}%`]
+        );
+
+        // Search Videos (captions or hashtags)
+        const [videos] = await pool.query(
+            "SELECT v.id, v.caption, u.username FROM videos v JOIN users u ON v.user_id = u.id WHERE v.caption LIKE ? OR v.hashtags LIKE ? LIMIT 5",
+            [`%${query}%`, `%${query}%`]
+        );
+
+        res.json({ users, videos });
+    } catch (err) {
+        res.status(500).json({ error: "Search failed." });
+    }
+});
+
 // ── LIVE STREAMING APIs ──────────────────────────────────────
 app.post('/api/live/start', async (req, res) => {
     try {
