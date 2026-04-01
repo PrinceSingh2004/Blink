@@ -119,7 +119,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── 5. FEED ARCHITECTURE ─────────────────────────────
     async function loadFeed() {
         try {
-            const res = await fetch(`${API}/videos`, {
+            const user = JSON.parse(localStorage.getItem('blink_user'));
+            const userId = user ? user.id : '';
+            const res = await fetch(`${API}/videos?userId=${userId}`, {
                 headers: { 'Authorization': `Bearer ${getToken()}` }
             });
             const data = await res.json();
@@ -158,13 +160,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${avatarHtml}
                     </div>
                     <div class="action-item">
-                        <button class="action-btn like-btn ${v.is_liked ? 'liked' : ''}" data-id="${v.id}">
+                        <button class="action-btn like-btn ${v.is_liked ? 'liked' : ''}" id="like-btn-${v.id}" onclick="window.toggleLike(${v.id})">
                             <i class="bi bi-heart-fill"></i>
                         </button>
-                        <span class="action-count">${v.likes_count || 0}</span>
+                        <span class="action-count" id="like-count-${v.id}">${v.likes_count || 0}</span>
                     </div>
-                    <div class="action-item"><button class="action-btn comment-btn"><i class="bi bi-chat-fill"></i></button></div>
-                    <div class="action-item"><button class="action-btn share-btn"><i class="bi bi-send-fill"></i></button></div>
+                    <div class="action-item"><button class="action-btn comment-btn" onclick="window.openComments(${v.id})"><i class="bi bi-chat-fill"></i></button></div>
+                    <div class="action-item"><button class="action-btn share-btn" onclick="window.shareVideo(${v.id})"><i class="bi bi-send-fill"></i></button></div>
                 </div>
 
                 <div class="reel-info">
@@ -249,6 +251,146 @@ document.addEventListener('DOMContentLoaded', () => {
         o.onclick = () => { o.remove(); video.play(); };
         reel.appendChild(o);
     }
+
+    // ── 7. INTERACTION HANDLERS ───────────────────────────
+    window.toggleLike = async function(videoId) {
+        // Optimistic UI update
+        const btn = document.getElementById(`like-btn-${videoId}`);
+        const countSpan = document.getElementById(`like-count-${videoId}`);
+        if (!btn || !countSpan) return;
+
+        const isCurrentlyLiked = btn.classList.contains('liked');
+        let currentCount = parseInt(countSpan.innerText) || 0;
+
+        if (isCurrentlyLiked) {
+            btn.classList.remove('liked');
+            countSpan.innerText = Math.max(0, currentCount - 1);
+        } else {
+            btn.classList.add('liked');
+            countSpan.innerText = currentCount + 1;
+        }
+
+        try {
+            const user = JSON.parse(localStorage.getItem('blink_user'));
+            const res = await fetch(`${API}/like`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getToken()}`
+                },
+                body: JSON.stringify({ user_id: user.id, video_id: videoId })
+            });
+            const data = await res.json();
+            
+            // Sync with server state
+            if (data.liked !== undefined) {
+                if (data.liked) btn.classList.add('liked');
+                else btn.classList.remove('liked');
+                countSpan.innerText = data.totalLikes;
+            }
+        } catch (err) {
+            console.error('Like failed', err);
+            // Revert optimistic update on failure
+            if (isCurrentlyLiked) {
+                btn.classList.add('liked');
+                countSpan.innerText = currentCount;
+            } else {
+                btn.classList.remove('liked');
+                countSpan.innerText = currentCount;
+            }
+        }
+    };
+
+    window.openComments = async function(videoId) {
+        try {
+            const res = await fetch(`${API}/comments/${videoId}`);
+            const comments = await res.json();
+            
+            const commentDrawer = document.getElementById('commentDrawer');
+            const commentList = document.getElementById('commentList');
+            const postBtn = document.getElementById('postCommentBtn');
+            const commentInput = document.getElementById('commentInput');
+
+            if (!commentDrawer || !commentList) return;
+
+            commentList.innerHTML = comments.length ? comments.map(c => `
+                <div class="comment-item" style="display:flex; gap:10px; margin-bottom:15px;">
+                    <img src="${c.profile_pic || 'https://via.placeholder.com/32'}" style="width:32px; height:32px; border-radius:50%;">
+                    <div>
+                        <b style="font-size:13px;">${c.username}</b>
+                        <p style="margin:2px 0; font-size:14px;">${c.text}</p>
+                        <small style="color:var(--text-muted); font-size:11px;">${new Date(c.created_at).toLocaleString()}</small>
+                    </div>
+                </div>
+            `).join('') : '<p style="text-align:center; color:var(--text-muted); padding:20px;">No comments yet. Be the first!</p>';
+
+            commentDrawer.classList.add('active');
+
+            // Setup post button
+            postBtn.onclick = async () => {
+                const text = commentInput.value.trim();
+                if (!text) return;
+
+                postBtn.disabled = true;
+                try {
+                    const user = JSON.parse(localStorage.getItem('blink_user'));
+                    const pRes = await fetch(`${API}/comment`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${getToken()}`
+                        },
+                        body: JSON.stringify({ user_id: user.id, video_id: videoId, text })
+                    });
+                    const pData = await pRes.json();
+                    if (pData.success) {
+                        commentInput.value = '';
+                        window.openComments(videoId); // reload comments
+                    }
+                } catch (e) {
+                    showToast('Failed to post comment', 'error');
+                }
+                postBtn.disabled = false;
+            };
+        } catch (err) {
+            showToast('Failed to load comments', 'error');
+        }
+    };
+
+    // Close comment drawer logic (click outside)
+    document.addEventListener('click', (e) => {
+        const drawer = document.getElementById('commentDrawer');
+        if (drawer && drawer.classList.contains('active')) {
+            if (!drawer.contains(e.target) && !e.target.closest('.comment-btn')) {
+                drawer.classList.remove('active');
+            }
+        }
+    });
+
+    window.shareVideo = function(videoId) {
+        const url = `${window.location.origin}/video.html?id=${videoId}`;
+        
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(() => {
+                showToast("Link copied!", "success");
+            }).catch(err => {
+                showToast("Failed to copy", "error");
+            });
+        } else {
+            // Fallback
+            const textArea = document.createElement("textarea");
+            textArea.value = url;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast("Link copied!", "success");
+            } catch (err) {
+                showToast("Failed to copy", "error");
+            }
+            document.body.removeChild(textArea);
+        }
+    };
 
     loadFeed();
 });

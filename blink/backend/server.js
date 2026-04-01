@@ -214,24 +214,36 @@ app.use('/api/videos', postRoutes); // Legacy feed alias
 app.get("/api/videos", async (req, res) => {
     try {
         console.log('🔍 Syncing Smart Universe Feed...');
+        const fetchUserId = req.query.userId || null;
 
         // Dynamic Column Detection: Find the user identity link
         const [cols] = await pool.query('DESCRIBE videos');
         const colNames = cols.map(c => c.Field);
         const userCol = colNames.find(c => ['user_id', 'uploader_id', 'creator_id', 'uid'].includes(c)) || 'user_id';
 
-        const [videos] = await pool.query(
-            `SELECT
+        let query = `SELECT
                 v.*,
                 u.username,
                 u.profile_pic,
-                (v.likes_count * 2 + v.views_count + (100 / (TIMESTAMPDIFF(HOUR, v.created_at, NOW()) + 1))) as rank_score
-             FROM videos v
-             LEFT JOIN users u ON v.${userCol} = u.id
-             WHERE v.is_active = TRUE
-             ORDER BY rank_score DESC, v.created_at DESC
-             LIMIT 50`
-        );
+                (v.likes_count * 2 + v.views_count + (100 / (TIMESTAMPDIFF(HOUR, v.created_at, NOW()) + 1))) as rank_score`;
+        let params = [];
+
+        if (fetchUserId) {
+            query += `, (l.id IS NOT NULL) as is_liked`;
+        } else {
+            query += `, 0 as is_liked`;
+        }
+
+        query += ` FROM videos v LEFT JOIN users u ON v.${userCol} = u.id`;
+
+        if (fetchUserId) {
+            query += ` LEFT JOIN likes l ON l.video_id = v.id AND l.user_id = ?`;
+            params.push(fetchUserId);
+        }
+
+        query += ` WHERE v.is_active = TRUE ORDER BY rank_score DESC, v.created_at DESC LIMIT 50`;
+
+        const [videos] = await pool.query(query, params);
 
         res.setHeader('Access-Control-Allow-Origin', '*'); 
         res.json({ success: true, videos });
@@ -257,6 +269,114 @@ app.post('/api/posts/view', async (req, res) => {
         res.json({ success: true }); // Always return success for metrics
     } catch (err) {
         res.status(200).json({ success: true }); // Silent fail
+    }
+});
+
+// ── NEW APP REQUIREMENTS: LIKE, COMMENT, SHARE ─────────────
+
+// POST /api/like
+app.post('/api/like', async (req, res) => {
+    try {
+        const { user_id, video_id } = req.body;
+        if (!user_id || !video_id) return res.status(400).json({ error: "Missing parameters" });
+
+        // Check if already liked
+        const [existing] = await pool.query(
+            "SELECT id FROM likes WHERE user_id = ? AND video_id = ?",
+            [user_id, video_id]
+        );
+
+        let liked = false;
+        if (existing.length > 0) {
+            // Unlike
+            await pool.execute("DELETE FROM likes WHERE user_id = ? AND video_id = ?", [user_id, video_id]);
+            await pool.execute("UPDATE videos SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?", [video_id]);
+        } else {
+            // Like
+            await pool.execute("INSERT INTO likes (user_id, video_id) VALUES (?, ?)", [user_id, video_id]);
+            await pool.execute("UPDATE videos SET likes_count = likes_count + 1 WHERE id = ?", [video_id]);
+            liked = true;
+        }
+
+        // Get total likes
+        const [video] = await pool.query("SELECT likes_count FROM videos WHERE id = ?", [video_id]);
+        const totalLikes = video[0] ? video[0].likes_count : 0;
+
+        res.json({ liked, totalLikes });
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error liking video." });
+    }
+});
+
+// GET /api/likes/:video_id
+app.get('/api/likes/:video_id', async (req, res) => {
+    try {
+        const { video_id } = req.params;
+        const [video] = await pool.query("SELECT likes_count FROM videos WHERE id = ?", [video_id]);
+        res.json({ totalLikes: video[0] ? video[0].likes_count : 0 });
+    } catch (err) {
+        res.status(500).json({ error: "Failed to get likes count." });
+    }
+});
+
+// POST /api/comment
+app.post('/api/comment', async (req, res) => {
+    try {
+        const { user_id, video_id, text } = req.body;
+        if (!user_id || !video_id || !text) return res.status(400).json({ error: "Missing parameters" });
+
+        const [result] = await pool.execute(
+            "INSERT INTO comments (user_id, video_id, text) VALUES (?, ?, ?)",
+            [user_id, video_id, text]
+        );
+
+        const newCommentId = result.insertId;
+        const [newComment] = await pool.query(
+            "SELECT c.*, u.username, u.profile_pic FROM comments c JOIN users u ON c.user_id = u.id WHERE c.id = ?",
+            [newCommentId]
+        );
+
+        res.json({ success: true, comment: newComment[0] });
+    } catch (err) {
+        res.status(500).json({ error: "Internal server error adding comment." });
+    }
+});
+
+// GET /api/comments/:video_id
+app.get('/api/comments/:video_id', async (req, res) => {
+    try {
+        const { video_id } = req.params;
+        const [comments] = await pool.query(
+            `SELECT c.*, u.username, u.profile_pic 
+             FROM comments c 
+             JOIN users u ON c.user_id = u.id 
+             WHERE c.video_id = ? 
+             ORDER BY c.created_at DESC`,
+            [video_id]
+        );
+        res.json(comments);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch comments." });
+    }
+});
+
+// GET /api/video/:id
+app.get('/api/video/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [video] = await pool.query(
+            `SELECT v.*, u.username, u.profile_pic 
+             FROM videos v JOIN users u ON v.user_id = u.id 
+             WHERE v.id = ?`,
+            [id]
+        );
+        if (video.length > 0) {
+            res.json({ video: video[0], shareUrl: `${req.protocol}://${req.get('host')}/?v=${id}` });
+        } else {
+            res.status(404).json({ error: "Video not found" });
+        }
+    } catch (err) {
+        res.status(500).json({ error: "Failed to get video" });
     }
 });
 
