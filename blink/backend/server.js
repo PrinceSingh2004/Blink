@@ -12,7 +12,7 @@ const pool = require('./config/db');
 // --- SOCKET.IO SETUP ---
 const io = new Server(server, {
   cors: {
-    origin: ["https://blink-yzoo.onrender.com", "http://localhost:3000", "http://localhost:5000"],
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
@@ -23,24 +23,27 @@ app.use(helmet({
         directives: {
             ...helmet.contentSecurityPolicy.getDefaultDirectives(),
             "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-            "connect-src": ["'self'", "https://blink-yzoo.onrender.com", "http://localhost:5000", "wss://blink-yzoo.onrender.com"],
+            "connect-src": ["'self'", "*"],
             "img-src": ["'self'", "data:", "https://res.cloudinary.com"],
+            "media-src": ["'self'", "https://res.cloudinary.com", "http://localhost:5000", "https://blink-yzoo.onrender.com", "blob:", "data:"],
         },
     },
 }));
 
 // ── TASK 5: FIX CORS ───────────────────────────────────────────
 app.use(cors({
-  origin: [
-    'https://blink-yzoo.onrender.com',
-    'http://localhost:3000',
-    'http://localhost:5000'
-  ],
-  credentials: true,
+  origin: '*',
   methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization']
 }));
 app.options('*', cors());
+
+// Add Headers for streaming just in case 
+app.use((req, res, next) => {
+    res.setHeader('Accept-Ranges', 'bytes');
+    if (req.path.endsWith('.mp4')) res.setHeader('Content-Type', 'video/mp4');
+    next();
+});
 
 // ── TASK 4: ROUTE DEBUGGING ──────────────────────────────────
 app.use('/api', (req, res, next) => {

@@ -102,10 +102,18 @@
     position: absolute;
     inset: 0;
     z-index: 5;
-    background: #000;
+    background: linear-gradient(90deg, #111 25%, #222 50%, #111 75%);
+    background-size: 400% 100%;
+    animation: skeletonLoading 1.5s infinite linear;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+}
+
+@keyframes skeletonLoading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 .play-overlay {

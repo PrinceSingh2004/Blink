@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log(`🧠 Preloading Buffer: Video ${i}`);
                     video.preload = 'auto';
                     // Re-assign src if it was removed for memory
-                    if (!video.src && allVideosData[i]) {
+                    if (!video.getAttribute('src') && allVideosData[i] && allVideosData[i].video_url) {
                         video.src = allVideosData[i].video_url;
                     }
                 }
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Unload distant videos to save memory/data
                 video.preload = 'none';
                 video.pause();
-                video.src = ''; // Atomic unload
+                video.removeAttribute('src'); // Atomic unload
                 video.load();   // Force clear buffer
             }
         });
@@ -45,21 +45,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const video = document.createElement('video');
         
         // High-Performance standard attributes
+        video.autoplay = true;
         video.muted = true;
         video.loop = true;
         video.playsInline = true;
-        video.autoplay = false;
         video.preload = index <= 1 ? 'auto' : 'none'; // Only preload first two
-        video.crossOrigin = 'anonymous';
         video.className = 'reel-video';
         
-        if (index <= 1) video.src = videoData.video_url;
+        if (index <= 1 && videoData.video_url) video.src = videoData.video_url;
         if (videoData.thumbnail_url) video.poster = videoData.thumbnail_url;
 
         // Visual Feedback
         video.onplaying = () => hideLoader(video);
+        video.oncanplay = () => hideLoader(video);
         video.onwaiting = () => showLoader(video);
-        video.onerror = () => handleVideoError(video);
+        video.onerror = () => {
+            console.log("Video failed:", video.src || videoData.video_url);
+            handleVideoError(video);
+        };
 
         return video;
     }
@@ -79,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     manageVideoBuffering(index);
                     
                     // Instant Play Pulse
-                    if (!video.src && allVideosData[index]) {
+                    if (!video.getAttribute('src') && allVideosData[index] && allVideosData[index].video_url) {
                         video.src = allVideosData[index].video_url;
                     }
                     
@@ -217,7 +220,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleVideoError(v) {
         const item = v.closest('.reel-item');
         item.style.background = '#111';
-        item.querySelector('.video-loading').innerHTML = `<p style="color:#666;">⚠️ Content Offline</p>`;
+        item.querySelector('.video-loading').innerHTML = `
+            <div class="error-container flex-center" style="flex-direction:column; z-index: 10;">
+                <i class="bi bi-exclamation-octagon-fill" style="font-size:2rem; color:#ff4d4d; margin-bottom:10px;"></i>
+                <p style="color:#ddd; font-weight:600; margin-bottom:15px;">Universe Content Offline</p>
+                <button class="retry-btn" style="background:var(--primary); color:#000; border:none; padding:8px 20px; border-radius:20px; font-weight:bold; cursor:pointer;">
+                    <i class="bi bi-arrow-clockwise"></i> Retry Connection
+                </button>
+            </div>
+        `;
+        item.querySelector('.video-loading').style.display = 'flex';
+        
+        const retryBtn = item.querySelector('.retry-btn');
+        if (retryBtn) {
+            retryBtn.onclick = (e) => {
+                e.stopPropagation(); // prevent tap-overlay
+                item.querySelector('.video-loading').innerHTML = '<div class="loader"></div>';
+                v.load();
+                v.play().catch(()=>{});
+            };
+        }
     }
     function showPlayOverlay(reel, video) {
         if (reel.querySelector('.play-overlay')) return;
