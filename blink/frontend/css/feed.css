@@ -10,7 +10,7 @@
     overflow-y: scroll;
     scroll-snap-type: y mandatory;
     scroll-behavior: smooth;
-    background: #000;
+    background: #ffffff;
 }
 
 /* ── 2. REEL ITEM ── */
@@ -18,13 +18,14 @@
     position: relative;
     height: 100vh;
     width: 100%;
-    scroll-snap-align: start;
+    max-width: var(--feed-max-width, 468px);
+    margin: 0 auto;
+    scroll-snap-align: center;
     scroll-snap-stop: always;
-    background: #000;
+    background: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
 }
 
 /* ── 3. VIDEO ENGINE (CRITICAL FIX) ── */
@@ -34,34 +35,50 @@
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;     /* Fills screen without black bars */
-    z-index: 1;            /* Above background */
-    background: #000;
-    pointer-events: none;  /* Allows tap overlay to handle clicks */
+    object-fit: cover;
+    z-index: 1;
+    background: #fdfdfd;
+    pointer-events: none;
+    border-radius: 16px;
 }
 
 .video-wrapper {
-    position: absolute;
-    inset: 0;
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 40px);
+    max-height: 850px;
     z-index: 1;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
 }
 
 /* ── 4. OVERLAYS (DEPTH LAYER 10+) ── */
 .reel-info {
     position: absolute;
-    bottom: 80px; 
+    bottom: 20px; 
     left: 16px;
     right: 80px;
     z-index: 10;
-    color: white;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    color: #111111;
+    text-shadow: none;
     pointer-events: auto;
+}
+
+.reel-info .reel-username {
+    font-weight: 700;
+    color: #111111;
+}
+
+.reel-info .reel-caption {
+    color: #444444;
 }
 
 .reel-actions {
     position: absolute;
     right: 12px;
-    bottom: 100px;
+    bottom: 30px;
     z-index: 10;
     display: flex;
     flex-direction: column;
@@ -70,14 +87,31 @@
 }
 
 .action-btn {
-    background: none;
+    background: transparent;
     border: none;
-    color: white;
+    color: #111111; /* Dark text */
     font-size: 28px;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
+    width: 50px;
+    height: 50px;
+    justify-content: center;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+    background: #f5f5f5;
+    border-radius: 50%;
+}
+
+.action-count {
+    color: #111111;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: -5px;
 }
 
 /* ── 5. FEEDBACK COMPONENTS ── */
@@ -88,13 +122,14 @@
     z-index: 100;
     width: 44px;
     height: 44px;
-    background: rgba(0,0,0,0.4);
+    background: rgba(255, 255, 255, 0.85); /* White glass */
     border-radius: 50%;
-    color: white;
+    color: #111111;
     display: flex;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08); /* slight shadow */
     cursor: pointer;
 }
 
@@ -102,13 +137,14 @@
     position: absolute;
     inset: 0;
     z-index: 5;
-    background: linear-gradient(90deg, #111 25%, #222 50%, #111 75%);
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
     background-size: 400% 100%;
     animation: skeletonLoading 1.5s infinite linear;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    border-radius: 16px;
 }
 
 @keyframes skeletonLoading {
@@ -145,7 +181,7 @@
 }
 
 .action-btn.liked i { 
-    color: #ff0050; 
+    color: #ff2e63; /* Pink/Red accent */
     animation: heartPulse 0.4s ease;
 }
 

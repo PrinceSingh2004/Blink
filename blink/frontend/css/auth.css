@@ -10,8 +10,9 @@
     align-items: center;
     justify-content: center;
     padding: var(--space-md);
-    background: radial-gradient(circle at top right, rgba(255, 0, 80, 0.1), transparent),
-                radial-gradient(circle at bottom left, rgba(0, 242, 234, 0.1), transparent);
+    background: radial-gradient(circle at top right, rgba(255, 46, 99, 0.05), transparent),
+                radial-gradient(circle at bottom left, rgba(255, 77, 109, 0.05), transparent);
+    background-color: var(--bg-dark); /* Ensure white background base */
 }
 
 .auth-card {

@@ -121,7 +121,7 @@
     transition: var(--transition-fast);
 }
 
-.profile-tab.active { color: white; }
+.profile-tab.active { color: var(--text-primary); }
 .profile-tab.active::after {
     content: '';
     position: absolute;
@@ -129,7 +129,7 @@
     left: 0;
     right: 0;
     height: 1.5px;
-    background: white;
+    background: var(--text-primary);
 }
 
 .grid-placeholder {
@@ -199,7 +199,7 @@
 .preview-container {
     width: 100%;
     aspect-ratio: 16/9;
-    background: #000;
+    background: #f0f0f0;
     border-radius: var(--radius-lg);
     overflow: hidden;
     position: relative;
@@ -237,7 +237,7 @@
     margin: 0 auto;
 }
 .profile-error i { font-size: 32px; color: var(--primary); margin-bottom: 12px; display: block; }
-.profile-error h3 { margin-bottom: 8px; color: white; }
+.profile-error h3 { margin-bottom: 8px; color: var(--text-primary); }
 .profile-error p { color: var(--text-muted); margin-bottom: 20px; font-size: 14px; }
 
 .connectivity-error, .empty-blinks {

@@ -3,28 +3,29 @@
  * Pure Design Tokens, Global Resets, and Utility Classes
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
 
 :root {
-    /* --- Modern Minimalist Color Palette --- */
-    --primary: #FF0050; /* Blink Pink */
-    --secondary: #00F2EA; /* Blink Cyan */
-    --bg-dark: #000000;
-    --bg-card: #121212;
-    --bg-surface: #1A1A1A;
-    --bg-elevated: #262626;
-    --bg-glass: rgba(0, 0, 0, 0.7);
+    /* --- Modern Minimalist Color Palette (White Theme) --- */
+    --primary: #FF2E63;
+    --secondary: #FF4D6D;
     
-    --text-primary: #FFFFFF;
-    --text-secondary: #A8A8A8;
-    --text-muted: #717171;
-    --text-highlight: #FFFCF9;
+    --bg-dark: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --bg-surface: #F5F5F5;
+    --bg-elevated: #FFE4EC; /* Active pink background */
+    --bg-glass: rgba(255, 255, 255, 0.85); /* Glass effect */
     
-    --border-subtle: rgba(255, 255, 255, 0.08);
-    --border-low: rgba(255, 255, 255, 0.15);
+    --text-primary: #111111;
+    --text-secondary: #444444;
+    --text-muted: #777777;
+    --text-highlight: #000000;
     
-    --accent-gradient: linear-gradient(135deg, var(--primary) 0%, #FF0080 50%, var(--secondary) 100%);
-    --surface-gradient: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%);
+    --border-subtle: #EEEEEE;
+    --border-low: #E0E0E0;
+    
+    --accent-gradient: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    --surface-gradient: linear-gradient(180deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0) 100%);
     
     /* --- Spacing System (8pt Grid) --- */
     --space-xxs: 4px;
@@ -50,9 +51,9 @@
     --radius-xl: 24px;
     --radius-full: 9999px;
     
-    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.3);
-    --shadow-heavy: 0 10px 40px rgba(0, 0, 0, 0.6);
-    --blur: blur(24px);
+    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.08);
+    --shadow-heavy: 0 10px 40px rgba(0, 0, 0, 0.12);
+    --blur: blur(10px);
     
     --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -75,7 +76,7 @@ html {
 body {
     background-color: var(--bg-dark);
     color: var(--text-primary);
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     line-height: 1.5;
     overflow-x: hidden;
     min-height: 100vh;
@@ -106,7 +107,7 @@ ul, ol { list-style: none; }
     background: var(--bg-dark);
 }
 ::-webkit-scrollbar-thumb {
-    background: var(--bg-surface);
+    background: var(--border-low);
     border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -145,6 +146,7 @@ ul, ol { list-style: none; }
 .text-gradient {
     background: var(--accent-gradient);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     font-weight: 800;
 }

@@ -219,12 +219,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function handleVideoError(v) {
         const item = v.closest('.reel-item');
-        item.style.background = '#111';
+        item.style.background = '#f5f5f5';
         item.querySelector('.video-loading').innerHTML = `
             <div class="error-container flex-center" style="flex-direction:column; z-index: 10;">
-                <i class="bi bi-exclamation-octagon-fill" style="font-size:2rem; color:#ff4d4d; margin-bottom:10px;"></i>
-                <p style="color:#ddd; font-weight:600; margin-bottom:15px;">Universe Content Offline</p>
-                <button class="retry-btn" style="background:var(--primary); color:#000; border:none; padding:8px 20px; border-radius:20px; font-weight:bold; cursor:pointer;">
+                <i class="bi bi-exclamation-octagon-fill" style="font-size:2rem; color:#ff2e63; margin-bottom:10px;"></i>
+                <p style="color:#333; font-weight:600; margin-bottom:15px;">Universe Content Offline</p>
+                <button class="retry-btn" style="background:var(--primary); color:#fff; border:none; padding:8px 20px; border-radius:20px; font-weight:bold; cursor:pointer;">
                     <i class="bi bi-arrow-clockwise"></i> Retry Connection
                 </button>
             </div>
