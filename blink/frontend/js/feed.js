@@ -12,6 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let allVideosData = [];
     const videoObserver = initVideoObserver();
 
+    function pauseAllVideos() {
+        document.querySelectorAll('video').forEach(v => v.pause());
+    }
+
     // ── 1. SMART PRELOADING SYSTEM ───────────────────────
     function manageVideoBuffering(currentIndex) {
         const reels = document.querySelectorAll('.reel-item');
@@ -87,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     
                     video.muted = globalMuted;
+                    pauseAllVideos(); // Prevent multiple videos
                     video.play().catch(err => {
                         if (err.name === 'NotAllowedError') showPlayOverlay(reel, video);
                     });
@@ -161,12 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="action-item">
                         <button class="action-btn like-btn ${v.is_liked ? 'liked' : ''}" id="like-btn-${v.id}" onclick="window.toggleLike(${v.id})">
-                            <i class="bi bi-heart-fill"></i>
+                            <i class="bi ${v.is_liked ? 'bi-heart-fill' : 'bi-heart'}"></i>
                         </button>
                         <span class="action-count" id="like-count-${v.id}">${v.likes_count || 0}</span>
                     </div>
-                    <div class="action-item"><button class="action-btn comment-btn" onclick="window.openComments(${v.id})"><i class="bi bi-chat-fill"></i></button></div>
-                    <div class="action-item"><button class="action-btn share-btn" onclick="window.shareVideo(${v.id})"><i class="bi bi-send-fill"></i></button></div>
+                    <div class="action-item"><button class="action-btn comment-btn" onclick="window.openComments(${v.id})"><i class="bi bi-chat"></i></button></div>
+                    <div class="action-item"><button class="action-btn share-btn" onclick="window.shareVideo(${v.id})"><i class="bi bi-send"></i></button></div>
                 </div>
 
                 <div class="reel-info">
@@ -184,8 +189,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Interaction Listeners
             const tapOverlay = reel.querySelector('.tap-overlay');
-            tapOverlay.onclick = () => {
-                if (video.paused) video.play(); else video.pause();
+            let lastTap = 0;
+            let tapTimeout;
+            tapOverlay.onclick = (e) => {
+                const now = new Date().getTime();
+                const timeDiff = now - lastTap;
+                
+                if (timeDiff < 300 && timeDiff > 0) {
+                    // Double Tap!
+                    clearTimeout(tapTimeout);
+                    window.toggleLike(v.id);
+                    
+                    // Visual feedback
+                    const heart = document.createElement('i');
+                    heart.className = 'bi bi-heart-fill double-tap-heart';
+                    heart.style.left = (e.clientX - 50) + 'px';
+                    heart.style.top = (e.clientY - 50) + 'px';
+                    tapOverlay.appendChild(heart);
+                    setTimeout(() => heart.remove(), 1000);
+                } else {
+                    // Single Tap - Wait to see if it becomes a double tap
+                    tapTimeout = setTimeout(() => {
+                        if (video.paused) {
+                            pauseAllVideos();
+                            video.play();
+                        } else {
+                            video.pause();
+                        }
+                    }, 300);
+                }
+                lastTap = now;
             };
 
             const muteBtn = reel.querySelector('.mute-btn-global');
@@ -264,9 +297,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isCurrentlyLiked) {
             btn.classList.remove('liked');
+            btn.innerHTML = '<i class="bi bi-heart"></i>';
             countSpan.innerText = Math.max(0, currentCount - 1);
         } else {
             btn.classList.add('liked');
+            btn.innerHTML = '<i class="bi bi-heart-fill"></i>';
             countSpan.innerText = currentCount + 1;
         }
 
@@ -284,8 +319,13 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Sync with server state
             if (data.liked !== undefined) {
-                if (data.liked) btn.classList.add('liked');
-                else btn.classList.remove('liked');
+                if (data.liked) {
+                    btn.classList.add('liked');
+                    btn.innerHTML = '<i class="bi bi-heart-fill"></i>';
+                } else {
+                    btn.classList.remove('liked');
+                    btn.innerHTML = '<i class="bi bi-heart"></i>';
+                }
                 countSpan.innerText = data.totalLikes;
             }
         } catch (err) {
@@ -293,9 +333,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Revert optimistic update on failure
             if (isCurrentlyLiked) {
                 btn.classList.add('liked');
+                btn.innerHTML = '<i class="bi bi-heart-fill"></i>';
                 countSpan.innerText = currentCount;
             } else {
                 btn.classList.remove('liked');
+                btn.innerHTML = '<i class="bi bi-heart"></i>';
                 countSpan.innerText = currentCount;
             }
         }
@@ -367,10 +409,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    window.shareVideo = function(videoId) {
+    window.shareVideo = async function(videoId) {
         const url = `${window.location.origin}/video.html?id=${videoId}`;
         
-        if (navigator.clipboard && navigator.clipboard.writeText) {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Blink Video',
+                    url: url
+                });
+            } catch (err) {
+                console.error("Share failed", err);
+            }
+        } else if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(url).then(() => {
                 showToast("Link copied!", "success");
             }).catch(err => {

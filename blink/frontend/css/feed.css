@@ -20,7 +20,7 @@
     width: 100%;
     max-width: var(--feed-max-width, 468px);
     margin: 0 auto;
-    scroll-snap-align: center;
+    scroll-snap-align: start;
     scroll-snap-stop: always;
     background: #ffffff;
     display: flex;
@@ -185,8 +185,41 @@
     animation: heartPulse 0.4s ease;
 }
 
-/* Mobile-first bottom safe area */
+.double-tap-heart {
+    position: absolute;
+    color: #ff2e63; /* Pink accent */
+    font-size: 100px;
+    z-index: 50;
+    pointer-events: none;
+    animation: doubleTapPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes doubleTapPop {
+    0% { transform: scale(0) rotate(-15deg); opacity: 0; }
+    20% { transform: scale(1.2) rotate(10deg); opacity: 1; }
+    40% { transform: scale(1) rotate(0deg); opacity: 1; }
+    70% { transform: scale(1) translateY(-10px); opacity: 1; }
+    100% { transform: scale(0) translateY(-30px); opacity: 0; }
+}
+
+/* Mobile full-screen adjustments */
 @media (max-width: 768px) {
+    .reel-item {
+        max-width: 100%;
+    }
+    .video-wrapper {
+        height: 100vh;
+        height: 100dvh;
+        max-height: none;
+        border-radius: 0;
+        box-shadow: none;
+    }
+    .reel-video {
+        border-radius: 0;
+    }
+    .video-loading {
+        border-radius: 0;
+    }
     .reel-info { bottom: calc(env(safe-area-inset-bottom, 80px) + 20px); }
     .reel-actions { bottom: calc(env(safe-area-inset-bottom, 80px) + 40px); }
 }
