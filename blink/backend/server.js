@@ -241,7 +241,7 @@ app.get("/api/videos", async (req, res) => {
             params.push(fetchUserId);
         }
 
-        query += ` WHERE v.is_active = TRUE ORDER BY rank_score DESC, RAND() LIMIT 50`;
+        query += ` WHERE v.is_active = TRUE ORDER BY RAND() LIMIT 50`;
 
         const [videos] = await pool.query(query, params);
 

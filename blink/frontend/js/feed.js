@@ -130,16 +130,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const user = JSON.parse(localStorage.getItem('blink_user'));
             const userId = user ? user.id : '';
             const res = await fetch(`${API}/videos?userId=${userId}`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` }
+                headers: { 'Authorization': `Bearer ${getToken()}` },
+                cache: 'no-store' // Do NOT use cached feed
             });
             const data = await res.json();
             if (data.success) {
-                allVideosData = data.videos || [];
+                // Client-side absolute randomization
+                allVideosData = shuffleArray(data.videos || []);
                 renderFeed(allVideosData);
             }
         } catch (err) {
             showToast("Universe pulse failed.", "error");
         }
+    }
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            // swap
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
     }
 
     function renderFeed(videos) {
