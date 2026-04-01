@@ -384,23 +384,24 @@ app.get('/api/video/:id', async (req, res) => {
 app.get('/api/search', async (req, res) => {
     try {
         const query = req.query.q;
-        if (!query) return res.json({ users: [], videos: [] });
+        if (!query) return res.json([]);
 
-        // Search Users
-        const [users] = await pool.query(
-            "SELECT id, username, profile_pic FROM users WHERE username LIKE ? LIMIT 5",
-            [`%${query}%`]
-        );
+        // Unified Search Query
+        const [results] = await pool.query(`
+            SELECT 'user' AS type, id, username AS title, profile_pic AS image
+            FROM users
+            WHERE username LIKE ?
+            UNION
+            SELECT 'video' AS type, id, caption AS title, thumbnail_url AS image
+            FROM videos
+            WHERE caption LIKE ?
+            LIMIT 20
+        `, [`%${query}%`, `%${query}%`]);
 
-        // Search Videos (captions or hashtags)
-        const [videos] = await pool.query(
-            "SELECT v.id, v.caption, u.username FROM videos v JOIN users u ON v.user_id = u.id WHERE v.caption LIKE ? OR v.hashtags LIKE ? LIMIT 5",
-            [`%${query}%`, `%${query}%`]
-        );
-
-        res.json({ users, videos });
+        res.json(results);
     } catch (err) {
-        res.status(500).json({ error: "Search failed." });
+        console.error('Search error:', err);
+        res.status(500).json({ error: "Search system fault." });
     }
 });
 

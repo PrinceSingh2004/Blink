@@ -1,108 +1,128 @@
 /**
- * ui.js – Blink Platform UI Interactions v6.0
+ * ui.js – Blink Platform UI Interactions v7.0 (IG Upgrade)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     initNavbar();
-    initSearch();
+    initSearchSystem();
     initToasts();
     initLogout();
+    syncUserUniverse();
 });
 
 function initNavbar() {
-    const currentPath = window.location.pathname;
-    const pageName = currentPath.split('/').pop() || 'index.html';
-    
-    const allLinks = document.querySelectorAll('.nav-item');
-    allLinks.forEach(link => {
+    const page = window.location.pathname.split('/').pop() || 'index.html';
+    document.querySelectorAll('.nav-item').forEach(link => {
         const href = link.getAttribute('href');
-        if (href === pageName) {
-            link.classList.add('active');
-        } else {
-            link.classList.remove('active');
-        }
+        if (href === page) link.classList.add('active');
     });
+
+    // Toggle Sidebar Search
+    const searchTrigger = document.getElementById('navSearchTrigger');
+    const mobileSearchTrigger = document.getElementById('mobileSearchTrigger');
+    const wrapper = document.getElementById('sidebarSearchWrapper');
+    
+    const toggleSearch = () => {
+        if (!wrapper) return;
+        const isHidden = wrapper.style.display === 'none';
+        wrapper.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) document.getElementById('searchInput')?.focus();
+    };
+
+    if (searchTrigger) searchTrigger.onclick = toggleSearch;
+    if (mobileSearchTrigger) mobileSearchTrigger.onclick = toggleSearch;
 }
 
-function initSearch() {
-    const searchInput = document.getElementById('searchInput');
-    const searchResults = document.getElementById('searchResults');
-    const API = window.BlinkConfig ? window.BlinkConfig.API_BASE : 'http://localhost:5000';
+function initSearchSystem() {
+    const input = document.getElementById('searchInput');
+    const results = document.getElementById('searchResults');
+    let timeout;
 
-    if (!searchInput || !searchResults) return;
+    if (!input || !results) return;
 
-    searchInput.addEventListener('input', async (e) => {
-        const query = e.target.value.trim();
-        if (query.length < 2) {
-            searchResults.innerHTML = '';
+    input.addEventListener('input', () => {
+        clearTimeout(timeout);
+        const query = input.value.trim();
+
+        if (!query) {
+            results.innerHTML = '';
+            results.style.display = 'none';
             return;
         }
 
-        try {
-            const res = await window.BlinkConfig.fetch(`/search?q=${query}`);
-            const data = await res.json();
-            renderSearchResults(data);
-        } catch (err) {
-            console.error('Search error:', err);
-        }
+        timeout = setTimeout(async () => {
+            try {
+                const res = await window.BlinkConfig.fetch(`/search?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                renderResults(data);
+            } catch (err) {
+                console.error('Search fault:', err);
+            }
+        }, 300);
     });
 
-    function renderSearchResults(data) {
-        let html = '';
-        if (data.users && data.users.length > 0) {
-            html += '<div style="margin-bottom:10px;"><b style="font-size:12px; color:var(--text-muted);">USERS</b>';
-            data.users.forEach(u => {
-                html += `
-                    <a href="profile.html?id=${u.id}" class="nav-item" style="padding:5px 0; font-size:14px;">
-                        ${u.username}
-                    </a>
-                `;
-            });
-            html += '</div>';
+    function renderResults(data) {
+        if (!data || data.length === 0) {
+            results.innerHTML = '<div style="padding:10px; font-size:12px; color:#888;">No results for this query.</div>';
+            results.style.display = 'block';
+            return;
         }
-        if (data.videos && data.videos.length > 0) {
-            html += '<div><b style="font-size:12px; color:var(--text-muted);">POSTS</b>';
-            data.videos.forEach(v => {
-                html += `
-                    <a href="index.html?v=${v.id}" class="nav-item" style="padding:5px 0; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;">
-                        ${v.username}: ${v.caption}
-                    </a>
-                `;
-            });
-            html += '</div>';
+
+        results.innerHTML = data.map(item => `
+            <div class="search-result-item" onclick="goTo('${item.type}', ${item.id})">
+                <img src="${item.image || 'https://via.placeholder.com/32'}" class="result-avatar">
+                <div class="result-info">
+                    <div class="result-title">${item.title}</div>
+                    <div class="result-type">${item.type}</div>
+                </div>
+            </div>
+        `).join('');
+        results.style.display = 'block';
+    }
+}
+
+window.goTo = function(type, id) {
+    if (type === 'user') {
+        window.location.href = `profile.html?id=${id}`;
+    } else {
+        window.location.href = `index.html?v=${id}`;
+    }
+};
+
+async function syncUserUniverse() {
+    if (!window.BlinkConfig?.getToken()) return;
+    try {
+        const res = await window.BlinkConfig.fetch('/auth/me');
+        const data = await res.json();
+        if (data.success) {
+            window.BlinkConfig.setUser(data.user);
+            console.log("🌌 Universe Synchronized.");
         }
-        if (!html) html = '<p style="font-size:12px; color:var(--text-muted); padding:10px 0;">No results found.</p>';
-        searchResults.innerHTML = html;
+    } catch (e) {
+        console.warn("Universe sync failure:", e.message);
     }
 }
 
 function initLogout() {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('blink_token');
-            localStorage.removeItem('blink_user');
-            window.location.href = 'login.html';
-        });
+        logoutBtn.onclick = () => {
+            window.BlinkConfig.logout();
+        };
     }
 }
 
 function initToasts() {
-    window.showBlinkToast = (message, type = 'info') => {
-        const container = document.getElementById('toastContainer');
-        if (!container) return;
-        
+    window.showToast = (message, type = 'info') => {
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            document.body.appendChild(container);
+        }
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        
-        const icon = type === 'success' ? 'bi-check-circle-fill' : 
-                     type === 'error' ? 'bi-exclamation-circle-fill' : 'bi-info-circle-fill';
-                     
-        toast.innerHTML = `
-            <i class="bi ${icon}"></i>
-            <span>${message}</span>
-        `;
-        
+        toast.innerHTML = `<span>${message}</span>`;
         container.appendChild(toast);
         setTimeout(() => toast.classList.add('show'), 10);
         setTimeout(() => {
@@ -110,5 +130,4 @@ function initToasts() {
             setTimeout(() => toast.remove(), 400);
         }, 3000);
     };
-    window.showToast = window.showBlinkToast;
 }

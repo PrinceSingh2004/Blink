@@ -88,3 +88,16 @@ exports.login = async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
     }
 };
+
+exports.getMe = async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            "SELECT id, username, email, profile_pic FROM users WHERE id = ?",
+            [req.userId]
+        );
+        if (rows.length === 0) return res.status(404).json({ error: "User not found" });
+        res.json({ success: true, user: rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch user state." });
+    }
+};

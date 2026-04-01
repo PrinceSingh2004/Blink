@@ -18,69 +18,45 @@
         
         <!-- ── SIDEBAR (Desktop) ─────────────────────── -->
         <aside class="sidebar">
-            <div class="nav-logo" style="display:flex; align-items:center; gap:10px; padding:12px; margin-bottom: 20px;">
-                <span class="text-gradient" style="font-size: 32px;">B</span>
-                <h2 class="text-gradient" style="font-size: 24px;">Blink</h2>
+            <div class="nav-logo" style="display:flex; align-items:center; gap:10px; margin-bottom: 24px; padding: 0 12px;">
+                <h2 class="text-gradient" style="font-size: 28px; font-weight: 800;">Blink</h2>
             </div>
             
             <nav class="nav-links">
-                <a href="index.html" class="nav-item active">
-                    <i class="bi bi-house"></i>
-                    <span>Home</span>
-                </a>
+                <a href="index.html" class="nav-item active"><i class="bi bi-house"></i> Home</a>
                 
-                <a href="#" class="nav-item" onclick="document.getElementById('searchOverlay').style.display = 'flex'; document.getElementById('searchInput').focus(); return false;">
-                    <i class="bi bi-search"></i>
-                    <span>Search</span>
-                </a>
+                <div class="nav-item-container" style="position:relative;">
+                    <div class="nav-item" id="navSearchTrigger"><i class="bi bi-search"></i> Search</div>
+                    <div id="sidebarSearchWrapper" style="display:none; padding: 10px 0;">
+                        <input type="text" id="searchInput" placeholder="Search..." class="search-input-fancy">
+                        <div id="searchResults" class="search-results-dropdown"></div>
+                    </div>
+                </div>
 
-                <a href="upload.html" class="nav-item">
-                    <i class="bi bi-plus-square"></i>
-                    <span>Create</span>
-                </a>
-                
-                <a href="live.html" class="nav-item">
-                    <i class="bi bi-broadcast"></i>
-                    <span>Live Streaming</span>
-                </a>
-
-                <a href="messages.html" class="nav-item">
-                    <i class="bi bi-chat"></i>
-                    <span>Messages</span>
-                </a>
-                
-                <a href="profile.html" class="nav-item" id="sidebarProfileLink">
-                    <i class="bi bi-person"></i>
-                    <span>Profile</span>
-                </a>
+                <a href="upload.html" class="nav-item"><i class="bi bi-plus-square"></i> Create</a>
+                <a href="live.html" class="nav-item"><i class="bi bi-broadcast"></i> Live</a>
+                <a href="messages.html" class="nav-item"><i class="bi bi-chat"></i> Messages</a>
+                <a href="profile.html" class="nav-item"><i class="bi bi-person"></i> Profile</a>
             </nav>
 
-            <div class="sidebar-footer" style="margin-top: auto; padding-top: 20px;">
-                <button id="logoutBtn" class="nav-item" style="border:none; background:none; width:100%; text-align:left; font-size:16px;">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>Logout</span>
+            <div class="sidebar-footer" style="margin-top: auto;">
+                <button id="logoutBtn" class="nav-item" style="border:none; background:none; width:100%; text-align:left;">
+                    <i class="bi bi-box-arrow-right"></i> Logout
                 </button>
             </div>
         </aside>
 
         <!-- ── MAIN FEED (Vertical Reels) ──────────────────── -->
         <main class="main-content">
-            <div class="reels-container" id="reelsContainer">
-                <!-- Reels are dynamically injected here by feed.js -->
-                <div class="flex-center flex-col h-full gap-2">
-                    <div class="loader"></div>
-                    <p style="color:var(--text-muted); font-weight: 500;">Blink is syncing latest moments...</p>
-                </div>
-            </div>
+            <div class="reels-container" id="reelsContainer"></div>
         </main>
 
-        <!-- ── BOTTOM NAVIGATION (Mobile) ─────────────────── -->
+        <!-- ── MOBILE NAVIGATION (Mobile) ─────────────────── -->
         <nav class="mobile-nav">
             <a href="index.html" class="nav-item active"><i class="bi bi-house"></i></a>
-            <a href="#" class="nav-item" onclick="document.getElementById('searchOverlay').style.display = 'flex'; document.getElementById('searchInput').focus(); return false;"><i class="bi bi-search"></i></a>
+            <div class="nav-item" id="mobileSearchTrigger"><i class="bi bi-search"></i></div>
             <a href="upload.html" class="nav-item"><i class="bi bi-plus-square"></i></a>
             <a href="live.html" class="nav-item"><i class="bi bi-broadcast"></i></a>
-            <a href="messages.html" class="nav-item"><i class="bi bi-chat"></i></a>
             <a href="profile.html" class="nav-item"><i class="bi bi-person"></i></a>
         </nav>
 
