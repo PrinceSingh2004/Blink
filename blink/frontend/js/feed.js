@@ -10,11 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const reelsContainer = document.getElementById('reelsContainer');
     let globalMuted = true;
     let allVideosData = [];
+    let currentPlaying = null;
     const videoObserver = initVideoObserver();
-
-    function pauseAllVideos() {
-        document.querySelectorAll('video').forEach(v => v.pause());
-    }
 
     // ── 1. SMART PRELOADING SYSTEM ───────────────────────
     function manageVideoBuffering(currentIndex) {
@@ -79,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const video = reel.querySelector('video');
                 const index = parseInt(reel.dataset.index);
 
-                if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.8) {
                     console.log(`🎬 Active Reel: ${index}`);
                     
                     // Sync buffering
@@ -91,11 +88,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     
                     video.muted = globalMuted;
-                    pauseAllVideos(); // Prevent multiple videos
+                    
+                    // O(1) Pause Logic
+                    if (currentPlaying && currentPlaying !== video) {
+                        currentPlaying.pause();
+                    }
+                    
                     video.play().catch(err => {
                         if (err.name === 'NotAllowedError') showPlayOverlay(reel, video);
                     });
                     
+                    currentPlaying = video;
                     trackView(reel.dataset.id);
                 } else {
                     if (video) {
@@ -104,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             });
-        }, { threshold: 0.7 });
+        }, { threshold: 0.8 });
     }
 
     // ── 4. ANALYTICS & SOCIAL ────────────────────────────
@@ -211,8 +214,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Single Tap - Wait to see if it becomes a double tap
                     tapTimeout = setTimeout(() => {
                         if (video.paused) {
-                            pauseAllVideos();
+                            if (currentPlaying && currentPlaying !== video) {
+                                currentPlaying.pause();
+                            }
                             video.play();
+                            currentPlaying = video;
                         } else {
                             video.pause();
                         }
