@@ -211,19 +211,14 @@ app.use('/api/users', userRoutes);
 app.use('/api/social', engagementRoutes); // New Engagement Engine
 app.use('/api/videos', postRoutes); // Legacy feed alias
 
-app.get("/api/videos", async (req, res) => {
+app.get('/api/videos', async (req, res) => {
     try {
-        const [videos] = await pool.query(`
-            SELECT v.*, u.username, u.profile_pic 
-            FROM videos v
-            JOIN users u ON v.user_id = u.id
-            WHERE v.is_active = TRUE
-            ORDER BY v.created_at DESC
-        `);
+        console.log("API HIT");
+        const [videos] = await pool.query("SELECT * FROM videos ORDER BY created_at DESC");
         res.json(videos);
     } catch (err) {
-        console.error("ERROR:", err);
-        res.status(500).json({ error: "Failed to fetch videos" });
+        console.error("DB ERROR:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 

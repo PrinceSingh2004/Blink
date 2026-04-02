@@ -31,26 +31,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Load Feed ---
     async function loadFeed() {
         try {
-            const res = await fetch('https://blink-yzoo.onrender.com/api/videos');
-            if (!res.ok) throw new Error("API failed");
-
+            const res = await fetch('/api/videos');
+            console.log("STATUS:", res.status);
+            
+            if (!res.ok) throw new Error("API FAILED");
+            
             const data = await res.json();
+            console.log("DATA:", data);
+            
             allVideosData = data;
-            renderFeed(data);
+            renderVideos(data);
         } catch (err) {
-            console.error(err);
-            const container = document.getElementById("reelsContainer") || document.querySelector(".feed");
-            if (container) {
-                container.innerHTML = `
-                    <div style="color:white;text-align:center;margin-top:20px;">
-                        Failed to load feed 🚫
-                    </div>
+            console.error("FETCH ERROR:", err);
+            
+            const feedEl = document.querySelector(".feed") || document.getElementById('reelsContainer');
+            if (feedEl) {
+                feedEl.innerHTML = `
+                  <h2 style="color:white;text-align:center;">
+                    Failed to load feed 🚫
+                  </h2>
                 `;
             }
         }
     }
 
-    function renderFeed(videos) {
+    function renderVideos(videos) {
         reelsContainer.innerHTML = '';
         videos.forEach((v, index) => {
             const reel = document.createElement('div');
