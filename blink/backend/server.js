@@ -137,7 +137,8 @@ const initDB = async () => {
             'hashtags': 'TEXT',
             'duration': 'DECIMAL(10,2)',
             'views_count': 'INT DEFAULT 0',
-            'likes_count': 'INT DEFAULT 0'
+            'likes_count': 'INT DEFAULT 0',
+            'user_id': 'INT'
         };
 
         for (const [col, type] of Object.entries(needed)) {
@@ -210,47 +211,19 @@ app.use('/api/users', userRoutes);
 app.use('/api/social', engagementRoutes); // New Engagement Engine
 app.use('/api/videos', postRoutes); // Legacy feed alias
 
-// ── FEED API (PRODUCTION v6.0) ──────────────────────────────
 app.get("/api/videos", async (req, res) => {
     try {
-        console.log('🔍 Syncing Smart Universe Feed...');
-        const fetchUserId = req.query.userId || null;
-
-        // Dynamic Column Detection: Find the user identity link
-        const [cols] = await pool.query('DESCRIBE videos');
-        const colNames = cols.map(c => c.Field);
-        const userCol = colNames.find(c => ['user_id', 'uploader_id', 'creator_id', 'uid'].includes(c)) || 'user_id';
-
-        let query = `SELECT
-                v.*,
-                u.username,
-                u.profile_pic,
-                (v.likes_count * 2 + v.views_count + (100 / (TIMESTAMPDIFF(HOUR, v.created_at, NOW()) + 1))) as rank_score`;
-        let params = [];
-
-        if (fetchUserId) {
-            query += `, (l.id IS NOT NULL) as is_liked`;
-        } else {
-            query += `, 0 as is_liked`;
-        }
-
-        query += ` FROM videos v LEFT JOIN users u ON v.${userCol} = u.id`;
-
-        if (fetchUserId) {
-            query += ` LEFT JOIN likes l ON l.video_id = v.id AND l.user_id = ?`;
-            params.push(fetchUserId);
-        }
-
-        query += ` WHERE v.is_active = TRUE ORDER BY RAND() LIMIT 50`;
-
-        const [videos] = await pool.query(query, params);
-
-        res.setHeader('Access-Control-Allow-Origin', '*'); 
-        res.json({ success: true, videos });
-
+        const [videos] = await pool.query(`
+            SELECT v.*, u.username, u.profile_pic 
+            FROM videos v
+            JOIN users u ON v.user_id = u.id
+            WHERE v.is_active = TRUE
+            ORDER BY v.created_at DESC
+        `);
+        res.json(videos);
     } catch (err) {
-        console.error('❌ ERROR in /api/videos:', err.message);
-        res.status(500).json({ success: false, error: "Universe feed pulse failure." });
+        console.error("ERROR:", err);
+        res.status(500).json({ error: "Failed to fetch videos" });
     }
 });
 
@@ -458,7 +431,8 @@ app.get('/api/live', async (req, res) => {
     }
 });
 
-// Static Frontend
+// Static Uploads & Frontend
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 app.get('/', (req, res) => {
