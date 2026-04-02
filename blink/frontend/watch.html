@@ -133,6 +133,33 @@
             <p id="errorMsg">The streamer was looking at something else.</p>
             <button class="btn btn-primary" onclick="window.location.href='index.html'">Back to Home</button>
         </div>
+            <!-- Mobile Nav -->
+        <nav class="mobile-nav">
+            <a href="index.html" class="nav-item" data-page="index">
+                <i class="bi bi-house-door-fill"></i>
+                <span>Home</span>
+            </a>
+            <div class="nav-item" id="mobileSearchBtn">
+                <i class="bi bi-search"></i>
+                <span>Search</span>
+            </div>
+            <a href="upload.html" class="nav-item" data-page="upload">
+                <i class="bi bi-plus-square"></i>
+                <span>Create</span>
+            </a>
+            <a href="live.html" class="nav-item" data-page="live">
+                <i class="bi bi-broadcast"></i>
+                <span>Live</span>
+            </a>
+            <a href="messages.html" class="nav-item" data-page="messages">
+                <i class="bi bi-chat-dots-fill"></i>
+                <span>Messages</span>
+            </a>
+            <a href="profile.html" class="nav-item" data-page="profile">
+                <i class="bi bi-person-circle"></i>
+                <span>Profile</span>
+            </a>
+        </nav>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

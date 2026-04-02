@@ -1,22 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Blink | Watch, Create, Share</title>
-    <!-- Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Styles -->
-    <link rel="stylesheet" href="css/global.css">
-    <link rel="stylesheet" href="css/components.css">
-    <link rel="stylesheet" href="css/feed.css">
-</head>
-<body>
+const fs = require('fs');
+const path = require('path');
 
-    <div class="app-container">
-                <!-- Sidebar (Desktop) -->
+const htmlFiles = ['index.html', 'profile.html', 'upload.html', 'live.html', 'messages.html', 'watch.html', 'login.html', 'register.html'];
+const dir = 'c:/Users/ps126/OneDrive/Desktop/Project/Infinite_Scroll/blink/frontend';
+
+const sidebarHtml = `        <!-- Sidebar (Desktop) -->
         <aside class="sidebar">
             <div class="logo text-gradient flex-center py-4">Blink</div>
             <nav class="nav-links flex-col flex-1">
@@ -51,17 +39,9 @@
                     <span class="nav-text">Logout</span>
                 </button>
             </div>
-        </aside>
+        </aside>`;
 
-        <!-- Main Feed -->
-        <main class="main-content reels-container" id="reelsContainer">
-            <!-- Reels will be injected here by JS -->
-            <div class="loader-overlay flex-center w-full h-full">
-                <div class="spinner"></div>
-            </div>
-        </main>
-
-                <!-- Mobile Nav -->
+const mobileNavHtml = `        <!-- Mobile Nav -->
         <nav class="mobile-nav">
             <a href="index.html" class="nav-item" data-page="index">
                 <i class="bi bi-house-door-fill"></i>
@@ -87,10 +67,9 @@
                 <i class="bi bi-person-circle"></i>
                 <span>Profile</span>
             </a>
-        </nav>
-    </div>
+        </nav>`;
 
-        <!-- Search Overlay -->
+const searchOverlayHtml = `    <!-- Search Overlay -->
     <div id="searchOverlay" class="modal-overlay hidden">
         <div class="search-modal animate-up">
             <div class="search-header flex-between">
@@ -103,16 +82,35 @@
             </div>
             <div id="searchResults" class="search-results-list"></div>
         </div>
-    </div>
+    </div>`;
 
-    <!-- Toast Notifications -->
-    <div id="toastContainer"></div>
+for (const file of htmlFiles) {
+    const filePath = path.join(dir, file);
+    if (!fs.existsSync(filePath)) continue;
+    
+    let content = fs.readFileSync(filePath, 'utf8');
 
-    <!-- Scripts -->
-    <script src="js/config.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/feed.js"></script>
-</body>
-</html>
+    // Make sure we skip login/register for navbars if they don't have them
+    if (file === 'login.html' || file === 'register.html') {
+        continue;
+    }
+
+    // Replace Sidebar
+    content = content.replace(/<!--\s*Sidebar \(Desktop\)\s*-->[\s\S]*?<\/aside>/i, sidebarHtml);
+    
+    // Replace Mobile Nav
+    if (content.match(/<!--\s*Mobile Nav\s*-->/i)) {
+        content = content.replace(/<!--\s*Mobile Nav\s*-->[\s\S]*?<\/nav>/i, mobileNavHtml);
+    } else {
+        content = content.replace(/(<\/div>\s*)(<!--\s*Search Overlay|<!--\s*Edit|<!--\s*Toast|<script)/i, mobileNavHtml + '\n    $1$2');
+    }
+
+    // Replace or Inject Search Overlay
+    if (content.match(/<!--\s*Search Overlay\s*-->/i)) {
+       content = content.replace(/<!--\s*Search Overlay\s*-->[\s\S]*?<\/div>\s*<\/div>\s*(<!--\s*Toast)/i, searchOverlayHtml + '\n\n    $1');
+       content = content.replace(/<!--\s*Search Overlay\s*-->[\s\S]*?<\/div>\s*<\/div>\s*(<div id="toastContainer)/i, searchOverlayHtml + '\n\n    $1');
+    }
+
+    fs.writeFileSync(filePath, content);
+}
+console.log("Updated HTML files");

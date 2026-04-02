@@ -1,281 +1,143 @@
 /**
- * feed.css – Blink Feed UI v6.0 (Black Screen Fix)
- * Optimized for: Snap Scrolling, TikTok-style Video Players, and Depth Layering
+ * feed.css – Reels & Video Feed UI
  */
-
-/* ── 1. FEED SHELL ── */
-.feed-container, 
-#reelsContainer {
+.reels-container {
     height: 100vh;
+    width: 100%;
     overflow-y: scroll;
     scroll-snap-type: y mandatory;
     scroll-behavior: smooth;
-    background: #ffffff;
 }
 
-/* ── 2. REEL ITEM ── */
 .reel-item {
-    position: relative;
     height: 100vh;
     width: 100%;
-    max-width: var(--feed-max-width, 468px);
-    margin: 0 auto;
+    position: relative;
     scroll-snap-align: start;
     scroll-snap-stop: always;
-    background: #ffffff;
     display: flex;
-    align-items: center;
     justify-content: center;
-}
-
-/* ── 3. VIDEO ENGINE (CRITICAL FIX) ── */
-.reel-video {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 1;
-    background: #fdfdfd;
-    pointer-events: none;
-    border-radius: 16px;
-}
-
-.video-wrapper {
-    position: relative;
-    width: 100%;
-    height: calc(100vh - 40px);
-    max-height: 850px;
-    z-index: 1;
-    background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    align-items: center;
+    background: #000;
     overflow: hidden;
 }
 
-/* ── 4. OVERLAYS (DEPTH LAYER 10+) ── */
-.reel-info {
+.reel-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Fill entirely */
+    z-index: 1;
+}
+
+/* --- Overlays --- */
+.reel-overlay {
     position: absolute;
-    bottom: 20px; 
-    left: 16px;
-    right: 80px;
-    z-index: 10;
-    color: #111111;
-    text-shadow: none;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 40%, transparent 70%, rgba(0,0,0,0.3) 100%);
+    pointer-events: none;
+}
+
+.reel-content {
+    position: absolute;
+    bottom: 0px;
+    left: 0;
+    right: 0;
+    padding: var(--space-lg);
+    z-index: 3;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+}
+
+.reel-info {
+    flex: 1;
+    max-width: 75%;
     pointer-events: auto;
 }
 
-.reel-info .reel-username {
-    font-weight: 700;
-    color: #111111;
+.reel-user {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+.reel-user .avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 2px solid var(--primary);
+    object-fit: cover;
+}
+.reel-user .username { font-weight: 700; font-size: 16px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+
+.reel-caption {
+    font-size: 15px;
+    line-height: 1.5;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
-.reel-info .reel-caption {
-    color: #444444;
-}
-
+/* --- Actions --- */
 .reel-actions {
-    position: absolute;
-    right: 12px;
-    bottom: 30px;
-    z-index: 10;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: var(--space-lg);
     align-items: center;
+    pointer-events: auto;
+    margin-bottom: var(--space-sm);
 }
 
 .action-btn {
-    background: transparent;
-    border: none;
-    color: #111111; /* Dark text */
-    font-size: 28px;
-    cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 50px;
-    height: 50px;
-    justify-content: center;
-    border-radius: 12px;
-    transition: all 0.3s ease;
+    gap: 4px;
+    color: #fff;
 }
-
-.action-btn:hover {
-    background: #f5f5f5;
-    border-radius: 50%;
+.action-btn i {
+    font-size: 32px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+    transition: var(--transition-spring);
 }
+.action-btn:hover i { transform: scale(1.15); }
+.action-btn:active i { transform: scale(0.9); }
+.action-btn .count { font-size: 13px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
 
-.action-count {
-    color: #111111;
-    font-size: 13px;
-    font-weight: 600;
-    margin-top: -5px;
-}
+.action-btn.liked i { color: var(--primary); }
 
-/* ── 5. FEEDBACK COMPONENTS ── */
-.mute-btn-global {
-    position: fixed;
-    top: env(safe-area-inset-top, 20px);
-    right: 20px;
-    z-index: 100;
-    width: 44px;
-    height: 44px;
-    background: rgba(255, 255, 255, 0.85); /* White glass */
-    border-radius: 50%;
-    color: #111111;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.08); /* slight shadow */
-    cursor: pointer;
-}
-
-.video-loading {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 400% 100%;
-    animation: skeletonLoading 1.5s infinite linear;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border-radius: 16px;
-}
-
-@keyframes skeletonLoading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
-
-.play-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 20;
-    background: rgba(0,0,0,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 80px;
-    color: white;
-    opacity: 0.8;
-}
-
-.tap-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 2; /* Between video and info */
-    background: transparent;
-    cursor: pointer;
-}
-
-/* ── 6. ANIMATIONS ── */
-@keyframes heartPulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.4); }
-    100% { transform: scale(1); }
-}
-
-.action-btn.liked i { 
-    color: #ff2e63; /* Pink/Red accent */
-    animation: heartPulse 0.4s ease;
-}
-
+/* --- Interactions --- */
 .double-tap-heart {
     position: absolute;
-    color: #ff2e63; /* Pink accent */
-    font-size: 100px;
-    z-index: 50;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 120px;
+    color: var(--primary);
+    z-index: 10;
     pointer-events: none;
-    animation: doubleTapPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    opacity: 0;
+}
+.double-tap-heart.animate {
+    animation: heartPop 0.8s ease-out forwards;
 }
 
-@keyframes doubleTapPop {
-    0% { transform: scale(0) rotate(-15deg); opacity: 0; }
-    20% { transform: scale(1.2) rotate(10deg); opacity: 1; }
-    40% { transform: scale(1) rotate(0deg); opacity: 1; }
-    70% { transform: scale(1) translateY(-10px); opacity: 1; }
-    100% { transform: scale(0) translateY(-30px); opacity: 0; }
+@keyframes heartPop {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    20% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.9; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
 }
 
-/* Mobile full-screen adjustments */
-@media (max-width: 768px) {
+/* Tablet/Desktop Video Confinement */
+@media (min-width: 768px) {
     .reel-item {
-        max-width: 100%;
+        max-width: 450px;
+        height: 90vh; /* Don't stretch to full vh to look like a phone */
+        margin: var(--space-lg) auto;
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-soft);
     }
-    .video-wrapper {
-        height: 100vh;
-        height: 100dvh;
-        max-height: none;
-        border-radius: 0;
-        box-shadow: none;
-    }
-    .reel-video {
-        border-radius: 0;
-    }
-    .video-loading {
-        border-radius: 0;
-    }
-    .reel-info { bottom: calc(env(safe-area-inset-bottom, 80px) + 20px); }
-    .reel-actions { bottom: calc(env(safe-area-inset-bottom, 80px) + 40px); }
-}
-
-/* ── 7. COMMENT DRAWER (BOTTOM SHEET) ── */
-.comment-drawer {
-    position: fixed;
-    bottom: -100%;
-    left: 0;
-    right: 0;
-    height: 70vh;
-    background: #ffffff;
-    border-radius: 20px 20px 0 0;
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-    z-index: 2000;
-    transition: bottom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1);
-    display: flex;
-    flex-direction: column;
-}
-
-.comment-drawer.active {
-    bottom: 0;
-}
-
-.comment-header {
-    padding: 20px;
-    font-size: 16px;
-    font-weight: 800;
-    text-align: center;
-    border-bottom: 1px solid var(--border-subtle);
-    color: #111;
-}
-
-.comment-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-}
-
-.comment-input-area {
-    padding: 15px 20px;
-    border-top: 1px solid var(--border-subtle);
-    background: #ffffff;
-    display: flex;
-    gap: 10px;
-    padding-bottom: calc(15px + env(safe-area-inset-bottom));
-}
-
-.input-modern {
-    flex: 1;
-    padding: 12px 16px;
-    border: 1px solid var(--border-subtle);
-    border-radius: 20px;
-    background: var(--bg-surface);
-    color: #111;
-    outline: none;
-    font-family: inherit;
-    font-size: 14px;
 }

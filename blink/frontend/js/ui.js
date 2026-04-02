@@ -1,133 +1,141 @@
 /**
- * ui.js – Blink Platform UI Interactions v7.0 (IG Upgrade)
+ * ui.js – Blink UI Interactions
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    initNavbar();
-    initSearchSystem();
-    initToasts();
-    initLogout();
-    syncUserUniverse();
+    initApp();
 });
 
-function initNavbar() {
-    const page = window.location.pathname.split('/').pop() || 'index.html';
-    document.querySelectorAll('.nav-item').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href === page) link.classList.add('active');
-    });
+function initApp() {
+    initNavbar();
+    initSearch();
+    initToasts();
+    initLogout();
+}
 
-    // Toggle Sidebar Search
-    const searchTrigger = document.getElementById('navSearchTrigger');
-    const mobileSearchTrigger = document.getElementById('mobileSearchTrigger');
-    const wrapper = document.getElementById('sidebarSearchWrapper');
+function initNavbar() {
+    let currentPath = window.location.pathname.split('/').pop();
+    if (!currentPath || currentPath === '') currentPath = 'index.html';
     
-    const toggleSearch = () => {
-        if (!wrapper) return;
-        const isHidden = wrapper.style.display === 'none';
-        wrapper.style.display = isHidden ? 'block' : 'none';
-        if (isHidden) document.getElementById('searchInput')?.focus();
+    document.querySelectorAll('.nav-item').forEach(item => {
+        const href = item.getAttribute('href');
+        if (href && href === currentPath) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+}
+
+function initSearch() {
+    const searchTrigger = document.getElementById('searchTrigger');
+    const mobileSearchBtn = document.getElementById('mobileSearchBtn');
+    const searchOverlay = document.getElementById('searchOverlay');
+    const closeSearch = document.getElementById('closeSearch');
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+
+    if (!searchOverlay) return;
+
+    const openSearch = () => {
+        searchOverlay.classList.remove('hidden');
+        searchInput.focus();
     };
 
-    if (searchTrigger) searchTrigger.onclick = toggleSearch;
-    if (mobileSearchTrigger) mobileSearchTrigger.onclick = toggleSearch;
-}
+    const hideSearch = () => {
+        searchOverlay.classList.add('hidden');
+    };
 
-function initSearchSystem() {
-    const input = document.getElementById('searchInput');
-    const results = document.getElementById('searchResults');
-    let timeout;
+    if (searchTrigger) searchTrigger.onclick = openSearch;
+    if (mobileSearchBtn) mobileSearchBtn.onclick = openSearch;
+    if (closeSearch) closeSearch.onclick = hideSearch;
 
-    if (!input || !results) return;
+    // Close on click outside modal
+    searchOverlay.onclick = (e) => {
+        if (e.target === searchOverlay) hideSearch();
+    };
 
-    input.addEventListener('input', () => {
-        clearTimeout(timeout);
-        const query = input.value.trim();
-
+    // Live search logic
+    let debounceTimer;
+    searchInput.oninput = () => {
+        clearTimeout(debounceTimer);
+        const query = searchInput.value.trim();
+        
         if (!query) {
-            results.innerHTML = '';
-            results.style.display = 'none';
+            searchResults.innerHTML = '';
             return;
         }
 
-        timeout = setTimeout(async () => {
+        debounceTimer = setTimeout(async () => {
             try {
-                const res = await window.BlinkConfig.fetch(`/search?q=${encodeURIComponent(query)}`);
-                const data = await res.json();
-                renderResults(data);
+                const res = await window.BlinkConfig.fetch(`/users/search?q=${encodeURIComponent(query)}`);
+                const users = await res.json();
+                renderSearchResults(users);
             } catch (err) {
-                console.error('Search fault:', err);
+                console.error("Search error:", err);
             }
         }, 300);
-    });
-
-    function renderResults(data) {
-        if (!data || data.length === 0) {
-            results.innerHTML = '<div style="padding:10px; font-size:12px; color:#888;">No results for this query.</div>';
-            results.style.display = 'block';
-            return;
-        }
-
-        results.innerHTML = data.map(item => `
-            <div class="search-result-item" onclick="goTo('${item.type}', ${item.id})">
-                <img src="${item.image || 'https://via.placeholder.com/32'}" class="result-avatar">
-                <div class="result-info">
-                    <div class="result-title">${item.title}</div>
-                    <div class="result-type">${item.type}</div>
-                </div>
-            </div>
-        `).join('');
-        results.style.display = 'block';
-    }
+    };
 }
 
-window.goTo = function(type, id) {
-    if (type === 'user') {
-        window.location.href = `profile.html?id=${id}`;
-    } else {
-        window.location.href = `index.html?v=${id}`;
+function renderSearchResults(users) {
+    const resultsContainer = document.getElementById('searchResults');
+    if (!users || users.length === 0) {
+        resultsContainer.innerHTML = '<div class="flex-center p-4 text-secondary">No users found</div>';
+        return;
     }
-};
 
-async function syncUserUniverse() {
-    if (!window.BlinkConfig?.getToken()) return;
-    try {
-        const res = await window.BlinkConfig.fetch('/auth/me');
-        const data = await res.json();
-        if (data.success) {
-            window.BlinkConfig.setUser(data.user);
-            console.log("🌌 Universe Synchronized.");
-        }
-    } catch (e) {
-        console.warn("Universe sync failure:", e.message);
-    }
+    resultsContainer.innerHTML = users.map(user => `
+        <div class="search-item" onclick="window.location.href='profile.html?id=${user.id}'">
+            <img src="${user.profile_pic || 'https://via.placeholder.com/150'}" class="avatar">
+            <div class="user-info">
+                <div class="username">${user.username}</div>
+                <div class="text-secondary" style="font-size: 12px;">${user.full_name || ''}</div>
+            </div>
+        </div>
+    `).join('');
 }
 
 function initLogout() {
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
-        logoutBtn.onclick = () => {
+        logoutBtn.onclick = (e) => {
+            e.preventDefault();
             window.BlinkConfig.logout();
         };
     }
 }
 
 function initToasts() {
-    window.showToast = (message, type = 'info') => {
-        let container = document.getElementById('toastContainer');
-        if (!container) {
-            container = document.createElement('div');
-            container.id = 'toastContainer';
-            document.body.appendChild(container);
-        }
+    window.showToast = (message, type = 'success') => {
+        const container = document.getElementById('toastContainer') || document.body;
         const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.innerHTML = `<span>${message}</span>`;
+        toast.className = `toast toast-${type} animate-up`;
+        toast.innerText = message;
+        
+        // Custom styling for toast since we removed it from global/components partly
+        Object.assign(toast.style, {
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--bg-elevated)',
+            color: '#fff',
+            padding: '12px 24px',
+            borderRadius: 'var(--radius-full)',
+            boxShadow: 'var(--shadow-soft)',
+            zIndex: '9999',
+            border: '1px solid var(--border-subtle)',
+            fontSize: '14px',
+            fontWeight: '600'
+        });
+
         container.appendChild(toast);
-        setTimeout(() => toast.classList.add('show'), 10);
         setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 400);
+            toast.style.opacity = '0';
+            toast.style.transform = 'translate(-50%, -20px)';
+            toast.style.transition = 'all 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
         }, 3000);
     };
 }

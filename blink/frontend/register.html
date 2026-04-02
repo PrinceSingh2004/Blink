@@ -2,73 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
-    <title>Register | Blink Universe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Join Blink</title>
     <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Styles -->
     <link rel="stylesheet" href="css/global.css">
-    <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/auth.css">
 </head>
-
 <body>
 
     <div class="auth-container">
-        
-        <div class="auth-card">
-            <header class="auth-header">
-                <span class="auth-logo text-gradient">B</span>
-                <h1 class="auth-title">Create account</h1>
-                <p class="auth-subtitle">Join the Blink community and share your moments.</p>
+        <div class="auth-card animate-up">
+            <header class="auth-header text-center">
+                <span class="logo text-6xl text-gradient">B</span>
+                <h1 class="auth-title mt-4">Create account</h1>
+                <p class="auth-subtitle">Join the universe of Blink.</p>
             </header>
 
-            <form id="registerForm" class="auth-form">
-                <div class="form-group">
-                    <label class="form-label">Username</label>
-                    <div class="input-wrap">
-                        <input type="text" name="username" class="form-input" placeholder="Choose a unique handle" required>
-                    </div>
+            <form id="registerForm" class="auth-form mt-8 flex-col gap-4">
+                <div class="input-group">
+                    <label class="text-sm font-600 mb-2 block">Username</label>
+                    <input type="text" name="username" class="input-field w-full" placeholder="Choose a handle" required>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Email Address</label>
-                    <div class="input-wrap">
-                        <input type="email" name="email" class="form-input" placeholder="your@email.com" required>
-                    </div>
+                <div class="input-group">
+                    <label class="text-sm font-600 mb-2 block">Email Address</label>
+                    <input type="email" name="email" class="input-field w-full" placeholder="your@email.com" required>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <div class="input-wrap">
-                        <input type="password" name="password" class="form-input" placeholder="Create a strong secret" required>
-                    </div>
+                <div class="input-group">
+                    <label class="text-sm font-600 mb-2 block">Password</label>
+                    <input type="password" name="password" class="input-field w-full" placeholder="Create secret" required>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Confirm Password</label>
-                    <div class="input-wrap">
-                        <input type="password" name="confirmPassword" class="form-input" placeholder="Repeat your secret" required>
-                    </div>
-                </div>
-
-                <button type="submit" id="registerBtn" class="btn btn-primary" style="height: 52px; font-size: 16px;">
-                    Create my account
+                <button type="submit" id="registerBtn" class="btn btn-primary w-full h-14 text-lg mt-6">
+                    Create account
                 </button>
             </form>
 
-            <footer class="auth-footer">
+            <footer class="auth-footer mt-8 text-center">
                 Already have an account? <a href="login.html" class="auth-link">Sign In</a>
             </footer>
         </div>
-
     </div>
 
-    <!-- ── NOTIFICATIONS ─────────────────────────────────────── -->
     <div id="toastContainer"></div>
 
-    <!-- ── SCRIPTS ────────────────────────────────────────────── -->
     <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
 </body>
 </html>

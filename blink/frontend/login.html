@@ -2,64 +2,54 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
-    <title>Login | Blink Universe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Login | Blink</title>
     <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Styles -->
     <link rel="stylesheet" href="css/global.css">
-    <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/auth.css">
 </head>
-
 <body>
 
     <div class="auth-container">
-        
-        <div class="auth-card">
+        <div class="auth-card animate-up">
             <header class="auth-header">
-                <span class="auth-logo text-gradient">B</span>
-                <h1 class="auth-title">Welcome back</h1>
-                <p class="auth-subtitle">Enter your credentials to access your Blink account.</p>
+                <span class="logo text-6xl text-gradient">B</span>
+                <h1 class="auth-title mt-4">Welcome back</h1>
+                <p class="auth-subtitle">Sign in to share your moments</p>
             </header>
 
-            <form id="loginForm" class="auth-form">
-                <div class="form-group">
-                    <label class="form-label">Username or Email</label>
-                    <div class="input-wrap">
-                        <input type="text" name="identifier" class="form-input" placeholder="Enter your identity" required>
-                    </div>
+            <form id="loginForm" class="auth-form mt-8 flex-col gap-6">
+                <div class="input-group">
+                    <label class="text-sm font-600 mb-2 block">Username or Email</label>
+                    <input type="text" name="identifier" class="input-field w-full" placeholder="Enter your identity" required>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <div class="input-wrap">
-                        <input type="password" name="password" class="form-input" placeholder="Enter your secret" required>
-                        <button type="button" class="pw-toggle" style="position: absolute; right: 16px; top: 18px; color: var(--text-muted);">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                    </div>
+                <div class="input-group">
+                    <label class="text-sm font-600 mb-2 block">Password</label>
+                    <input type="password" name="password" class="input-field w-full" placeholder="Enter your secret" required>
                 </div>
 
                 <div id="loginAlert" class="auth-alert"></div>
 
-                <button type="submit" id="loginBtn" class="btn btn-primary" style="height: 52px; font-size: 16px;">
-                    Sign in to Blink
+                <button type="submit" id="loginBtn" class="btn btn-primary w-full h-14 text-lg">
+                    Sign In
                 </button>
             </form>
 
-            <footer class="auth-footer">
-                Don't have an account? <a href="register.html" class="auth-link">Create Account</a>
+            <footer class="auth-footer mt-8">
+                Don't have an account? <a href="register.html" class="auth-link">Create one</a>
             </footer>
         </div>
-
     </div>
 
-    <!-- ── NOTIFICATIONS ─────────────────────────────────────── -->
     <div id="toastContainer"></div>
 
-    <!-- ── SCRIPTS ────────────────────────────────────────────── -->
     <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
 </body>
 </html>

@@ -1,100 +1,38 @@
 /* 
- * responsive.css – Blink Platform Adaptive Layouts v5.1
- * Clean, Standardized Breakpoints & Grid Controls.
+ * responsive.css – Adaptive Layouts Ensure Cross-Device Consistency
  */
 
-/* --- 1. GLOBAL ADAPTATIONS --- */
-:root {
-    --sidebar-width: 280px;
+/* --- TABLET --- */
+@media (max-width: 1024px) {
+    .sidebar { width: var(--sidebar-width-tablet); padding-left: var(--space-xs); padding-right: var(--space-xs); }
+    .sidebar .logo { font-size: 20px; text-align: center; }
+    .sidebar .nav-text { display: none; }
+    .sidebar .nav-item { justify-content: center; padding: 12px; }
 }
 
-/* --- 2. TABLET / COMPACT DESKTOP (max-width: 1100px) --- */
-@media (max-width: 1100px) {
-    :root {
-        --sidebar-width: 80px;
-    }
-
-    .nav-link span, 
-    .nav-logo h2,
-    .sidebar-footer span {
-        display: none;
-    }
-
-    .nav-link {
-        justify-content: center;
-        padding: var(--space-md);
-    }
-}
-
-/* --- 3. MOBILE BREAKPOINT (max-width: 768px) --- */
+/* --- MOBILE --- */
 @media (max-width: 768px) {
-    .app-sidebar {
-        display: none !important; /* Force hide sidebar on mobile */
-    }
-
-    .bottom-nav {
-        display: flex; /* Show bottom navigation */
-    }
-
-    .app-container {
-        display: block; /* Stack vertically if needed, though flex:1 main takes over */
-    }
-
+    .sidebar { display: none !important; }
+    
+    .mobile-nav { display: flex; }
+    
     .main-content {
-        width: 100%;
-        margin: 0;
+        /* Add padding on pages that scroll, but for feed it might overlap, 
+           we need to make sure feed isn't constrained by padding */
+    }
+    
+    body:not(.is-reels-page) .main-content {
         padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
     }
 
-    /* Task Requirement: Responsive Grid for Feed/Explore (1 Column) */
-    .explore-grid, 
-    .feed-container {
-        grid-template-columns: 1fr;
-        padding: var(--space-md) 0;
+    .reel-content {
+        padding-bottom: calc(var(--space-lg) + var(--bottom-nav-height) + env(safe-area-inset-bottom));
+    }
+    .reel-actions {
+        margin-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) - 20px);
     }
 
-    /* Profile Grid remains 3 columns (Instagram Style) */
-    .profile-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1px;
-    }
-
-    .profile-header {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: var(--space-lg);
-        padding: var(--space-xl) var(--space-md);
+    .profile-container {
+        padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
     }
 }
-
-/* --- 4. TABLET GRID (769px to 1200px) --- */
-@media (min-width: 769px) and (max-width: 1200px) {
-    /* Task Requirement: 2 Columns for Tablet */
-    .explore-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--space-md);
-    }
-}
-
-/* --- 5. DESKTOP GRID (min-width: 1201px) --- */
-@media (min-width: 1201px) {
-    /* Task Requirement: 3 Columns for Desktop */
-    .explore-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: var(--space-lg);
-    }
-}
-
-/* --- 6. NOTCH SUPPORT (iPhone/Android) --- */
-@supports (padding: env(safe-area-inset-bottom)) {
-    .bottom-nav {
-        height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
-        padding-bottom: env(safe-area-inset-bottom);
-    }
-}
-
-/* --- 7. DEBUG LAYER (Toggle this to find hidden overlaps) --- */
-/* 
-* { outline: 1px solid rgba(255, 0, 0, 0.3) !important; }
-*/

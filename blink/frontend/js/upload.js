@@ -1,161 +1,111 @@
 /**
- * upload.js – Blink Creator Studio Pro v6.0
- * Features: Multi-upload, Real-time Progress, Auto Metadata, Smart Suggestions
+ * upload.js – Blink Creator Studio
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    const { getToken, requireAuth, showToast, API } = window.Blink;
-    if (!requireAuth()) return;
+    initUpload();
+});
 
-    const elements = {
-        dropzone:    document.getElementById('dropzone'),
-        mediaInput:  document.getElementById('mediaInput'),
-        vidPreview:  document.getElementById('videoPreview'),
-        caption:     document.getElementById('captionInput'),
-        publishBtn:  document.getElementById('publishBtn'),
-        progress:    document.getElementById('uploadProgress'),
-        progressFill:document.getElementById('progressFill'),
-        progressText:document.getElementById('progressText'),
-        dropContent: document.getElementById('dropzoneContent'),
-        loader:      document.querySelector('.loader')
-    };
+function initUpload() {
+    const dropzone = document.getElementById('dropzone');
+    const mediaInput = document.getElementById('mediaInput');
+    const videoPreview = document.getElementById('videoPreview');
+    const publishBtn = document.getElementById('publishBtn');
+    const captionInput = document.getElementById('captionInput');
 
-    let uploadQueue = [];
-    let isUploading = false;
+    if (!dropzone || !mediaInput) return;
 
-    // ── 1. SMART SELECTION & PREVIEW ───────────────────────────
-    elements.dropzone.onclick = () => elements.mediaInput.click();
+    dropzone.onclick = () => mediaInput.click();
 
-    elements.mediaInput.onchange = (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-
-        // Validation & Queueing (Task: Max 100MB)
-        const validFiles = files.filter(file => {
-            const isVideo = file.type.startsWith('video/');
-            const isSizeOk = file.size <= 100 * 1024 * 1024; // 100MB
-            
-            if (!isVideo) showToast(`"${file.name}" is not a valid video.`, 'error');
-            if (!isSizeOk) showToast(`"${file.name}" exceeds 100MB limit.`, 'error');
-            
-            return isVideo && isSizeOk;
-        });
-
-        if (validFiles.length > 0) {
-            uploadQueue = [...uploadQueue, ...validFiles];
-            updatePreview(validFiles[0]);
-            
-            // SMART: Auto Metadata Simulation
-            suggestMetaData(validFiles[0]);
-            
-            showToast(`${validFiles.length} scenes added to sequence.`, 'success');
+    mediaInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            handleFileSelect(file);
         }
     };
 
-    function updatePreview(file) {
+    dropzone.ondragover = (e) => {
+        e.preventDefault();
+        dropzone.classList.add('bg-primary-fade');
+    };
+
+    dropzone.ondragleave = () => {
+        dropzone.classList.remove('bg-primary-fade');
+    };
+
+    dropzone.ondrop = (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('bg-primary-fade');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('video/')) {
+            handleFileSelect(file);
+        }
+    };
+
+    function handleFileSelect(file) {
         const url = URL.createObjectURL(file);
-        elements.vidPreview.src = url;
-        elements.vidPreview.style.display = 'block';
-        elements.dropContent.style.display = 'none';
+        videoPreview.src = url;
+        videoPreview.classList.remove('hidden');
         
-        // Auto-extract thumbnail frame (v6.0 Innovation)
-        elements.vidPreview.onloadedmetadata = () => {
-            elements.vidPreview.currentTime = 1; // Seek to 1s for better thumb
-        };
+        // Hide dropzone icons/text
+        dropzone.querySelectorAll(':not(#videoPreview):not(input)').forEach(el => el.classList.add('hidden'));
+        dropzone.style.padding = '0';
+        
+        window.showToast("Video selected!");
     }
 
-    function suggestMetaData(file) {
-        // AI Placeholder (v6.0 requirement)
-        const nameKeywords = file.name.split(/[._\s-]/);
-        const tags = ['#blink', '#trending', '#creator'].concat(nameKeywords.filter(k => k.length > 3).map(k => `#${k.toLowerCase()}`));
-        
-        if (!elements.caption.value) {
-            elements.caption.value = `Witness this moment. ${tags.slice(0, 5).join(' ')}`;
+    publishBtn.onclick = async () => {
+        const file = mediaInput.files[0];
+        const caption = captionInput.value.trim();
+
+        if (!file) {
+            window.showToast("Please select a video first", "error");
+            return;
         }
-    }
 
-    // ── 2. SCALABLE UPLOAD PIPELINE ────────────────────────────
-    elements.publishBtn.onclick = async () => {
-        if (uploadQueue.length === 0) return showToast('Select at least one video.', 'info');
-        if (isUploading) return;
+        const formData = new FormData();
+        formData.append('video', file);
+        formData.append('caption', caption);
 
-        isUploading = true;
-        elements.publishBtn.disabled = true;
-        elements.progress.classList.remove('hidden');
-
-        for (let i = 0; i < uploadQueue.length; i++) {
-            const file = uploadQueue[i];
-            const currentStep = `[${i + 1}/${uploadQueue.length}]`;
+        try {
+            publishBtn.disabled = true;
+            document.getElementById('uploadProgress').classList.remove('hidden');
             
-            try {
-                await uploadFile(file, currentStep);
-                showToast(`${currentStep} Synced to the universe.`, 'success');
-            } catch (err) {
-                console.error("Upload Failure:", err);
-                showToast(`${currentStep} Pulse failed: ${err.message}`, 'error');
-                const retry = confirm(`Scene ${i+1} failed. Retry?`);
-                if (retry) { i--; continue; } // Decrement to retry same file
-            }
-        }
-
-        finishSequence();
-    };
-
-    function uploadFile(file, stepPrefix) {
-        return new Promise((resolve, reject) => {
-            const formData = new FormData();
-            formData.append('video', file);
-            formData.append('caption', elements.caption.value.trim());
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', `${API}/upload/video`, true);
-            xhr.setRequestHeader('Authorization', `Bearer ${getToken()}`);
+            xhr.open('POST', window.BlinkConfig.API_BASE + '/posts/upload', true);
+            xhr.setRequestHeader('Authorization', `Bearer ${window.BlinkConfig.getToken()}`);
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
                     const percent = Math.round((e.loaded / e.total) * 100);
-                    elements.progressFill.style.width = percent + "%";
-                    elements.progressText.textContent = `🚀 ${stepPrefix} Transmitting vision... ${percent}%`;
+                    progressFill.style.width = percent + '%';
+                    progressText.innerText = `Uploading... ${percent}%`;
                 }
             };
 
             xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
-                else reject(new Error(JSON.parse(xhr.responseText).error || 'Upload failed'));
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    window.showToast("Post published successfully!");
+                    setTimeout(() => window.location.href = 'index.html', 1500);
+                } else {
+                    window.showToast("Upload failed", "error");
+                    publishBtn.disabled = false;
+                }
             };
 
-            xhr.onerror = () => reject(new Error("Network connection lost"));
+            xhr.onerror = () => {
+                window.showToast("Network error", "error");
+                publishBtn.disabled = false;
+            };
+
             xhr.send(formData);
-            
-            // Cancel support logic (optional enhancement)
-            elements.publishBtn.innerHTML = 'Cancel Sync';
-            elements.publishBtn.onclick = () => { xhr.abort(); reject(new Error("User cancelled")); };
-        });
-    }
 
-    function finishSequence() {
-        elements.progressFill.style.width = "100%";
-        elements.progressText.textContent = "✅ Sequence Complete!";
-        showToast('All moments published successfully.', 'success');
-        
-        setTimeout(() => window.location.href = 'index.html', 1500);
-    }
-
-    // ── 3. DRAG & DROP UX ──────────────────────────────────────
-    elements.dropzone.ondragover = (e) => {
-        e.preventDefault();
-        elements.dropzone.classList.add('active');
-    };
-    elements.dropzone.ondragleave = () => {
-        elements.dropzone.classList.remove('active');
-    };
-    elements.dropzone.ondrop = (e) => {
-        e.preventDefault();
-        elements.dropzone.classList.remove('active');
-        const files = e.dataTransfer.files;
-        if (files) {
-            elements.mediaInput.files = files;
-            elements.mediaInput.dispatchEvent(new Event('change'));
+        } catch (err) {
+            console.error("Upload error:", err);
+            publishBtn.disabled = false;
         }
     };
-});
+}

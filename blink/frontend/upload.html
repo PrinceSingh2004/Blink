@@ -2,131 +2,148 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
-    <title>Blink | Creator Studio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Create | Blink</title>
     <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Styles -->
     <link rel="stylesheet" href="css/global.css">
     <link rel="stylesheet" href="css/components.css">
-    <link rel="stylesheet" href="css/pages.css">
 </head>
-
 <body>
 
     <div class="app-container">
-        
-        <!-- ── SIDEBAR (Desktop) ─────────────────────── -->
-        <aside class="app-sidebar">
-            <div class="nav-logo">
-                <span class="text-gradient" style="font-size: 32px;">B</span>
-                <h2 class="text-gradient">Blink</h2>
-            </div>
-            
-            <nav class="nav-links">
-                <a href="index.html" class="nav-link">
-                    <i class="bi bi-house-door"></i>
-                    <span>Home</span>
+                <!-- Sidebar (Desktop) -->
+        <aside class="sidebar">
+            <div class="logo text-gradient flex-center py-4">Blink</div>
+            <nav class="nav-links flex-col flex-1">
+                <a href="index.html" class="nav-item" data-page="index">
+                    <i class="bi bi-house-door-fill"></i>
+                    <span class="nav-text">Home</span>
                 </a>
-                <a href="upload.html" class="nav-link active">
-                    <i class="bi bi-plus-square-fill"></i>
-                    <span>Create</span>
+                <div class="nav-item" id="searchTrigger">
+                    <i class="bi bi-search"></i>
+                    <span class="nav-text">Search</span>
+                </div>
+                <a href="upload.html" class="nav-item" data-page="upload">
+                    <i class="bi bi-plus-square"></i>
+                    <span class="nav-text">Create</span>
                 </a>
-
-                <a href="messages.html" class="nav-link">
-                    <i class="bi bi-chat-dots"></i>
-                    <span>Messages</span>
+                <a href="live.html" class="nav-item" data-page="live">
+                    <i class="bi bi-broadcast"></i>
+                    <span class="nav-text">Live</span>
                 </a>
-                <a href="profile.html" class="nav-link" id="sidebarProfileLink">
-                    <img id="sidebarAvatarImg" src="https://via.placeholder.com/24" class="avatar" style="width:24px; height:24px;">
-                    <span>Profile</span>
+                <a href="messages.html" class="nav-item" data-page="messages">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span class="nav-text">Messages</span>
+                </a>
+                <a href="profile.html" class="nav-item" data-page="profile">
+                    <i class="bi bi-person-circle"></i>
+                    <span class="nav-text">Profile</span>
                 </a>
             </nav>
-
-            <div class="sidebar-footer" style="padding: 20px;">
-                <button id="logoutBtn" class="nav-link w-full">
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="nav-item w-full">
                     <i class="bi bi-box-arrow-right"></i>
-                    <span>Logout</span>
+                    <span class="nav-text">Logout</span>
                 </button>
             </div>
         </aside>
 
-        <!-- ── CREATE CONTENT AREA ────────────────────────────── -->
-        <main class="main-content">
-            <div class="upload-container animate-fade">
-                
-                <header class="flex-col gap-1">
-                    <h1 class="text-gradient">Creator Studio</h1>
-                    <p style="color: var(--text-secondary); margin-bottom: var(--space-md);">Share a new highlight with your Blink community.</p>
+        <!-- Main Content -->
+        <main class="main-content flex-center">
+            <div class="upload-container animate-up w-full max-w-lg p-6">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-800 text-gradient">Create New Post</h1>
+                    <p class="text-secondary mt-2">Share your moment with the world.</p>
                 </header>
 
-                <div class="upload-card">
+                <div class="card p-6 bg-surface border-subtle">
                     <!-- Drop Zone -->
-                    <div class="drop-zone" id="dropzone">
-                        <input type="file" id="mediaInput" accept="video/*,image/*" hidden>
+                    <div id="dropzone" class="drop-zone border-dashed border-2 border-primary rounded-xl p-12 text-center cursor-pointer hover:bg-primary-fade transition-all" style="height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
+                        <input type="file" id="mediaInput" accept="video/*" hidden>
+                        <i class="bi bi-camera-reels text-5xl text-primary"></i>
+                        <h3 class="text-xl font-bold">Select video to upload</h3>
+                        <p class="text-secondary text-sm">Or drag and drop a file</p>
+                        <button class="btn btn-primary mt-4">Select file</button>
                         
-                        <div id="dropzoneContent" class="flex-col flex-center gap-1">
-                            <i class="bi bi-plus-circle-dotted"></i>
-                            <h3 style="color: white;">Select Video</h3>
-                            <p style="font-size: 13px;">MP4 or WebM recommended (9:16)</p>
-                            <button class="btn btn-secondary" style="margin-top: 16px;">Browse device</button>
-                        </div>
-                        
-                        <!-- Preview Container -->
-                        <video id="videoPreview" class="preview-player" style="display: none;" loop muted></video>
+                        <!-- Preview (Hidden by default) -->
+                        <video id="videoPreview" class="hidden w-full h-full object-cover rounded-lg" loop muted controls></video>
                     </div>
 
-                    <!-- Form Section -->
-                    <div class="form-group">
-                        <label class="form-label">Tell a story (Caption)</label>
-                        <div class="input-wrap">
-                            <textarea id="captionInput" class="form-input" style="height: 120px; resize: none;" placeholder="What's happening? #BlinkMoment"></textarea>
+                    <div class="mt-6 flex-col gap-4">
+                        <div class="input-group">
+                            <label class="text-sm font-600 mb-2 block">Caption</label>
+                            <textarea id="captionInput" class="input-field w-full" rows="4" placeholder="Write a caption..."></textarea>
                         </div>
-                    </div>
 
-                    <!-- Upload State -->
-                    <div id="uploadProgress" class="hidden">
-                        <div class="flex-between" style="margin-bottom: 8px;">
-                            <span id="progressText" style="font-size: 13px; font-weight: 700;">Uploading... 0%</span>
-                            <div class="loader" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                        <!-- Progress Bar (Hidden) -->
+                        <div id="uploadProgress" class="hidden mt-4">
+                            <div class="flex-between mb-2">
+                                <span class="text-sm" id="progressText">Uploading... 0%</span>
+                                <div class="spinner-sm"></div>
+                            </div>
+                            <div class="w-full bg-border-subtle rounded-full h-2 overflow-hidden">
+                                <div id="progressFill" class="bg-primary h-full transition-all" style="width: 0%"></div>
+                            </div>
                         </div>
-                        <div class="upload-progress">
-                            <div id="progressFill" class="progress-fill"></div>
-                        </div>
-                    </div>
 
-                    <button id="publishBtn" class="btn btn-primary w-full" style="height: 52px; font-size: 16px;">
-                        Post Blink
-                    </button>
+                        <button id="publishBtn" class="btn btn-primary w-full h-14 text-lg mt-6">Share Post</button>
+                    </div>
                 </div>
-
             </div>
         </main>
 
-        <!-- ── MOBILE BOTTOM NAVIGATION ─────────────────── -->
-        <nav class="bottom-nav">
-            <a href="index.html" class="bottom-link">
-                <i class="bi bi-house-door"></i>
+                <!-- Mobile Nav -->
+        <nav class="mobile-nav">
+            <a href="index.html" class="nav-item" data-page="index">
+                <i class="bi bi-house-door-fill"></i>
+                <span>Home</span>
             </a>
-
-            <a href="upload.html" class="bottom-link active">
-                <i class="bi bi-plus-square-fill"></i>
+            <div class="nav-item" id="mobileSearchBtn">
+                <i class="bi bi-search"></i>
+                <span>Search</span>
+            </div>
+            <a href="upload.html" class="nav-item" data-page="upload">
+                <i class="bi bi-plus-square"></i>
+                <span>Create</span>
             </a>
-            <a href="messages.html" class="bottom-link">
-                <i class="bi bi-chat-dots"></i>
+            <a href="live.html" class="nav-item" data-page="live">
+                <i class="bi bi-broadcast"></i>
+                <span>Live</span>
             </a>
-            <a href="profile.html" class="bottom-link">
-                <img id="mobileAvatarImg" src="https://via.placeholder.com/24" class="avatar" style="width:24px; height:24px; border:none;">
+            <a href="messages.html" class="nav-item" data-page="messages">
+                <i class="bi bi-chat-dots-fill"></i>
+                <span>Messages</span>
+            </a>
+            <a href="profile.html" class="nav-item" data-page="profile">
+                <i class="bi bi-person-circle"></i>
+                <span>Profile</span>
             </a>
         </nav>
-
     </div>
 
-    <!-- ── NOTIFICATIONS ─────────────────────────────────────── -->
+    <!-- Same Search Overlay -->
+    <div id="searchOverlay" class="modal-overlay hidden">
+        <div class="search-modal animate-up">
+            <div class="search-header flex-between">
+                <h2>Search</h2>
+                <button id="closeSearch" class="btn-circle btn-ghost"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="search-bar">
+                <i class="bi bi-search"></i>
+                <input type="text" id="searchInput" placeholder="Search for users..." autocomplete="off">
+            </div>
+            <div id="searchResults" class="search-results-list"></div>
+        </div>
+    </div>
+
     <div id="toastContainer"></div>
 
-    <!-- ── SCRIPTS ────────────────────────────────────────────── -->
     <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/upload.js"></script>
