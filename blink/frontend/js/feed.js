@@ -10,6 +10,22 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPlaying = null;
     let globalMuted = true;
 
+    // GLOBAL FETCH INTERCEPTOR
+    const API = (url, options = {}) => {
+        const token = localStorage.getItem("blink_token") || localStorage.getItem("token");
+        const baseURL = window.BlinkConfig ? window.BlinkConfig.API_BASE : '';
+        const fullUrl = url.startsWith('http') ? url : baseURL + url;
+
+        return fetch(fullUrl, {
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": token ? `Bearer ${token}` : "",
+                ...options.headers,
+            },
+        });
+    };
+
     // --- Video Observer ---
     const videoObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -30,16 +46,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Load Feed ---
     async function loadFeed() {
+        if (reelsContainer) {
+            reelsContainer.innerHTML = `
+                <div class="video-loader flex-center" style="height: 100vh;">
+                    <div class="spinner"></div>
+                </div>
+            `;
+        }
+
         try {
-            const res = await fetch('/api/videos');
+            const res = await API('/api/videos');
             console.log("STATUS:", res.status);
             
+            if (res.status === 401) {
+                window.location.href = '/login.html';
+                return;
+            }
+
             if (!res.ok) throw new Error("API FAILED");
             
             const data = await res.json();
             console.log("DATA:", data);
             
             allVideosData = data;
+
+            if (!data || data.length === 0) {
+                if (reelsContainer) {
+                    reelsContainer.innerHTML = `
+                        <div class="empty-state" style="color:white;text-align:center;padding:50px;">
+                            <h2>No videos available 📭</h2>
+                            <p>Follow more users or upload your own!</p>
+                        </div>
+                    `;
+                }
+                return;
+            }
+
             renderVideos(data);
         } catch (err) {
             console.error("FETCH ERROR:", err);
@@ -47,9 +89,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const feedEl = document.querySelector(".feed") || document.getElementById('reelsContainer');
             if (feedEl) {
                 feedEl.innerHTML = `
-                  <h2 style="color:white;text-align:center;">
-                    Failed to load feed 🚫
-                  </h2>
+                  <div style="height: 100vh; display: flex; align-items: center; justify-content: center;">
+                      <h2 style="color:white;text-align:center;">
+                        Failed to load feed 🚫
+                      </h2>
+                  </div>
                 `;
             }
         }
@@ -138,9 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
         count.innerText = parseInt(count.innerText) + (isLiked ? -1 : 1);
 
         try {
-            await window.BlinkConfig.fetch('/posts/like', {
+            await API('/api/like', {
                 method: 'POST',
-                body: JSON.stringify({ video_id: videoId })
+                body: JSON.stringify({ video_id: videoId, user_id: window.BlinkConfig?.getUser()?.id || 1 })
             });
         } catch (err) {
             console.error("Like error:", err);

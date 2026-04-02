@@ -7,15 +7,15 @@ const http = require('http'); // Required for Socket.IO
 const { Server } = require('socket.io'); // Socket.IO Server
 const app = express();
 const server = http.createServer(app);
-const pool = require('./config/db');
-
-// --- SOCKET.IO SETUP ---
 const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
   }
 });
+
+const jwt = require('jsonwebtoken');
+const pool = require('./config/db');
 
 // --- SECURITY & MIDDLEWARE ---
 app.use(helmet({
@@ -211,10 +211,31 @@ app.use('/api/users', userRoutes);
 app.use('/api/social', engagementRoutes); // New Engagement Engine
 app.use('/api/videos', postRoutes); // Legacy feed alias
 
-app.get('/api/videos', async (req, res) => {
+const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    console.log("❌ No token provided");
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.log("❌ Invalid token");
+    res.status(401).json({ message: "Invalid token" });
+  }
+};
+
+app.get('/api/videos', authMiddleware, async (req, res) => {
     try {
         console.log("API HIT");
+        console.log("TOKEN:", req.headers.authorization);
+        
         const [videos] = await pool.query("SELECT * FROM videos ORDER BY created_at DESC");
+        videos.sort(() => Math.random() - 0.5);
         res.json(videos);
     } catch (err) {
         console.error("DB ERROR:", err);

@@ -21,7 +21,23 @@ let mainObserver = null;
 let sentinel     = null;
 let sentinelObs  = null;
 
-const API_BASE = ''; // same origin – served by Express
+    const API_BASE = ''; // same origin – served by Express
+
+    // ── GLOBAL FETCH INTERCEPTOR ──────────────────────────────────
+    const API = (url, options = {}) => {
+        const token = localStorage.getItem("blink_token") || localStorage.getItem("token");
+        const baseURL = window.BlinkConfig ? window.BlinkConfig.API_BASE : API_BASE;
+        const fullUrl = url.startsWith('http') ? url : baseURL + url;
+
+        return fetch(fullUrl, {
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": token ? `Bearer ${token}` : "",
+                ...options.headers,
+            },
+        });
+    };
 
 // ── TOAST ─────────────────────────────────────────────────────
 function showToast(msg, duration = 2200) {
@@ -44,9 +60,13 @@ function fmt(n) {
 async function fetchVideos(mood = 'General', limit = 10) {
     const excludeParam = [...seenIds].join(',');
     const moodParam    = mood !== 'General' ? `&mood=${encodeURIComponent(mood)}` : '';
-    const url          = `${API_BASE}/api/videos?limit=${limit}${moodParam}&exclude=${excludeParam}`;
+    const url          = `/api/videos?limit=${limit}${moodParam}&exclude=${excludeParam}`;
 
-    const res = await fetch(url);
+    const res = await API(url);
+    if (res.status === 401) {
+        window.location.href = '/login.html';
+        return [];
+    }
     if (!res.ok) throw new Error(`API ${res.status}`);
     const data = await res.json();
     return data.videos || [];
@@ -145,7 +165,7 @@ function buildVideoCard(v) {
         const countEl = likeBtn.querySelector('.action-text');
         try {
             if (!alreadyLiked) {
-                const res  = await fetch(`/api/videos/${v.id}/like`, { method: 'POST' });
+                const res  = await API(`/api/videos/${v.id}/like`, { method: 'POST' });
                 const data = await res.json();
                 countEl.textContent = fmt(data.likes);
                 showToast('❤️ Liked!');
@@ -233,7 +253,10 @@ function setupVideoObserver(cards) {
                     // Track view count once per session
                     if (!post.dataset.viewed) {
                         post.dataset.viewed = '1';
-                        fetch(`/api/videos/${post.dataset.id}/view`, { method: 'POST' }).catch(() => {});
+                        API(`/api/posts/view`, { // Make sure this hits the right route
+                            method: 'POST',
+                            body: JSON.stringify({ videoId: post.dataset.id })
+                        }).catch(() => {});
                     }
 
                     // Preload the next card's video
