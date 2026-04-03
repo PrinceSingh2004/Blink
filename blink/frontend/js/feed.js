@@ -2,7 +2,7 @@
  * feed.js – Blink Reels Engine (Production Ready)
  */
 document.addEventListener('DOMContentLoaded', () => {
-    const container = document.getElementById("reelsContainer");
+    const container = document.getElementById("reelsContainer") || document.getElementById("feed");
     if (!container) return;
 
     let page = 1;
@@ -57,11 +57,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await window.API(`/api/videos?page=${page}&limit=10`);
             const data = await res.json();
             
+            console.log("VIDEOS:", data); // STEP 3: DEBUG RESPONSE
+            
+            const fetchedVideos = Array.isArray(data) ? data : (data.videos || []);
+            
             removeSkeletons();
 
             if (isInitial) container.innerHTML = "";
 
-            if (!data.videos || data.videos.length === 0) {
+            if (fetchedVideos.length === 0) {
                 if (isInitial) {
                     container.innerHTML = "<div class='empty-state'><h2>No videos yet 📭</h2><p>Be the first to upload!</p></div>";
                 }
@@ -69,9 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            renderVideos(data.videos);
+            renderVideos(fetchedVideos);
             
-            if (data.videos.length < 10) hasMore = false;
+            if (fetchedVideos.length < 10) hasMore = false;
 
         } catch (err) {
             console.error("❌ FEED Engine Error:", err);

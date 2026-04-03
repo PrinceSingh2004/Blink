@@ -6,13 +6,16 @@
 // GLOBAL API WRAPPER (Production Ready)
 window.API = (endpoint, options = {}) => {
   const token = localStorage.getItem("token") || localStorage.getItem("blink_token");
+  const API_BASE = "https://blink-yzoo.onrender.com";
   
   // Smart prefixing: only add /api if it's missing and not an absolute URL
   let url = endpoint;
   if (!endpoint.startsWith('http')) {
       const prefix = endpoint.startsWith('/api') ? '' : '/api';
-      url = `${prefix}${endpoint}`;
+      url = `${API_BASE}${prefix}${endpoint}`;
   }
+
+  console.log(`🌐 API CALL: ${url}`);
 
   return fetch(url, {
     ...options,

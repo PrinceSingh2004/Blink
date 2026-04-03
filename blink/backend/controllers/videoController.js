@@ -20,12 +20,13 @@ const fmt = (n) => {
 // ── GET FEED (Production Fix: Sort by Latest) ───────────────────
 exports.getFeed = async (req, res) => {
     try {
+        console.log("AUTH HEADER:", req.headers.authorization); // STEP 6: DEBUG AUTH
         const userId = req.user?.id || null;
         const page   = parseInt(req.query.page || '1', 10);
         const limit  = Math.min(parseInt(req.query.limit || '10', 10), 30);
         const offset = (page - 1) * limit;
 
-        console.log(`🎬 [FEED] Latest Videos: Page ${page}`);
+        console.log(`🎬 [FEED] Fetching Videos: Page ${page}`);
 
         const query = `
             SELECT v.*, u.username,
@@ -33,13 +34,13 @@ exports.getFeed = async (req, res) => {
                    u.is_verified,
                    ${userId ? `(SELECT COUNT(*) FROM likes WHERE video_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me` : '0 AS liked_by_me'}
             FROM videos v
-            JOIN users u ON u.id = v.user_id
-            WHERE v.is_active = TRUE
+            LEFT JOIN users u ON u.id = v.user_id
             ORDER BY v.created_at DESC
             LIMIT ? OFFSET ?
         `;
 
         const [videos] = await pool.query(query, [limit, offset]);
+        console.log(`✅ [FEED] ${videos.length} videos found in database`);
 
         const formatted = videos.map(v => ({
             ...v,
