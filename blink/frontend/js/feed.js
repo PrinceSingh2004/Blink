@@ -167,9 +167,8 @@ document.addEventListener('DOMContentLoaded', () => {
         countEl.textContent = isLiked ? currentCount - 1 : currentCount + 1;
         
         try {
-            await window.API('/api/like', {
-                method: 'POST',
-                body: JSON.stringify({ video_id: videoId })
+            await window.API(`/api/videos/${videoId}/like`, {
+                method: 'POST'
             });
         } catch (err) {
             console.error("Like transmission failed:", err);

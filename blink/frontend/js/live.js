@@ -4,7 +4,7 @@
  */
 
 const socket = io();
-const { getToken, getUser, showToast, API } = window.Blink;
+const { getToken, getUser, showToast } = window.BlinkConfig;
 
 let localStream;
 let peerConnections = {}; // PeerID -> PeerConnection
@@ -26,22 +26,21 @@ async function initMedia() {
         videoEl.srcObject = localStream;
         console.log("✅ Camera pulse stabilized");
     } catch (err) {
-        showToast("Camera and Mic permissions are required for live pulse.", "error");
+        if (window.showToast) window.showToast("Camera and Mic permissions are required for live pulse.", "error");
     }
 }
 
 // ── 2. BROADCAST LIFECYCLE ────────────────────────────────
 startBtn.onclick = async () => {
-    if (!localStream) return showToast("Initialize camera pulse first!", "info");
+    if (!localStream) return window.showToast("Initialize camera pulse first!", "info");
     
     startBtn.disabled = true;
     startBtn.textContent = "Connecting Universe...";
 
     try {
         // Register in DB Pulse
-        const res = await fetch(`${API}/live/start`, {
+        const res = await window.API('/live/start', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: user.id, title: `${user.username}'s Active Universe` })
         });
         const data = await res.json();
@@ -54,9 +53,9 @@ startBtn.onclick = async () => {
         // Join Signaling Pulse
         socket.emit('join-stream', `stream-${currentStreamId}`);
         console.log(`🚀 Pulse LIVE in room: stream-${currentStreamId}`);
-        showToast("The universe is watching.", "success");
+        if (window.showToast) window.showToast("The universe is watching.", "success");
     } catch (err) {
-        showToast("Pulse stabilization failed.", "error");
+        if (window.showToast) window.showToast("Pulse stabilization failed.", "error");
         startBtn.disabled = false;
         startBtn.textContent = "Go Live";
     }
@@ -67,14 +66,13 @@ endBtn.onclick = async () => {
     if (!confirmEnd) return;
 
     try {
-        await fetch(`${API}/live/stop`, {
+        await window.API('/live/stop', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ streamId: currentStreamId, userId: user.id })
         });
         window.location.href = 'index.html';
     } catch (err) {
-        showToast("Termination signal failed.", "error");
+        if (window.showToast) window.showToast("Termination signal failed.", "error");
     }
 };
 

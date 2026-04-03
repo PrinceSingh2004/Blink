@@ -15,8 +15,8 @@ const streamId = new URLSearchParams(window.location.search).get('id') || 'previ
 
 // ── TASK 1 & 2: JOIN STREAM SIGNALING ───────────────────────
 async function joinStream() {
-    console.log(`📡 Joining Signaling Room: room-${streamId}`);
-    socket.emit('join-stream', `room-${streamId}`);
+    console.log(`📡 Joining Signaling Room: stream-${streamId}`);
+    socket.emit('join-stream', `stream-${streamId}`);
 }
 
 // ── TASK 3 & 4: WEBRTC SIGNALING ───────────────────────────
@@ -56,7 +56,7 @@ socket.on('ice-candidate', async (data) => {
 chatInput.onkeydown = (e) => {
     if (e.key === 'Enter' && chatInput.value.trim()) {
         socket.emit('send-message', {
-            roomId: `room-${streamId}`,
+            roomId: `stream-${streamId}`,
             username: user.username,
             text: chatInput.value.trim()
         });
@@ -67,7 +67,7 @@ chatInput.onkeydown = (e) => {
 document.getElementById('sendBtn').onclick = () => {
     if (chatInput.value.trim()) {
         socket.emit('send-message', {
-            roomId: `room-${streamId}`,
+            roomId: `stream-${streamId}`,
             username: user.username,
             text: chatInput.value.trim()
         });

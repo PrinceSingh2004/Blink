@@ -98,11 +98,11 @@ const initDB = async () => {
             `CREATE TABLE IF NOT EXISTS likes (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
-                video_id INT NOT NULL,
+                post_id INT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_like (user_id, video_id),
+                UNIQUE KEY unique_like (user_id, post_id),
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+                FOREIGN KEY (post_id) REFERENCES videos(id) ON DELETE CASCADE
             )`,
             `CREATE TABLE IF NOT EXISTS followers (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -116,11 +116,11 @@ const initDB = async () => {
             `CREATE TABLE IF NOT EXISTS comments (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
-                video_id INT NOT NULL,
-                text TEXT NOT NULL,
+                post_id INT NOT NULL,
+                comment TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+                FOREIGN KEY (post_id) REFERENCES videos(id) ON DELETE CASCADE
             )`,
             `CREATE TABLE IF NOT EXISTS live_streams (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -208,8 +208,8 @@ const initDB = async () => {
             "CREATE INDEX IF NOT EXISTS idx_videos_user_id ON videos(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at)",
             "CREATE INDEX IF NOT EXISTS idx_videos_score ON videos(score)",
-            "CREATE INDEX IF NOT EXISTS idx_likes_user_video ON likes(user_id, video_id)",
-            "CREATE INDEX IF NOT EXISTS idx_comments_video ON comments(video_id)"
+            "CREATE INDEX IF NOT EXISTS idx_likes_user_video ON likes(user_id, post_id)",
+            "CREATE INDEX IF NOT EXISTS idx_comments_video ON comments(post_id)"
         ];
         for (let idxQ of indexQueries) {
             try { await pool.query(idxQ); } catch (e) { /* MySQL 8.0 standard check */ }
@@ -264,6 +264,7 @@ const uploadRoutes     = require('./routes/uploadRoutes');
 const userRoutes       = require('./routes/userRoutes');
 const engagementRoutes = require('./routes/engagementRoutes');
 const searchRoutes     = require('./routes/searchRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 app.use('/api/auth',    authRoutes);
 app.use('/api/videos',  videoRoutes); // Unified video & feed API
@@ -272,6 +273,7 @@ app.use('/api/upload',  uploadRoutes);
 app.use('/api/users',   userRoutes);
 app.use('/api/social',  engagementRoutes);
 app.use('/api/search',  searchRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

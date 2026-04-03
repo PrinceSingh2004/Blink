@@ -18,12 +18,12 @@ async function initProfile() {
 
 async function loadProfileData(userId, isSelf) {
     try {
-        const endpoint = isSelf ? '/users/me' : `/users/${userId}`;
+        const endpoint = isSelf ? '/users' : `/users/${userId}`;
         const res = await window.BlinkConfig.fetch(endpoint);
         const data = await res.json();
 
         if (data.success) {
-            renderProfile(data.user, isSelf);
+            renderProfile(data.data || data.user, isSelf);
         }
     } catch (err) {
         console.error("Profile load error:", err);
@@ -49,7 +49,7 @@ function renderProfile(user, isSelf) {
 
 async function loadUserPosts(userId, isSelf) {
     try {
-        const endpoint = isSelf ? '/posts/my' : `/posts/user/${userId}`;
+        const endpoint = isSelf ? '/posts/my' : `/videos/user/${userId}`;
         const res = await window.BlinkConfig.fetch(endpoint);
         const data = await res.json();
 
@@ -107,7 +107,7 @@ function initEditModal() {
         const profile_pic = document.getElementById('editAvatar').value;
 
         try {
-            const res = await window.BlinkConfig.fetch('/users/update', {
+            const res = await window.BlinkConfig.fetch('/users/update-profile', {
                 method: 'POST',
                 body: JSON.stringify({ username, bio, profile_pic })
             });
@@ -130,7 +130,7 @@ async function toggleFollow(userId, btn) {
     try {
         const res = await window.BlinkConfig.fetch('/social/follow', {
             method: 'POST',
-            body: JSON.stringify({ target_id: userId })
+            body: JSON.stringify({ userId: userId })
         });
         const data = await res.json();
         if (data.success) {

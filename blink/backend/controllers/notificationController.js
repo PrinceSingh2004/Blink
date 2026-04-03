@@ -1,7 +1,7 @@
 /**
  * controllers/notificationController.js
  */
-const pool = require('../db/config');
+const pool = require('../config/db');
 
 // ── GET NOTIFICATIONS ─────────────────────────────────────────────
 exports.getNotifications = async (req, res) => {
