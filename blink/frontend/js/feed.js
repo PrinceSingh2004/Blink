@@ -97,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     class="reel-video"
                     loop 
                     muted 
-                    autoplay 
                     playsinline
                     preload="auto"
                     style="width:100%; height:100%; object-fit:cover;">

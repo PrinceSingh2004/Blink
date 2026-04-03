@@ -213,19 +213,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// --- ROUTES ---
-const postRoutes = require('./routes/postRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
-const engagementRoutes = require('./routes/engagementRoutes');
-
-app.use('/api/posts', postRoutes);
-app.use('/api/upload', uploadRoutes); // Dedicated upload routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/social', engagementRoutes); // New Engagement Engine
-
 // ── MODULAR ROUTE ARCHITECTURE (Production Upgrade) ──────────
 const authRoutes       = require('./routes/authRoutes');
 const videoRoutes      = require('./routes/videos.js'); // Main Videos & Feed
@@ -233,6 +220,7 @@ const postRoutes       = require('./routes/postRoutes');
 const uploadRoutes     = require('./routes/uploadRoutes');
 const userRoutes       = require('./routes/userRoutes');
 const engagementRoutes = require('./routes/engagementRoutes');
+const searchRoutes     = require('./routes/searchRoutes');
 
 app.use('/api/auth',    authRoutes);
 app.use('/api/videos',  videoRoutes); // Unified video & feed API
@@ -240,6 +228,17 @@ app.use('/api/posts',   postRoutes);
 app.use('/api/upload',  uploadRoutes);
 app.use('/api/users',   userRoutes);
 app.use('/api/social',  engagementRoutes);
+app.use('/api/search',  searchRoutes);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('🔥 CRITICAL SYSTEM ERROR:', err.stack);
+    res.status(500).json({ 
+        success: false, 
+        message: 'Internal Server Error',
+        error: process.env.NODE_ENV === 'production' ? null : err.message 
+    });
+});
 
 // Static Uploads & Frontend Assets
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

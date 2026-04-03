@@ -75,7 +75,7 @@ function initUpload() {
             const progressText = document.getElementById('progressText');
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', window.BlinkConfig.API_BASE + '/api/upload/video', true);
+            xhr.open('POST', window.BlinkConfig.API_BASE + '/api/videos/upload', true);
             
             // Need to get token properly
             const token = window.BlinkConfig.getToken() || localStorage.getItem('token');

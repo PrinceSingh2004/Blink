@@ -21,10 +21,7 @@ router.get('/', optionalAuth, getFeed);
 router.get('/feed', optionalAuth, getFeed);
 router.get('/:id', optionalAuth, getVideo);
 router.post('/:id/view', recordView);
-router.post('/toggle-like/:id', protect, toggleLike);
-router.post('/:id/like', protect, toggleLike); // alias
-router.get('/:id/comments', getComments);
-router.post('/:id/comment', protect, postComment);
+router.post('/:id/like', protect, toggleLike); 
 router.post('/upload', protect, upload.single('video'), uploadVideo);
 router.get('/user/:id', getUserVideos);
 

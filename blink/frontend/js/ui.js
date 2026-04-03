@@ -68,9 +68,9 @@ function initSearch() {
 
         debounceTimer = setTimeout(async () => {
             try {
-                const res = await window.BlinkConfig.fetch(`/users/search?q=${encodeURIComponent(query)}`);
-                const users = await res.json();
-                renderSearchResults(users);
+                const res = await window.BlinkConfig.fetch(`/search?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                renderSearchResults(data);
             } catch (err) {
                 console.error("Search error:", err);
             }
@@ -78,22 +78,40 @@ function initSearch() {
     };
 }
 
-function renderSearchResults(users) {
+function renderSearchResults(data) {
     const resultsContainer = document.getElementById('searchResults');
-    if (!users || users.length === 0) {
-        resultsContainer.innerHTML = '<div class="flex-center p-4 text-secondary">No users found</div>';
+    if (!data.users?.length && !data.videos?.length) {
+        resultsContainer.innerHTML = '<div class="flex-center p-4 text-secondary">No results found</div>';
         return;
     }
 
-    resultsContainer.innerHTML = users.map(user => `
-        <div class="search-item" onclick="window.location.href='profile.html?id=${user.id}'">
-            <img src="${user.profile_pic || 'https://via.placeholder.com/150'}" class="avatar">
-            <div class="user-info">
-                <div class="username">${user.username}</div>
-                <div class="text-secondary" style="font-size: 12px;">${user.full_name || ''}</div>
+    let html = '';
+
+    if (data.users?.length) {
+        html += '<h4 class="px-4 py-2 text-secondary">Users</h4>';
+        html += data.users.map(user => `
+            <div class="search-item" onclick="window.location.href='profile.html?id=${user.id}'">
+                <img src="${user.profile_pic || 'https://via.placeholder.com/150'}" class="avatar">
+                <div class="user-info">
+                    <div class="username">${user.username}</div>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `).join('');
+    }
+
+    if (data.videos?.length) {
+        html += '<h4 class="px-4 py-2 text-secondary">Videos</h4>';
+        html += data.videos.map(video => `
+            <div class="search-item" onclick="window.location.href='index.html?v=${video.id}'">
+                <img src="${video.thumbnail_url || 'https://via.placeholder.com/150'}" class="avatar" style="border-radius: 4px;">
+                <div class="user-info">
+                    <div class="username">${video.caption || "Untitled Reel"}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    resultsContainer.innerHTML = html;
 }
 
 function initLogout() {

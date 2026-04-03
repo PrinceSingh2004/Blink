@@ -1,7 +1,7 @@
 /**
  * controllers/videoController.js – Videos & Reels
  */
-const pool     = require('../db/config');
+const pool     = require('../config/db');
 const { v2: cloudinary } = require('cloudinary');
 
 cloudinary.config({
@@ -17,7 +17,7 @@ const fmt = (n) => {
     return String(num);
 };
 
-// ── GET SMART FEED (Production Upgrade) ──────────────────────────
+// ── GET FEED (Production Fix: Sort by Latest) ───────────────────
 exports.getFeed = async (req, res) => {
     try {
         const userId = req.user?.id || null;
@@ -25,19 +25,17 @@ exports.getFeed = async (req, res) => {
         const limit  = Math.min(parseInt(req.query.limit || '10', 10), 30);
         const offset = (page - 1) * limit;
 
-        console.log(`🎬 [PRODUCTION FEED] Serving Page ${page} for ${userId ? `@${userId}` : 'Guest'}`);
+        console.log(`🎬 [FEED] Latest Videos: Page ${page}`);
 
-        // SMART RANKING ENGINE: Priority to high engagement, then recency
-        let query = `
+        const query = `
             SELECT v.*, u.username,
                    COALESCE(u.profile_pic, u.avatar_url, u.profile_photo) AS profile_pic,
                    u.is_verified,
-                   (COALESCE(v.likes_count, 0) * 2 + COALESCE(v.views_count, 0) * 0.5) as engagement_score
-                   ${userId ? `, (SELECT COUNT(*) FROM video_likes WHERE video_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me` : ', 0 AS liked_by_me'}
+                   ${userId ? `(SELECT COUNT(*) FROM video_likes WHERE video_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me` : '0 AS liked_by_me'}
             FROM videos v
             JOIN users u ON u.id = v.user_id
             WHERE v.is_active = TRUE
-            ORDER BY engagement_score DESC, v.created_at DESC
+            ORDER BY v.created_at DESC
             LIMIT ? OFFSET ?
         `;
 
@@ -45,21 +43,34 @@ exports.getFeed = async (req, res) => {
 
         const formatted = videos.map(v => ({
             ...v,
-            likes_formatted:    fmt(v.likes_count),
-            video_url:          v.video_url || v.url, // Fallback for old schema
-            liked_by_me:        Boolean(v.liked_by_me)
+            video_url: v.video_url || v.url,
+            liked_by_me: Boolean(v.liked_by_me)
         }));
 
-        res.json({ 
-            success: true,
-            page,
-            count: formatted.length,
-            videos: formatted, 
-            hasMore: formatted.length === limit 
-        });
+        res.json({ success: true, videos: formatted, hasMore: videos.length === limit });
     } catch (e) {
-        console.error('❌ Feed Engine Fault:', e.message);
-        res.status(500).json({ error: "Universe feed interrupted: " + e.message });
+        res.status(500).json({ error: e.message });
+    }
+};
+
+// ── SEARCH (Users + Videos) ───────────────────────────────────────
+exports.search = async (req, res) => {
+    try {
+        const q = `%${req.query.q || ""}%`;
+        
+        // Parallel lookup: Users and Videos
+        const [users] = await pool.query(
+            "SELECT id, username, profile_pic FROM users WHERE username LIKE ? LIMIT 10",
+            [q]
+        );
+        const [videos] = await pool.query(
+            "SELECT id, video_url, caption, thumbnail_url FROM videos WHERE caption LIKE ? LIMIT 10",
+            [q]
+        );
+
+        res.json({ success: true, users, videos });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 };
 
@@ -209,9 +220,9 @@ exports.uploadVideo = async (req, res) => {
         const thumbnailUrl = result.eager?.[0]?.secure_url || null;
 
         const [insert] = await pool.query(
-            `INSERT INTO videos (user_id, url, video_url, thumbnail_url, caption, hashtags, mood_category)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [req.user.id, videoUrl, videoUrl, thumbnailUrl, caption, hashtags, mood_category]
+            `INSERT INTO videos (user_id, video_url, thumbnail_url, caption, hashtags, public_id)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [req.user.id, videoUrl, thumbnailUrl, caption, hashtags, result.public_id]
         );
         await pool.query('UPDATE users SET posts_count = posts_count + 1 WHERE id = ?', [req.user.id]);
 
