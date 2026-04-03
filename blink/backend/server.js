@@ -68,7 +68,13 @@ const initDB = async () => {
                 email VARCHAR(100) UNIQUE NOT NULL, 
                 password VARCHAR(255) NOT NULL, 
                 profile_pic TEXT, 
+                avatar_url TEXT,
+                profile_photo TEXT,
                 bio TEXT,
+                is_verified BOOLEAN DEFAULT FALSE,
+                posts_count INT DEFAULT 0,
+                followers_count INT DEFAULT 0,
+                following_count INT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )`,
             `CREATE TABLE IF NOT EXISTS videos (
@@ -82,6 +88,8 @@ const initDB = async () => {
                 duration DECIMAL(10,2),
                 views_count INT DEFAULT 0,
                 likes_count INT DEFAULT 0,
+                comments_count INT DEFAULT 0,
+                shares_count INT DEFAULT 0,
                 score DECIMAL(15,2) DEFAULT 0,
                 is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -122,6 +130,28 @@ const initDB = async () => {
                 is_live BOOLEAN DEFAULT TRUE,
                 started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )`,
+            `CREATE TABLE IF NOT EXISTS notifications (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                actor_id INT,
+                type ENUM('like', 'comment', 'follow', 'mention') NOT NULL,
+                entity_type ENUM('video', 'user', 'comment'),
+                entity_id INT,
+                message TEXT,
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )`,
+            `CREATE TABLE IF NOT EXISTS messages (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                sender_id INT NOT NULL,
+                receiver_id INT NOT NULL,
+                text TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
             )`
         ];
 
@@ -141,6 +171,8 @@ const initDB = async () => {
             'duration': 'DECIMAL(10,2)',
             'views_count': 'INT DEFAULT 0',
             'likes_count': 'INT DEFAULT 0',
+            'comments_count': 'INT DEFAULT 0',
+            'shares_count': 'INT DEFAULT 0',
             'user_id': 'INT'
         };
 
@@ -154,9 +186,20 @@ const initDB = async () => {
         // --- User Profile Patch ---
         const [userCols] = await pool.query("SHOW COLUMNS FROM users");
         const userNames = userCols.map(c => c.Field);
-        if (!userNames.includes('bio')) {
-            console.log('🛠️ Patching users bio column...');
-            await pool.query("ALTER TABLE users ADD COLUMN bio TEXT AFTER profile_pic");
+        const userNeeded = {
+            'bio': 'TEXT',
+            'is_verified': 'BOOLEAN DEFAULT FALSE',
+            'posts_count': 'INT DEFAULT 0',
+            'followers_count': 'INT DEFAULT 0',
+            'following_count': 'INT DEFAULT 0',
+            'avatar_url': 'TEXT',
+            'profile_photo': 'TEXT'
+        };
+        for (const [col, type] of Object.entries(userNeeded)) {
+            if (!userNames.includes(col)) {
+                console.log(`🛠️ Patching users table: adding ${col}...`);
+                await pool.query(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
+            }
         }
 
         // --- DATABASE INDEXING (PERFORMANCE) ---
