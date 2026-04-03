@@ -159,6 +159,19 @@ const initDB = async () => {
             await pool.query("ALTER TABLE users ADD COLUMN bio TEXT AFTER profile_pic");
         }
 
+        // --- DATABASE INDEXING (PERFORMANCE) ---
+        console.log('⚡ Optimizing indexes for high-speed engagement...');
+        const indexQueries = [
+            "CREATE INDEX IF NOT EXISTS idx_videos_user_id ON videos(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_videos_score ON videos(score)",
+            "CREATE INDEX IF NOT EXISTS idx_likes_user_video ON likes(user_id, video_id)",
+            "CREATE INDEX IF NOT EXISTS idx_comments_video ON comments(video_id)"
+        ];
+        for (let idxQ of indexQueries) {
+            try { await pool.query(idxQ); } catch (e) { /* MySQL 8.0 standard check */ }
+        }
+
         console.log('✅ Blink Universe Database Schema Pulsating!');
     } catch (err) {
         console.error('❌ Database Pulse FAILURE:', err.message);
@@ -213,254 +226,22 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/social', engagementRoutes); // New Engagement Engine
 
-const authMiddleware = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
+// ── MODULAR ROUTE ARCHITECTURE (Production Upgrade) ──────────
+const authRoutes       = require('./routes/authRoutes');
+const videoRoutes      = require('./routes/videos.js'); // Main Videos & Feed
+const postRoutes       = require('./routes/postRoutes');
+const uploadRoutes     = require('./routes/uploadRoutes');
+const userRoutes       = require('./routes/userRoutes');
+const engagementRoutes = require('./routes/engagementRoutes');
 
-  if (!token) {
-    console.log("❌ No token provided");
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+app.use('/api/auth',    authRoutes);
+app.use('/api/videos',  videoRoutes); // Unified video & feed API
+app.use('/api/posts',   postRoutes);
+app.use('/api/upload',  uploadRoutes);
+app.use('/api/users',   userRoutes);
+app.use('/api/social',  engagementRoutes);
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    console.log("❌ Invalid token");
-    res.status(401).json({ message: "Invalid token" });
-  }
-};
-
-// --- PRIMARY FEED ROUTE (User Fix) ---
-app.get('/api/videos', authMiddleware, async (req, res) => {
-    try {
-        console.log("-----------------------------------------");
-        console.log("🔥 API HIT: /api/videos");
-        console.log("👤 USER:", req.user);
-
-        // FIX SQL QUERY: Get videos with user info
-        const [videos] = await pool.query(`
-            SELECT v.*, u.username, u.profile_pic 
-            FROM videos v
-            JOIN users u ON v.user_id = u.id
-            ORDER BY v.created_at DESC
-        `);
-
-        console.log("📦 VIDEOS COUNT:", videos.length);
-        console.log("-----------------------------------------");
-
-        res.json(videos);
-    } catch (err) {
-        console.error("❌ DB ERROR:", err);
-        res.status(500).json({ error: "Feed system fault: " + err.message });
-    }
-});
-
-// ── VIEW TRACKING API (NON-CRITICAL) ────────────────────────
-app.post('/api/posts/view', async (req, res) => {
-    try {
-        const { id, videoId } = req.body;
-        const targetId = id || videoId;
-
-        if (targetId) {
-            await pool.execute(
-                `UPDATE videos SET views_count = COALESCE(views_count, 0) + 1 WHERE id = ?`,
-                [targetId]
-            );
-        }
-        res.json({ success: true }); // Always return success for metrics
-    } catch (err) {
-        res.status(200).json({ success: true }); // Silent fail
-    }
-});
-
-// ── NEW APP REQUIREMENTS: LIKE, COMMENT, SHARE ─────────────
-
-// POST /api/like
-app.post('/api/like', async (req, res) => {
-    try {
-        const { user_id, video_id } = req.body;
-        if (!user_id || !video_id) return res.status(400).json({ error: "Missing parameters" });
-
-        // Check if already liked
-        const [existing] = await pool.query(
-            "SELECT id FROM likes WHERE user_id = ? AND video_id = ?",
-            [user_id, video_id]
-        );
-
-        let liked = false;
-        if (existing.length > 0) {
-            // Unlike
-            await pool.execute("DELETE FROM likes WHERE user_id = ? AND video_id = ?", [user_id, video_id]);
-            await pool.execute("UPDATE videos SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?", [video_id]);
-        } else {
-            // Like
-            await pool.execute("INSERT INTO likes (user_id, video_id) VALUES (?, ?)", [user_id, video_id]);
-            await pool.execute("UPDATE videos SET likes_count = likes_count + 1 WHERE id = ?", [video_id]);
-            liked = true;
-        }
-
-        // Get total likes
-        const [video] = await pool.query("SELECT likes_count FROM videos WHERE id = ?", [video_id]);
-        const totalLikes = video[0] ? video[0].likes_count : 0;
-
-        res.json({ liked, totalLikes });
-    } catch (err) {
-        res.status(500).json({ error: "Internal server error liking video." });
-    }
-});
-
-// GET /api/likes/:video_id
-app.get('/api/likes/:video_id', async (req, res) => {
-    try {
-        const { video_id } = req.params;
-        const [video] = await pool.query("SELECT likes_count FROM videos WHERE id = ?", [video_id]);
-        res.json({ totalLikes: video[0] ? video[0].likes_count : 0 });
-    } catch (err) {
-        res.status(500).json({ error: "Failed to get likes count." });
-    }
-});
-
-// POST /api/comment
-app.post('/api/comment', async (req, res) => {
-    try {
-        const { user_id, video_id, text } = req.body;
-        if (!user_id || !video_id || !text) return res.status(400).json({ error: "Missing parameters" });
-
-        const [result] = await pool.execute(
-            "INSERT INTO comments (user_id, video_id, text) VALUES (?, ?, ?)",
-            [user_id, video_id, text]
-        );
-
-        const newCommentId = result.insertId;
-        const [newComment] = await pool.query(
-            "SELECT c.*, u.username, u.profile_pic FROM comments c JOIN users u ON c.user_id = u.id WHERE c.id = ?",
-            [newCommentId]
-        );
-
-        res.json({ success: true, comment: newComment[0] });
-    } catch (err) {
-        res.status(500).json({ error: "Internal server error adding comment." });
-    }
-});
-
-// GET /api/comments/:video_id
-app.get('/api/comments/:video_id', async (req, res) => {
-    try {
-        const { video_id } = req.params;
-        const [comments] = await pool.query(
-            `SELECT c.*, u.username, u.profile_pic 
-             FROM comments c 
-             JOIN users u ON c.user_id = u.id 
-             WHERE c.video_id = ? 
-             ORDER BY c.created_at DESC`,
-            [video_id]
-        );
-        res.json(comments);
-    } catch (err) {
-        res.status(500).json({ error: "Failed to fetch comments." });
-    }
-});
-
-// GET /api/video/:id
-app.get('/api/video/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const [video] = await pool.query(
-            `SELECT v.*, u.username, u.profile_pic 
-             FROM videos v JOIN users u ON v.user_id = u.id 
-             WHERE v.id = ?`,
-            [id]
-        );
-        if (video.length > 0) {
-            res.json({ video: video[0], shareUrl: `${req.protocol}://${req.get('host')}/?v=${id}` });
-        } else {
-            res.status(404).json({ error: "Video not found" });
-        }
-    } catch (err) {
-        res.status(500).json({ error: "Failed to get video" });
-    }
-});
-
-// GET /api/search
-app.get('/api/search', async (req, res) => {
-    try {
-        const query = req.query.q;
-        if (!query) return res.json([]);
-
-        // Unified Search Query
-        const [results] = await pool.query(`
-            SELECT 'user' AS type, id, username AS title, profile_pic AS image
-            FROM users
-            WHERE username LIKE ?
-            UNION
-            SELECT 'video' AS type, id, caption AS title, thumbnail_url AS image
-            FROM videos
-            WHERE caption LIKE ?
-            LIMIT 20
-        `, [`%${query}%`, `%${query}%`]);
-
-        res.json(results);
-    } catch (err) {
-        console.error('Search error:', err);
-        res.status(500).json({ error: "Search system fault." });
-    }
-});
-
-// ── LIVE STREAMING APIs ──────────────────────────────────────
-app.post('/api/live/start', async (req, res) => {
-    try {
-        const { userId, title } = req.body;
-        const [result] = await pool.query(
-            'INSERT INTO live_streams (user_id, title, status, is_live) VALUES (?, ?, "active", TRUE)',
-            [userId, title || "Live Pulse"]
-        );
-        res.json({ success: true, streamId: result.insertId });
-    } catch (err) {
-        res.status(500).json({ error: "Failed to initialize live pulse." });
-    }
-});
-
-app.post('/api/live/stop', async (req, res) => {
-    try {
-        const { streamId, userId } = req.body;
-        
-        // Security: Ensure owner identity
-        const [stream] = await pool.query("SELECT user_id FROM live_streams WHERE id = ?", [streamId]);
-        if (!stream.length || stream[0].user_id != userId) {
-            return res.status(403).json({ error: "Unauthorized stream termination attempted." });
-        }
-
-        await pool.query(
-            'UPDATE live_streams SET status = "ended", is_live = FALSE WHERE id = ?',
-            [streamId]
-        );
-
-        // Real-time Pulse: Notify all observers
-        io.to(`stream-${streamId}`).emit('stream-ended');
-        
-        res.json({ success: true, message: "Universe broadcast terminated." });
-    } catch (err) {
-        res.status(500).json({ error: "Failed to terminate broadcast." });
-    }
-});
-
-app.get('/api/live', async (req, res) => {
-    try {
-        const [streams] = await pool.query(
-            `SELECT l.*, u.username, u.profile_pic 
-             FROM live_streams l 
-             JOIN users u ON l.user_id = u.id 
-             WHERE l.is_live = TRUE AND l.status = "active" 
-             ORDER BY l.started_at DESC`
-        );
-        res.json({ success: true, streams });
-    } catch (err) {
-        res.status(500).json({ error: "Failed to load active broadcasts." });
-    }
-});
-
-// Static Uploads & Frontend
+// Static Uploads & Frontend Assets
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, '../frontend')));
 

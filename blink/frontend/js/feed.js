@@ -1,7 +1,6 @@
 /**
  * feed.js – Blink Reels Engine (Production Ready)
  */
-
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById("reelsContainer");
     if (!container) return;
@@ -23,23 +22,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }, { threshold: 0.7 });
 
+    // --- Skeleton Loader ---
+    function showSkeletons() {
+        if (!container) return;
+        const skeletonCount = 3;
+        for (let i = 0; i < skeletonCount; i++) {
+            const div = document.createElement("div");
+            div.className = "reel-item skeleton-card";
+            div.innerHTML = `
+                <div class="skeleton-video"></div>
+                <div class="skeleton-info">
+                    <div class="skeleton-avatar"></div>
+                    <div class="skeleton-text"></div>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+    }
+
+    function removeSkeletons() {
+        const skeletons = container.querySelectorAll(".skeleton-card");
+        skeletons.forEach(s => s.remove());
+    }
+
     // --- Load Videos ---
     async function loadVideos(isInitial = true) {
         if (loading || (!hasMore && !isInitial)) return;
         loading = true;
 
-        console.log(`🎬 Loading videos (Page: ${page})...`);
+        console.log(`🎬 [PRODUCTION FEED] Loading Page ${page}...`);
+        if (!isInitial) showSkeletons();
 
         try {
-            // Use the global API wrapper
-            const res = await window.API(`/api/videos?page=${page}`);
-            const videos = await res.json();
+            const res = await window.API(`/api/videos?page=${page}&limit=10`);
+            const data = await res.json();
             
-            console.log("✅ VIDEOS RECEIVED:", videos);
+            removeSkeletons();
 
             if (isInitial) container.innerHTML = "";
 
-            if (!videos || videos.length === 0) {
+            if (!data.videos || data.videos.length === 0) {
                 if (isInitial) {
                     container.innerHTML = "<div class='empty-state'><h2>No videos yet 📭</h2><p>Be the first to upload!</p></div>";
                 }
@@ -47,26 +69,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            renderVideos(videos);
+            renderVideos(data.videos);
             
-            // If we got fewer than 10 videos, assume no more pages (simple logic)
-            if (videos.length < 10) hasMore = false;
+            if (data.videos.length < 10) hasMore = false;
 
         } catch (err) {
-            console.error("❌ FEED ERROR:", err);
+            console.error("❌ FEED Engine Error:", err);
+            removeSkeletons();
             if (isInitial) {
-                container.innerHTML = "<div class='error-state'><h2>Failed to load feed 🚫</h2><p>Check your connection or login again.</p></div>";
+                container.innerHTML = "<div class='error-state'><h2>Failed to load feed 🚫</h2><p>The universe is currently unstable. Refresh or log in.</p></div>";
             }
         } finally {
             loading = false;
         }
     }
 
-    // --- Render Videos (User's Requested Structure) ---
+    // --- Render & Preload Logic ---
     function renderVideos(videos) {
         videos.forEach(video => {
             const div = document.createElement("div");
-            div.className = "reel-item video-card animate-up"; // Keep reel-item for CSS, add video-card per request
+            div.className = "reel-item video-card animate-up";
             div.dataset.id = video.id;
 
             div.innerHTML = `
@@ -77,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     muted 
                     autoplay 
                     playsinline
+                    preload="auto"
                     style="width:100%; height:100%; object-fit:cover;">
                 </video>
                 <div class="reel-overlay"></div>
@@ -103,40 +126,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
             container.appendChild(div);
             
-            // Observe the video element for autoplay
             const videoEl = div.querySelector("video");
             observer.observe(videoEl);
         });
     }
 
-    // --- Infinite Scroll (Basic) ---
-    container.addEventListener("scroll", () => {
-        if (container.innerHeight + container.scrollTop >= container.scrollHeight - 200) {
+    // --- Infinite Scroll (Enhanced) ---
+    // Listen for scroll events on the container (for desktop Reels layout) or window (mobile)
+    const scrollTarget = container.scrollHeight > window.innerHeight ? container : window;
+    
+    const handleScroll = () => {
+        const threshold = 300;
+        const currentScroll = scrollTarget === window ? window.innerHeight + window.scrollY : container.offsetHeight + container.scrollTop;
+        const totalHeight = scrollTarget === window ? document.body.offsetHeight : container.scrollHeight;
+
+        if (currentScroll >= totalHeight - threshold) {
             if (!loading && hasMore) {
                 page++;
                 loadVideos(false);
             }
         }
-    });
+    };
 
-    // Also support window scroll if layout changes
-    window.addEventListener("scroll", () => {
-        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
-            if (!loading && hasMore) {
-                page++;
-                loadVideos(false);
-            }
-        }
-    });
+    scrollTarget.addEventListener("scroll", handleScroll);
 
-    // Handle Like
+    // --- Action Handlers ---
     window.handleLike = async (videoId, el) => {
         const icon = el.querySelector('i');
-        const count = el.querySelector('.count');
+        const countEl = el.querySelector('.count');
         
+        const isLiked = icon.classList.contains('bi-heart-fill');
         icon.classList.toggle('bi-heart-fill');
         icon.classList.toggle('bi-heart');
         icon.classList.toggle('liked');
+        
+        let currentCount = parseInt(countEl.textContent);
+        countEl.textContent = isLiked ? currentCount - 1 : currentCount + 1;
         
         try {
             await window.API('/api/like', {
@@ -144,10 +169,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ video_id: videoId })
             });
         } catch (err) {
-            console.error("Like error:", err);
+            console.error("Like transmission failed:", err);
         }
     };
 
     // Initial Load
-    loadVideos();
+    loadVideos(true);
 });

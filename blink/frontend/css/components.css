@@ -184,6 +184,47 @@
 @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 
+/* ── SKELETON LOADERS (Step 7) ────────────────────────── */
+.skeleton-card {
+    background: var(--bg-surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.skeleton-video {
+    flex: 1;
+    background: linear-gradient(90deg, #121212 25%, #1a1a1a 50%, #121212 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s infinite;
+}
+
+.skeleton-info {
+    padding: var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.skeleton-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #222;
+}
+
+.skeleton-text {
+    height: 12px;
+    width: 120px;
+    background: #222;
+    border-radius: 4px;
+}
+
+@keyframes skeleton-pulse {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 /* ── RESPONSIVE OVERRIDES ────────────────────────────────── */
 @media (max-width: 767px) {
     .sidebar {

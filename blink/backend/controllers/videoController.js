@@ -17,58 +17,49 @@ const fmt = (n) => {
     return String(num);
 };
 
-// ── GET FEED ──────────────────────────────────────────────────────
+// ── GET SMART FEED (Production Upgrade) ──────────────────────────
 exports.getFeed = async (req, res) => {
     try {
         const userId = req.user?.id || null;
+        const page   = parseInt(req.query.page || '1', 10);
         const limit  = Math.min(parseInt(req.query.limit || '10', 10), 30);
-        const offset = parseInt(req.query.offset || '0', 10);
-        const mood   = req.query.mood || null;
-        const exclude = (req.query.exclude || '').split(',').filter(Boolean).map(Number);
+        const offset = (page - 1) * limit;
 
+        console.log(`🎬 [PRODUCTION FEED] Serving Page ${page} for ${userId ? `@${userId}` : 'Guest'}`);
+
+        // SMART RANKING ENGINE: Priority to high engagement, then recency
         let query = `
-            SELECT v.id, v.user_id,
-                   COALESCE(v.video_url, v.url) AS video_url,
-                   v.thumbnail_url, v.caption, v.hashtags, v.mood_category,
-                   v.is_blink_moment, v.views_count, v.likes_count, v.duration,
-                   v.created_at,
-                   u.username,
-                   COALESCE(u.profile_pic, u.avatar_url, u.profile_photo) AS avatar,
-                   u.is_verified
-                   ${userId ? `,
-                   (SELECT COUNT(*) FROM video_likes WHERE video_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me` : ', 0 AS liked_by_me'}
+            SELECT v.*, u.username,
+                   COALESCE(u.profile_pic, u.avatar_url, u.profile_photo) AS profile_pic,
+                   u.is_verified,
+                   (COALESCE(v.likes_count, 0) * 2 + COALESCE(v.views_count, 0) * 0.5) as engagement_score
+                   ${userId ? `, (SELECT COUNT(*) FROM video_likes WHERE video_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me` : ', 0 AS liked_by_me'}
             FROM videos v
             JOIN users u ON u.id = v.user_id
-            WHERE 1=1
+            WHERE v.is_active = TRUE
+            ORDER BY engagement_score DESC, v.created_at DESC
+            LIMIT ? OFFSET ?
         `;
 
-        const params = [];
-        if (mood && mood !== 'General') {
-            query += ' AND v.mood_category = ?';
-            params.push(mood);
-        }
-        if (exclude.length > 0) {
-            query += ` AND v.id NOT IN (${exclude.map(() => '?').join(',')})`;
-            params.push(...exclude);
-        }
-
-        query += ' ORDER BY v.created_at DESC LIMIT ? OFFSET ?';
-        params.push(limit, offset);
-
-        const [videos] = await pool.query(query, params);
+        const [videos] = await pool.query(query, [limit, offset]);
 
         const formatted = videos.map(v => ({
             ...v,
             likes_formatted:    fmt(v.likes_count),
-            comments_formatted: fmt(0),
-            video_url:          v.video_url,
+            video_url:          v.video_url || v.url, // Fallback for old schema
             liked_by_me:        Boolean(v.liked_by_me)
         }));
 
-        res.json({ videos: formatted, hasMore: videos.length === limit });
+        res.json({ 
+            success: true,
+            page,
+            count: formatted.length,
+            videos: formatted, 
+            hasMore: formatted.length === limit 
+        });
     } catch (e) {
-        console.error('[Video] getFeed:', e.message);
-        res.status(500).json({ error: e.message });
+        console.error('❌ Feed Engine Fault:', e.message);
+        res.status(500).json({ error: "Universe feed interrupted: " + e.message });
     }
 };
 
