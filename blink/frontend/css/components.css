@@ -183,19 +183,28 @@
 }
 @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-/* Profile Modals */
-.modal-content {
-    background: var(--bg-surface);
-    width: 100%;
-    max-width: 450px;
-    border-radius: var(--radius-lg);
-    padding: var(--space-lg);
-    border: 1px solid var(--border-subtle);
+
+/* ── RESPONSIVE OVERRIDES ────────────────────────────────── */
+@media (max-width: 767px) {
+    .sidebar {
+        display: none !important;
+    }
+    
+    .mobile-nav {
+        display: flex;
+    }
+
+    .main-content {
+        padding-bottom: var(--bottom-nav-height);
+    }
 }
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-lg);
+
+@media (min-width: 768px) {
+    .sidebar {
+        display: flex;
+    }
+    
+    .mobile-nav {
+        display: none !important;
+    }
 }
-.modal-header h3 { font-size: 20px; font-weight: 700; }
