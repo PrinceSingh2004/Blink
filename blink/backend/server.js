@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -209,7 +210,6 @@ app.use('/api/upload', uploadRoutes); // Dedicated upload routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/social', engagementRoutes); // New Engagement Engine
-app.use('/api/videos', postRoutes); // Legacy feed alias
 
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -229,17 +229,28 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+// --- PRIMARY FEED ROUTE (User Fix) ---
 app.get('/api/videos', authMiddleware, async (req, res) => {
     try {
-        console.log("API HIT");
-        console.log("TOKEN:", req.headers.authorization);
-        
-        const [videos] = await pool.query("SELECT * FROM videos ORDER BY created_at DESC");
-        videos.sort(() => Math.random() - 0.5);
+        console.log("-----------------------------------------");
+        console.log("🔥 API HIT: /api/videos");
+        console.log("👤 USER:", req.user);
+
+        // FIX SQL QUERY: Get videos with user info
+        const [videos] = await pool.query(`
+            SELECT v.*, u.username, u.profile_pic 
+            FROM videos v
+            JOIN users u ON v.user_id = u.id
+            ORDER BY v.created_at DESC
+        `);
+
+        console.log("📦 VIDEOS COUNT:", videos.length);
+        console.log("-----------------------------------------");
+
         res.json(videos);
     } catch (err) {
-        console.error("DB ERROR:", err);
-        res.status(500).json({ error: err.message });
+        console.error("❌ DB ERROR:", err);
+        res.status(500).json({ error: "Feed system fault: " + err.message });
     }
 });
 

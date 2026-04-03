@@ -75,8 +75,11 @@ function initUpload() {
             const progressText = document.getElementById('progressText');
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', window.BlinkConfig.API_BASE + '/posts/upload', true);
-            xhr.setRequestHeader('Authorization', `Bearer ${window.BlinkConfig.getToken()}`);
+            xhr.open('POST', window.BlinkConfig.API_BASE + '/api/upload/video', true);
+            
+            // Need to get token properly
+            const token = window.BlinkConfig.getToken() || localStorage.getItem('token');
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {

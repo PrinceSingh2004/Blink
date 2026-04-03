@@ -15,45 +15,44 @@ window.BlinkConfig = {
     // TOKEN & AUTH MANAGEMENT
     // ════════════════════════════════════════════════════════════════════════════
     
-    getToken: () => localStorage.getItem('blink_token'),
-    setToken: (token) => localStorage.setItem('blink_token', token),
-    removeToken: () => localStorage.removeItem('blink_token'),
+    getToken: () => localStorage.getItem('token') || localStorage.getItem('blink_token'),
+    setToken: (token) => {
+        localStorage.setItem('token', token);
+        localStorage.setItem('blink_token', token);
+    },
+    removeToken: () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('blink_token');
+    },
     
     getUser: () => {
-        const user = localStorage.getItem('blink_user');
+        const user = localStorage.getItem('user') || localStorage.getItem('blink_user');
         return user ? JSON.parse(user) : null;
     },
-    setUser: (user) => localStorage.setItem('blink_user', JSON.stringify(user)),
-    removeUser: () => localStorage.removeItem('blink_user'),
+    setUser: (user) => {
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('blink_user', JSON.stringify(user));
+    },
+    removeUser: () => {
+        localStorage.removeItem('user');
+        localStorage.removeItem('blink_user');
+    },
     
-    isAuthenticated: () => !!localStorage.getItem('blink_token'),
+    isAuthenticated: () => !!(localStorage.getItem('token') || localStorage.getItem('blink_token')),
     
     logout: () => {
-        localStorage.removeItem('blink_token');
-        localStorage.removeItem('blink_user');
+        window.BlinkConfig.removeToken();
+        window.BlinkConfig.removeUser();
         window.location.href = '/login.html';
     },
     
     // ════════════════════════════════════════════════════════════════════════════
-    // API FETCH HELPER
+    // API FETCH HELPER (Now uses Global API wrapper)
     // ════════════════════════════════════════════════════════════════════════════
     
     fetch: async (endpoint, options = {}) => {
-        const token = window.BlinkConfig.getToken();
-        const headers = {
-            'Content-Type': 'application/json',
-            ...options.headers
-        };
-        
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-        
-        const url = endpoint.startsWith('http') ? endpoint : `${window.BlinkConfig.API_BASE}/api${endpoint}`;
-        const response = await fetch(url, {
-            ...options,
-            headers
-        });
+        // Use Global API wrapper directly
+        const response = await window.API(endpoint, options);
         
         if (response.status === 401) {
             window.BlinkConfig.logout();

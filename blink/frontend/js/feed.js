@@ -1,206 +1,153 @@
 /**
- * feed.js – Blink Reels Engine
+ * feed.js – Blink Reels Engine (Production Ready)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    const reelsContainer = document.getElementById('reelsContainer');
-    if (!reelsContainer) return;
+    const container = document.getElementById("reelsContainer");
+    if (!container) return;
 
-    let allVideosData = [];
-    let currentPlaying = null;
-    let globalMuted = true;
+    let page = 1;
+    let loading = false;
+    let hasMore = true;
 
-    // GLOBAL FETCH INTERCEPTOR
-    const API = (url, options = {}) => {
-        const token = localStorage.getItem("blink_token") || localStorage.getItem("token");
-        const baseURL = window.BlinkConfig ? window.BlinkConfig.API_BASE : '';
-        const fullUrl = url.startsWith('http') ? url : baseURL + url;
-
-        return fetch(fullUrl, {
-            ...options,
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": token ? `Bearer ${token}` : "",
-                ...options.headers,
-            },
-        });
-    };
-
-    // --- Video Observer ---
-    const videoObserver = new IntersectionObserver((entries) => {
+    // --- Intersection Observer for Autoplay (STABLE) ---
+    const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
-            const reel = entry.target;
-            const video = reel.querySelector('video');
-            if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-                if (currentPlaying && currentPlaying !== video) {
-                    currentPlaying.pause();
-                }
-                video.muted = globalMuted;
-                video.play().catch(() => {});
-                currentPlaying = video;
+            const video = entry.target;
+            if (entry.isIntersecting) {
+                console.log("▶️ Playing video:", video.src);
+                video.play().catch(err => console.log("Autoplay blocked:", err));
             } else {
                 video.pause();
             }
         });
-    }, { threshold: 0.6 });
+    }, { threshold: 0.7 });
 
-    // --- Load Feed ---
-    async function loadFeed() {
-        if (reelsContainer) {
-            reelsContainer.innerHTML = `
-                <div class="video-loader flex-center" style="height: 100vh;">
-                    <div class="spinner"></div>
-                </div>
-            `;
-        }
+    // --- Load Videos ---
+    async function loadVideos(isInitial = true) {
+        if (loading || (!hasMore && !isInitial)) return;
+        loading = true;
+
+        console.log(`🎬 Loading videos (Page: ${page})...`);
 
         try {
-            const res = await API('/api/videos');
-            console.log("STATUS:", res.status);
+            // Use the global API wrapper
+            const res = await window.API(`/api/videos?page=${page}`);
+            const videos = await res.json();
             
-            if (res.status === 401) {
-                window.location.href = '/login.html';
-                return;
-            }
+            console.log("✅ VIDEOS RECEIVED:", videos);
 
-            if (!res.ok) throw new Error("API FAILED");
-            
-            const data = await res.json();
-            console.log("DATA:", data);
-            
-            allVideosData = data;
+            if (isInitial) container.innerHTML = "";
 
-            if (!data || data.length === 0) {
-                if (reelsContainer) {
-                    reelsContainer.innerHTML = `
-                        <div class="empty-state" style="color:white;text-align:center;padding:50px;">
-                            <h2>No videos available 📭</h2>
-                            <p>Follow more users or upload your own!</p>
-                        </div>
-                    `;
+            if (!videos || videos.length === 0) {
+                if (isInitial) {
+                    container.innerHTML = "<div class='empty-state'><h2>No videos yet 📭</h2><p>Be the first to upload!</p></div>";
                 }
+                hasMore = false;
                 return;
             }
 
-            renderVideos(data);
-        } catch (err) {
-            console.error("FETCH ERROR:", err);
+            renderVideos(videos);
             
-            const feedEl = document.querySelector(".feed") || document.getElementById('reelsContainer');
-            if (feedEl) {
-                feedEl.innerHTML = `
-                  <div style="height: 100vh; display: flex; align-items: center; justify-content: center;">
-                      <h2 style="color:white;text-align:center;">
-                        Failed to load feed 🚫
-                      </h2>
-                  </div>
-                `;
+            // If we got fewer than 10 videos, assume no more pages (simple logic)
+            if (videos.length < 10) hasMore = false;
+
+        } catch (err) {
+            console.error("❌ FEED ERROR:", err);
+            if (isInitial) {
+                container.innerHTML = "<div class='error-state'><h2>Failed to load feed 🚫</h2><p>Check your connection or login again.</p></div>";
             }
+        } finally {
+            loading = false;
         }
     }
 
+    // --- Render Videos (User's Requested Structure) ---
     function renderVideos(videos) {
-        reelsContainer.innerHTML = '';
-        videos.forEach((v, index) => {
-            const reel = document.createElement('div');
-            reel.className = 'reel-item animate-up';
-            reel.dataset.id = v.id;
+        videos.forEach(video => {
+            const div = document.createElement("div");
+            div.className = "reel-item video-card animate-up"; // Keep reel-item for CSS, add video-card per request
+            div.dataset.id = video.id;
 
-            reel.innerHTML = `
-                <video src="${v.video_url}" class="reel-video" loop playsinline muted></video>
+            div.innerHTML = `
+                <video 
+                    src="${video.video_url}" 
+                    class="reel-video"
+                    loop 
+                    muted 
+                    autoplay 
+                    playsinline
+                    style="width:100%; height:100%; object-fit:cover;">
+                </video>
                 <div class="reel-overlay"></div>
                 <div class="reel-content">
                     <div class="reel-info">
-                        <div class="reel-user" onclick="window.location.href='profile.html?id=${v.user_id}'">
-                            <img src="${v.profile_pic || 'https://via.placeholder.com/150'}" class="avatar">
-                            <span class="username">${v.username}</span>
+                        <div class="reel-user" onclick="window.location.href='profile.html?id=${video.user_id}'">
+                            <img src="${video.profile_pic || 'https://via.placeholder.com/150'}" class="avatar">
+                            <span class="username">${video.username}</span>
                         </div>
-                        <p class="reel-caption">${v.caption || ''}</p>
+                        <p class="reel-caption">${video.caption || ""}</p>
                     </div>
                     <div class="reel-actions">
-                        <div class="action-btn" onclick="toggleLike(${v.id}, this)">
-                            <i class="bi ${v.is_liked ? 'bi-heart-fill liked' : 'bi-heart'}"></i>
-                            <span class="count">${v.likes_count || 0}</span>
+                        <div class="action-btn" onclick="handleLike(${video.id}, this)">
+                            <i class="bi bi-heart"></i>
+                            <span class="count">${video.likes_count || 0}</span>
                         </div>
-                        <div class="action-btn" onclick="openComments(${v.id})">
+                        <div class="action-btn">
                             <i class="bi bi-chat"></i>
-                            <span class="count">${v.comments_count || 0}</span>
-                        </div>
-                        <div class="action-btn" onclick="shareVideo(${v.id})">
-                            <i class="bi bi-send"></i>
+                            <span class="count">0</span>
                         </div>
                     </div>
-                </div>
-                <div class="video-loader flex-center" style="position:absolute; inset:0; z-index:0;">
-                    <div class="spinner"></div>
                 </div>
             `;
 
-            // Interaction: Tap to pause/play & Double tap to like
-            let lastTap = 0;
-            reel.onclick = (e) => {
-                const now = Date.now();
-                const video = reel.querySelector('video');
-                if (now - lastTap < 300) {
-                    // Double tap logic
-                    handleDoubleTap(reel, v.id);
-                } else {
-                    // Single tap logic
-                    if (video.paused) video.play();
-                    else video.pause();
-                }
-                lastTap = now;
-            };
-
-            reelsContainer.appendChild(reel);
-            videoObserver.observe(reel);
+            container.appendChild(div);
+            
+            // Observe the video element for autoplay
+            const videoEl = div.querySelector("video");
+            observer.observe(videoEl);
         });
     }
 
-    function handleDoubleTap(reel, videoId) {
-        const heart = document.createElement('i');
-        heart.className = 'bi bi-heart-fill double-tap-heart';
-        reel.appendChild(heart);
-        setTimeout(() => heart.remove(), 800);
-        
-        const likeBtn = reel.querySelector('.bi-heart, .bi-heart-fill');
-        if (!likeBtn.classList.contains('bi-heart-fill')) {
-            toggleLike(videoId, likeBtn.parentElement);
+    // --- Infinite Scroll (Basic) ---
+    container.addEventListener("scroll", () => {
+        if (container.innerHeight + container.scrollTop >= container.scrollHeight - 200) {
+            if (!loading && hasMore) {
+                page++;
+                loadVideos(false);
+            }
         }
-    }
+    });
 
-    window.toggleLike = async (videoId, el) => {
+    // Also support window scroll if layout changes
+    window.addEventListener("scroll", () => {
+        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 200) {
+            if (!loading && hasMore) {
+                page++;
+                loadVideos(false);
+            }
+        }
+    });
+
+    // Handle Like
+    window.handleLike = async (videoId, el) => {
         const icon = el.querySelector('i');
         const count = el.querySelector('.count');
         
-        const isLiked = icon.classList.contains('bi-heart-fill');
-        
-        // Optimistic UI
         icon.classList.toggle('bi-heart-fill');
         icon.classList.toggle('bi-heart');
         icon.classList.toggle('liked');
-        count.innerText = parseInt(count.innerText) + (isLiked ? -1 : 1);
-
+        
         try {
-            await API('/api/like', {
+            await window.API('/api/like', {
                 method: 'POST',
-                body: JSON.stringify({ video_id: videoId, user_id: window.BlinkConfig?.getUser()?.id || 1 })
+                body: JSON.stringify({ video_id: videoId })
             });
         } catch (err) {
             console.error("Like error:", err);
         }
     };
 
-    window.openComments = async (videoId) => {
-        // Simple comment logic for now
-        window.showToast("Comments functionality coming soon!");
-    };
-
-    window.shareVideo = (videoId) => {
-        const url = `${window.location.origin}/index.html?v=${videoId}`;
-        navigator.clipboard.writeText(url);
-        window.showToast("Link copied to clipboard!");
-    };
-
-    loadFeed();
+    // Initial Load
+    loadVideos();
 });

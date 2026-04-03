@@ -12,23 +12,32 @@ window.Blink = window.Blink || {};
 const _BASE = window.BlinkConfig?.API_BASE || '';
 const _API  = _BASE ? `${_BASE}/api` : '/api';
 
-const TOKEN_KEY = 'blink_token';
-const USER_KEY  = 'blink_user';
+const TOKEN_KEY = 'token';
+const USER_KEY  = 'user';
 
 // ── Token helpers ─────────────────────────────────────────────────
-function getToken()   { return localStorage.getItem(TOKEN_KEY); }
-function getUser()    { try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch { return null; } }
+function getToken()   { return localStorage.getItem('token') || localStorage.getItem('blink_token'); }
+function getUser()    { 
+    try { 
+        const u = localStorage.getItem('user') || localStorage.getItem('blink_user');
+        return u ? JSON.parse(u) : null; 
+    } catch { return null; } 
+}
 function isLoggedIn() { return !!getToken(); }
 
 function setAuth(token, user) {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem('token', token);
+    localStorage.setItem('blink_token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('blink_user', JSON.stringify(user));
 }
 
 // ── Logout ────────────────────────────────────────────────────────
 function logout() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('token');
+    localStorage.removeItem('blink_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('blink_user');
     sessionStorage.clear();
     window.location.href = 'login.html';
 }
@@ -44,17 +53,9 @@ function requireAuth() {
 
 // ── Universal API request helper ───────────────────────────────────
 async function apiRequest(url, options = {}) {
-    const headers = {  ...(options.headers || {}) };
-    
-    // Don't set Content-Type for FormData (let browser set with boundary)
-    if (!(options.body instanceof FormData)) {
-        headers['Content-Type'] = 'application/json';
-    }
-    
-    if (getToken()) headers['Authorization'] = `Bearer ${getToken()}`;
-
     try {
-        const res  = await fetch(_API + url, { ...options, headers });
+        // Use the Global API wrapper for consistency and automatic base URL handling
+        const res = await window.API(url, options);
         
         if (res.status === 401) {
             logout();

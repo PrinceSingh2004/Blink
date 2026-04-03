@@ -31,6 +31,7 @@ exports.createPost = async (req, res) => {
             resource_type: "video",
             folder: "blink_production",
             chunk_size: 6000000, // 6MB Chunks for reliability
+            format: "mp4",       // Ensure output format is MP4
             eager: [{ width: 400, height: 711, crop: "pad", audio_codec: "none" }],
             eager_async: true
         });

@@ -1,5 +1,6 @@
 const cloudinary = require('cloudinary').v2;
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // ── TASK: FIX "Must supply api_key" ERROR ──────────────────────
 // Names must EXACTLY match the keys in your .env / Render dashboard.
