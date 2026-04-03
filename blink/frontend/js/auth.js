@@ -338,6 +338,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Login form attachment
+    document.getElementById('loginForm')?.addEventListener('submit', handleLoginSubmission);
+
     // Logout
     document.getElementById('logoutBtn')?.addEventListener('click', (e) => {
         e.preventDefault();
@@ -345,66 +348,53 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// ══════════════════════════════════════════════════════════════════
-// LOGIN FORM
-// ══════════════════════════════════════════════════════════════════
-const loginForm = document.getElementById('loginForm');
-if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const identifier = (loginForm.identifier?.value || loginForm.email?.value || '').trim();
-        const password   = loginForm.password.value;
-        const btn        = document.getElementById('loginBtn');
-        const alert      = document.getElementById('loginAlert');
+// ── Login Form Logic (Safe & Robust) ──────────────────────────────
+async function handleLoginSubmission(e) {
+    e.preventDefault();
+    const form = e.target;
+    const identifier = (form.querySelector('[name="identifier"]')?.value || form.querySelector('[name="email"]')?.value || '').trim();
+    const password = form.querySelector('[name="password"]')?.value || '';
+    const btn = document.getElementById('loginBtn');
+    const alert = document.getElementById('loginAlert');
 
-        if (!identifier || !password) {
-            showToast('Please fill in all fields', 'error');
-            return;
+    if (!identifier || !password) {
+        showToast('Please enter both your identity and secret', 'error');
+        return;
+    }
+
+    try {
+        console.log("🚀 Authenticating:", identifier);
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-sm"></span> Authenticating...';
+        if (alert) { alert.textContent = ''; alert.className = 'auth-alert'; }
+
+        // Use window.API directly to avoid the global apiRequest 401 redirect loop
+        const res = await window.API('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ identifier, password })
+        });
+
+        const data = await res.json();
+        console.log("📦 Auth Result:", data);
+
+        if (res.ok && data.token) {
+            console.log("✅ Identity verified.");
+            setAuth(data.token, data.user);
+            showToast(`Welcome back, ${data.user.username}!`, 'success');
+            setTimeout(() => { window.location.href = 'index.html'; }, 800);
+        } else {
+            throw new Error(data.error || data.message || "Invalid credentials");
         }
-
-        try {
-            console.log("🚀 Login process started for identifier:", identifier);
-            
-            btn.disabled  = true;
-            if (btn.querySelector?.('.btn-label')) btn.querySelector('.btn-label').textContent = 'Authenticating...';
-            else btn.textContent = 'Authenticating...';
-            
-            if (alert) { alert.textContent = ''; alert.className = 'auth-alert'; }
-
-            const data = await apiRequest('/auth/login', {
-                method: 'POST',
-                body: JSON.stringify({ identifier, password })
-            });
-
-            console.log("📦 Login Result:", data);
-
-            if (data?.token) {
-                console.log("✅ Identity verified. Initializing universe sync...");
-                setAuth(data.token, data.user);
-                
-                showToast(`Welcome back, ${data.user.username}!`, 'success');
-                
-                // Small delay for toast visibility
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 800);
-            } else {
-                throw new Error("Invalid response from server");
-            }
-        } catch (err) {
-            console.error("❌ Login Failure:", err.message);
-            showToast(err.message || 'Login failed', 'error');
-            
-            if (alert) {
-                alert.textContent = err.message || 'Verification failed. Please check your credentials.';
-                alert.className   = 'auth-alert error';
-            }
-            
-            btn.disabled = false;
-            if (btn.querySelector?.('.btn-label')) btn.querySelector('.btn-label').innerHTML = 'Sign in to Blink';
-            else btn.textContent = 'Sign in to Blink';
+    } catch (err) {
+        console.error("❌ Login system failure:", err.message);
+        showToast(err.message, 'error');
+        if (alert) {
+            alert.textContent = err.message;
+            alert.className = 'auth-alert error';
         }
-    });
+        btn.disabled = false;
+        btn.textContent = 'Sign In to Blink';
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════
