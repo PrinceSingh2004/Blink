@@ -7,11 +7,12 @@
 window.API = (endpoint, options = {}) => {
   const token = localStorage.getItem("token") || localStorage.getItem("blink_token");
   
-  // Auto-detect environment
-  const isProd = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-  const BASE_URL = isProd ? 'https://blink-yzoo.onrender.com/api' : 'http://localhost:5000/api';
-  
-  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
+  // Smart prefixing: only add /api if it's missing and not an absolute URL
+  let url = endpoint;
+  if (!endpoint.startsWith('http')) {
+      const prefix = endpoint.startsWith('/api') ? '' : '/api';
+      url = `${prefix}${endpoint}`;
+  }
 
   return fetch(url, {
     ...options,
@@ -302,4 +303,4 @@ window.addEventListener('storage', (e) => {
     }
 });
 
-export default window.api;
+// No export needed for global browser usage

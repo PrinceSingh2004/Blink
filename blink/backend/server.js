@@ -27,7 +27,7 @@ app.use(helmet({
             ...helmet.contentSecurityPolicy.getDefaultDirectives(),
             "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
             "connect-src": ["'self'", "*"],
-            "img-src": ["'self'", "data:", "https://res.cloudinary.com"],
+            "img-src": ["'self'", "data:", "https://res.cloudinary.com", "https://via.placeholder.com"],
             "media-src": ["'self'", "https://res.cloudinary.com", "http://localhost:5000", "https://blink-yzoo.onrender.com", "blob:", "data:"],
         },
     },
