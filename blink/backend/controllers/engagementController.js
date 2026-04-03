@@ -39,7 +39,7 @@ exports.addComment = async (req, res) => {
         if (!text) return res.status(400).json({ error: "Empty thoughts cannot be shared." });
 
         const [result] = await pool.execute(
-            "INSERT INTO comments (user_id, video_id, text) VALUES (?, ?, ?)",
+            "INSERT INTO comments (user_id, post_id, comment) VALUES (?, ?, ?)",
             [userId, videoId, text]
         );
 
@@ -53,10 +53,10 @@ exports.getComments = async (req, res) => {
     try {
         const { videoId } = req.params;
         const [rows] = await pool.query(
-            `SELECT c.*, u.username, u.profile_pic 
+            `SELECT c.*, c.comment AS text, u.username, u.profile_pic 
              FROM comments c 
              JOIN users u ON c.user_id = u.id 
-             WHERE c.video_id = ? 
+             WHERE c.post_id = ? 
              ORDER BY c.created_at DESC`,
             [videoId]
         );

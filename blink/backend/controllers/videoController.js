@@ -32,7 +32,7 @@ exports.getFeed = async (req, res) => {
             SELECT v.*, u.username,
                    u.profile_pic,
                    u.is_verified,
-                   ${userId ? `(SELECT COUNT(*) FROM likes WHERE video_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me` : '0 AS liked_by_me'}
+                   ${userId ? `(SELECT COUNT(*) FROM likes WHERE post_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me` : '0 AS liked_by_me'}
             FROM videos v
             LEFT JOIN users u ON u.id = v.user_id
             ORDER BY v.created_at DESC
@@ -82,8 +82,8 @@ exports.getVideo = async (req, res) => {
         const [rows] = await pool.query(`
             SELECT v.*, u.username,
                    u.profile_pic AS avatar,
-                   ${userId ? `(SELECT COUNT(*) FROM likes WHERE video_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me,` : '0 AS liked_by_me,'}
-                   (SELECT COUNT(*) FROM comments WHERE video_id = v.id) AS comments_count
+                   ${userId ? `(SELECT COUNT(*) FROM likes WHERE post_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me,` : '0 AS liked_by_me,'}
+                   (SELECT COUNT(*) FROM comments WHERE post_id = v.id) AS comments_count
             FROM videos v
             JOIN users u ON u.id = v.user_id
             WHERE v.id = ?
@@ -117,18 +117,18 @@ exports.toggleLike = async (req, res) => {
         const videoId = req.params.id;
 
         const [existing] = await pool.query(
-            'SELECT id FROM likes WHERE video_id = ? AND user_id = ?',
+            'SELECT id FROM likes WHERE post_id = ? AND user_id = ?',
             [videoId, userId]
         );
 
         if (existing.length > 0) {
-            await pool.query('DELETE FROM likes WHERE video_id = ? AND user_id = ?', [videoId, userId]);
+            await pool.query('DELETE FROM likes WHERE post_id = ? AND user_id = ?', [videoId, userId]);
             await pool.query('UPDATE videos SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = ?', [videoId]);
             const [[v]] = await pool.query('SELECT likes_count FROM videos WHERE id = ?', [videoId]);
             return res.json({ liked: false, likes: v.likes_count });
         }
 
-        await pool.query('INSERT INTO likes (video_id, user_id) VALUES (?, ?)', [videoId, userId]);
+        await pool.query('INSERT INTO likes (post_id, user_id) VALUES (?, ?)', [videoId, userId]);
         await pool.query('UPDATE videos SET likes_count = likes_count + 1 WHERE id = ?', [videoId]);
         const [[v]] = await pool.query('SELECT likes_count, user_id FROM videos WHERE id = ?', [videoId]);
 
@@ -150,13 +150,13 @@ exports.toggleLike = async (req, res) => {
 exports.getComments = async (req, res) => {
     try {
         const [comments] = await pool.query(`
-            SELECT c.id, c.text, c.likes_count, c.created_at,
+            SELECT c.id, c.comment AS text, c.likes_count, c.created_at,
                    u.id AS user_id, u.username,
                    u.profile_pic AS avatar,
                    u.is_verified
             FROM comments c
             JOIN users u ON u.id = c.user_id
-            WHERE c.video_id = ?
+            WHERE c.post_id = ?
             ORDER BY c.created_at ASC
         `, [req.params.id]);
         res.json({ comments });
@@ -175,13 +175,13 @@ exports.postComment = async (req, res) => {
         if (!text?.trim()) return res.status(400).json({ error: 'Comment cannot be empty' });
 
         const [result] = await pool.query(
-            'INSERT INTO comments (video_id, user_id, text) VALUES (?, ?, ?)',
+            'INSERT INTO comments (post_id, user_id, comment) VALUES (?, ?, ?)',
             [videoId, userId, text.trim()]
         );
         await pool.query('UPDATE videos SET comments_count = comments_count + 1 WHERE id = ?', [videoId]);
 
         const [comment] = await pool.query(`
-            SELECT c.id, c.text, c.created_at, u.username,
+            SELECT c.id, c.comment AS text, c.created_at, u.username,
                    u.profile_pic AS avatar
             FROM comments c JOIN users u ON u.id = c.user_id
             WHERE c.id = ?
