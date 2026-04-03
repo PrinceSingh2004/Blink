@@ -15,9 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const video = entry.target;
             if (entry.isIntersecting) {
                 console.log("▶️ Playing video:", video.src);
-                video.play().catch(err => console.log("Autoplay blocked:", err));
+                video.muted = true; // Ensure autoplay works better
+                video.play().catch(err => {
+                    console.log("Autoplay blocked:", err);
+                    // Single retry if not already playing
+                });
             } else {
                 video.pause();
+                video.currentTime = 0; // Reset for next watch
             }
         });
     }, { threshold: 0.7 });

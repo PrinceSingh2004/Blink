@@ -60,54 +60,56 @@
         </aside>
 
         <!-- ── MESSAGES CONTENT AREA ────────────────────────────── -->
-        <main class="main-content flex" style="background: var(--bg-main); height: 100vh; overflow: hidden;">
+        <main class="main-content flex">
             
-            <!-- LIST SIDE -->
-            <section id="chatList" class="flex-column" style="width: 380px; border-right: 1px solid rgba(255,255,255,0.05); min-width: 320px;">
-                <div class="flex-between" style="padding: 24px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <h2 style="font-size: 24px;">Messages</h2>
-                    <button class="btn-icon"><i class="bi bi-pencil-square"></i></button>
-                </div>
-                
-                <div id="conversationContainer" class="flex-column" style="flex: 1; overflow-y: auto;">
-                    <!-- Dynamically Injected -->
-                    <div style="padding: 40px; text-align: center; color: var(--text-muted);">
-                        <div class="loader" style="margin: 0 auto 10px;"></div>
-                        <span>Syncing chats...</span>
+            <div class="messenger-container">
+                <!-- LIST SIDE -->
+                <section id="chatList" class="chat-sidebar active">
+                    <div class="chat-header">
+                        <h2>Messages</h2>
+                        <button class="btn-circle btn-secondary"><i class="bi bi-pencil-square"></i></button>
                     </div>
-                </div>
-            </section>
-
-            <!-- THREAD SIDE -->
-            <section id="chatThread" class="flex-column" style="flex: 1; background: var(--bg-surface);">
-                
-                <!-- THREAD HEADER -->
-                <div id="threadHeader" class="flex-items-center gap-md" style="padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.05); background: var(--bg-surface); display: none;">
-                    <button id="backBtn" class="show-mobile-only btn-icon" style="margin-right: 8px;"><i class="bi bi-chevron-left"></i></button>
-                    <img id="threadAvatar" src="https://via.placeholder.com/44" class="avatar" style="width: 44px; height: 44px;">
-                    <div>
-                        <div id="threadName" style="font-weight: 800;">Username</div>
-                        <div id="threadStatus" style="font-size: 11px; color: var(--success);">Online</div>
+                    
+                    <div id="conversationContainer" class="conversation-list">
+                        <!-- Dynamically Injected -->
+                        <div class="flex-center" style="padding: 40px; color: var(--text-muted);">
+                            <div class="spinner-sm"></div>
+                            <span style="margin-left: 10px;">Syncing Universe...</span>
+                        </div>
                     </div>
-                </div>
+                </section>
 
-                <!-- MESSAGES AREA -->
-                <div id="messagesArea" class="flex-column gap-md" style="flex: 1; padding: 24px; overflow-y: auto;">
-                    <div class="flex-column flex-center" style="height: 100%; color: var(--text-muted); opacity: 0.5;">
-                        <i class="bi bi-chat-heart" style="font-size: 80px; margin-bottom: 20px;"></i>
-                        <h3>Your private universe</h3>
-                        <p>End-to-end encrypted messaging.</p>
+                <!-- THREAD SIDE -->
+                <section id="chatThread" class="chat-main">
+                    
+                    <!-- THREAD HEADER -->
+                    <div id="threadHeader" class="thread-header" style="display: none;">
+                        <button id="backBtn" class="show-mobile-only btn btn-ghost btn-circle"><i class="bi bi-chevron-left" style="font-size: 20px;"></i></button>
+                        <div id="threadAvatar" class="avatar" style="width: 44px; height: 44px;"></div>
+                        <div class="flex-col">
+                            <div id="threadName" style="font-weight: 800; font-size: 16px;">Username</div>
+                            <div id="threadStatus" style="font-size: 11px; color: var(--primary);">Active now</div>
+                        </div>
                     </div>
-                </div>
 
-                <!-- INPUT AREA -->
-                <div id="inputArea" class="flex-items-center gap-md" style="padding: 20px 24px; border-top: 1px solid rgba(255,255,255,0.05); background: var(--bg-surface); display: none;">
-                    <button class="btn-icon"><i class="bi bi-emoji-smile" style="font-size: 24px;"></i></button>
-                    <input type="text" id="chatInput" class="form-input" style="border-radius: 30px; height: 50px; background: var(--bg-input);" placeholder="Message...">
-                    <button id="sendBtn" class="btn btn-primary" style="height: 50px; border-radius: 30px; padding: 0 24px;">Send</button>
-                </div>
+                    <!-- MESSAGES AREA -->
+                    <div id="messagesArea" class="messages-area">
+                        <div class="empty-chat">
+                            <i class="bi bi-chat-heart"></i>
+                            <h3>Your private universe</h3>
+                            <p>End-to-end encrypted messaging. Keep it Blink.</p>
+                        </div>
+                    </div>
 
-            </section>
+                    <!-- INPUT AREA -->
+                    <div id="inputArea" class="chat-input-area" style="display: none;">
+                        <button class="btn btn-ghost btn-circle"><i class="bi bi-emoji-smile" style="font-size: 24px;"></i></button>
+                        <input type="text" id="chatInput" class="chat-input" placeholder="Message...">
+                        <button id="sendBtn" class="btn btn-primary" style="padding: 12px 28px; border-radius: 30px;">Send</button>
+                    </div>
+
+                </section>
+            </div>
 
         </main>
 

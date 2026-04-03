@@ -429,8 +429,9 @@ if (registerForm) {
             });
 
             if (data?.success) {
-                showToast('🎉 Account created! Redirecting to sign in...', 'success');
-                setTimeout(() => { window.location.href = 'login.html'; }, 1500);
+                showToast('🎉 Account created! Welcome to Blink!', 'success');
+                setAuth(data.token, data.user);
+                setTimeout(() => { window.location.href = 'index.html'; }, 1000);
             }
         } catch (err) {
             console.error('[Blink] Registration failed:', err.message);

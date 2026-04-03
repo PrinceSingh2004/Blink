@@ -35,7 +35,7 @@ exports.getFeed = async (req, res) => {
                    ${userId ? `(SELECT COUNT(*) FROM likes WHERE post_id = v.id AND user_id = ${pool.escape(userId)}) AS liked_by_me` : '0 AS liked_by_me'}
             FROM videos v
             LEFT JOIN users u ON u.id = v.user_id
-            ORDER BY v.created_at DESC
+            ORDER BY RAND() -- RANDOM REEL SELECTION
             LIMIT ? OFFSET ?
         `;
 
