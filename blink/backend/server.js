@@ -1,9 +1,11 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
 const path = require('path');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const helmet = require('helmet');
+
+dotenv.config();
+
 const http = require('http'); // Required for Socket.IO
 const { Server } = require('socket.io'); // Socket.IO Server
 const app = express();
