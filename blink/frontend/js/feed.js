@@ -12,6 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPlayingVideo = null;
     let globalMuted = true; // Default muted like Instagram/TikTok
 
+    // --- CSP-Compliant Event-Based Error Handling ---
+    // Handle video load failures globally (error doesn't bubble, so use capture: true)
+    container.addEventListener('error', (e) => {
+        if (e.target.tagName === 'VIDEO') {
+            console.warn('[Blink] Frequency Lost (404) for video:', e.target.src);
+            e.target.style.setProperty('display', 'none', 'important');
+            const errorOverlay = e.target.nextElementSibling;
+            if (errorOverlay && errorOverlay.classList.contains('video-error')) {
+                errorOverlay.style.setProperty('display', 'flex', 'important');
+            }
+        }
+    }, true);
+
     // --- Intersection Observer for Smart Autoplay ---
     const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
