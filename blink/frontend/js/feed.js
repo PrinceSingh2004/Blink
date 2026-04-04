@@ -105,10 +105,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     loop 
                     playsinline
                     preload="metadata"
-                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                    onerror="this.style.setProperty('display', 'none', 'important'); this.nextElementSibling.style.setProperty('display', 'flex', 'important')">
                 </video>
                 
-                <div class="video-error" style="display:none; position:absolute; inset:0; background: linear-gradient(135deg, #180000 0%, #000 100%); flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#666; border: 1px solid #330000; z-index: 5;">
+                <div class="video-error" style="display:none; position:absolute; inset:0; background: linear-gradient(135deg, #180000 0%, #000 100%); flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#666; border: 1px solid #330000; z-index: 100;">
                     <i class="bi bi-broadcast-pin" style="font-size:40px; color: var(--primary); opacity: 0.5;"></i>
                     <span style="font-size:12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Frequency Lost (404)</span>
                 </div>
