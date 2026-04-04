@@ -1,328 +1,239 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-   BLINK v4.0 - USER PROFILE MODULE
-   Profile display, edit modal, follow/unfollow, video grid
-   ═══════════════════════════════════════════════════════════════════════════════ */
+    BLINK v5.0 - USER PROFILE ENGINE
+    Instagram-style profile with drag & drop uploads
+    ═══════════════════════════════════════════════════════════════════════════════ */
 
 class UserProfile {
     constructor() {
-        this.currentProfile = null;
-        this.currentUserId = null;
+        this.profile = null;
+        this.isOwn = false;
+        this.init();
     }
 
-    /**
-     * Load profile
-     */
+    init() {
+        // Global access
+        window.profile = this;
+    }
+
     async load(userId) {
+        if (!userId) return;
+        
         try {
-            window.app?.showLoading?.();
-
-            const response = await window.api?.getProfile?.(userId);
-            if (response?.user) {
-                this.currentProfile = response.user;
-                this.currentUserId = userId;
-                this.displayProfile();
-                this.setupInteractions();
+            window.app.showLoading();
+            // Using window.api for consistency
+            const data = await window.api.request(`/users/${userId}`);
+            
+            if (data) {
+                this.profile = data.user || data; 
+                this.isOwn = this.profile.id === window.api.getCurrentUser()?.id;
+                this.render();
+                this.setupUploads();
             }
-
-            window.app?.hideLoading?.();
-        } catch (error) {
-            window.app?.hideLoading?.();
-            window.app?.showError?.('Failed to load profile');
+        } catch (err) {
+            console.error("Profile load error:", err);
+            window.app.showError("Failed to synchronize profile universe.");
+        } finally {
+            window.app.hideLoading();
         }
     }
 
-    /**
-     * Display profile
-     */
-    displayProfile() {
-        if (!this.currentProfile) return;
+    render() {
+        const p = this.profile;
+        if (!p) return;
 
-        const profile = this.currentProfile;
-        const isOwnProfile = profile.id === window.auth?.getUser?.()?.id;
+        // --- Header Section ---
+        const cover = document.querySelector('.profile-cover img');
+        if (cover) cover.src = p.cover_photo || 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=1200';
 
-        // Cover photo
-        const coverImg = document.querySelector('.profile-cover img');
-        if (coverImg) {
-            coverImg.src = profile.cover_photo || 'https://via.placeholder.com/1200x300?text=Cover+Photo';
-        }
+        const avatar = document.querySelector('.profile-avatar img') || document.querySelector('.profile-pic-container img');
+        if (avatar) avatar.src = p.profile_photo || p.profile_pic || this.getFallbackAvatar(p.username);
 
-        // Profile photo
-        const profileImg = document.querySelector('.profile-pic-container img');
-        if (profileImg) {
-            profileImg.src = profile.profile_photo || 'https://via.placeholder.com/200?text=' + profile.username[0].toUpperCase();
-        }
-
-        // Profile info
-        const profileDetails = document.querySelector('.profile-details');
-        if (profileDetails) {
-            profileDetails.innerHTML = `
-                <h1>${profile.display_name || profile.username}</h1>
-                <p>@${profile.username}</p>
-                <p style="margin-top: 1rem; color: var(--text-secondary);">${profile.bio || 'No bio yet'}</p>
+        const nameEl = document.querySelector('.profile-name') || document.querySelector('.profile-details h1');
+        if (nameEl) {
+            nameEl.innerHTML = `
+                ${p.display_name || p.username} 
+                ${p.is_verified ? '<i class="bi bi-patch-check-fill text-primary"></i>' : ''}
             `;
         }
+        
+        const bioEl = document.querySelector('.profile-bio') || document.querySelector('.profile-details p:last-child');
+        if (bioEl) bioEl.textContent = p.bio || 'Exploring the Blink universe...';
+        
+        // --- Stats Section ---
+        const postCountEl = document.getElementById('postCount');
+        if (postCountEl) postCountEl.textContent = p.videos_count || p.posts_count || 0;
+        
+        const followerCountEl = document.getElementById('followerCount');
+        if (followerCountEl) followerCountEl.textContent = p.followers_count || 0;
+        
+        const followingCountEl = document.getElementById('followingCount');
+        if (followingCountEl) followingCountEl.textContent = p.following_count || 0;
 
-        // Stats
-        const stats = document.querySelector('.profile-stats');
-        if (stats) {
-            stats.innerHTML = `
-                <div style="text-align: center;">
-                    <span class="stat-number">${profile.videos_count || 0}</span>
-                    <span class="stat-label">Videos</span>
-                </div>
-                <div style="text-align: center;">
-                    <span class="stat-number">${profile.followers_count || 0}</span>
-                    <span class="stat-label">Followers</span>
-                </div>
-                <div style="text-align: center;">
-                    <span class="stat-number">${profile.following_count || 0}</span>
-                    <span class="stat-label">Following</span>
-                </div>
-            `;
-        }
-
-        // Actions
-        const actions = document.querySelector('.profile-actions');
+        // --- Action Buttons ---
+        const actions = document.getElementById('profileActions') || document.querySelector('.profile-actions');
         if (actions) {
-            if (isOwnProfile) {
+            if (this.isOwn) {
                 actions.innerHTML = `
-                    <button class="btn-primary" onclick="window.profile.showEditModal()">Edit Profile</button>
-                    <button class="btn-secondary" onclick="window.profile.showSettings()">Settings</button>
+                    <button class="btn btn-secondary" onclick="window.profile.openEditModal()">Edit Profile</button>
+                    <button class="btn btn-secondary"><i class="bi bi-gear-fill"></i></button>
                 `;
             } else {
-                const isFollowing = profile.isFollowing || false;
                 actions.innerHTML = `
-                    <button class="btn-${isFollowing ? 'secondary' : 'primary'}" onclick="window.profile.toggleFollow()">
-                        ${isFollowing ? 'Following' : 'Follow'}
+                    <button class="btn ${p.is_following ? 'btn-secondary' : 'btn-primary'}" onclick="window.profile.toggleFollow()">
+                        ${p.is_following ? 'Following' : 'Follow'}
                     </button>
-                    <button class="btn-secondary" onclick="window.app.redirect('messages')">Message</button>
+                    <button class="btn btn-secondary" onclick="window.app.navigateTo('messages', {id: ${p.id}})">Message</button>
                 `;
             }
         }
 
-        // Video grid
-        this.displayVideos(profile.videos || []);
+        // --- Video Grid ---
+        this.loadVideos();
     }
 
-    /**
-     * Display videos grid
-     */
-    displayVideos(videos) {
-        const grid = document.querySelector('.profile-grid');
+    async loadVideos() {
+        const grid = document.getElementById('profileGrid') || document.querySelector('.profile-grid');
         if (!grid) return;
 
-        if (videos.length === 0) {
-            grid.innerHTML = `
-                <div class="empty-state" style="grid-column: 1 / -1;">
-                    <i class="bi bi-film"></i>
-                    <p>No videos yet</p>
+        try {
+            const userId = this.profile.id;
+            // Endpoint might be /videos/user/:id or /users/:id/videos
+            const data = await window.api.request(`/videos/user/${userId}`);
+            const videos = Array.isArray(data) ? data : (data.videos || []);
+
+            if (videos.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-state" style="grid-column: 1/-1;">
+                        <i class="bi bi-grid-3x3"></i>
+                        <p>No posts yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = videos.map(v => `
+                <div class="grid-item" onclick="window.feed.openReel(${v.id})">
+                    <img src="${v.thumbnail_url || v.video_url}" loading="lazy" style="width:100%; height:100%; object-fit:cover;">
+                    <div class="grid-overlay">
+                        <span><i class="bi bi-play-fill"></i> ${v.views_count || 0}</span>
+                    </div>
                 </div>
-            `;
+            `).join('');
+        } catch (err) {
+            console.error("Video grid error:", err);
+        }
+    }
+
+    setupUploads() {
+        if (!this.isOwn) return;
+
+        const avatarContainer = document.querySelector('.profile-avatar') || document.querySelector('.profile-pic-container');
+        if (!avatarContainer) return;
+
+        avatarContainer.style.cursor = 'pointer';
+
+        // Click to upload
+        avatarContainer.onclick = () => this.triggerUpload();
+
+        // Drag & Drop
+        avatarContainer.ondragover = (e) => { e.preventDefault(); avatarContainer.style.border = '2px dashed var(--primary)'; };
+        avatarContainer.ondragleave = () => { avatarContainer.style.border = 'none'; };
+        avatarContainer.ondrop = (e) => {
+            e.preventDefault();
+            avatarContainer.style.border = 'none';
+            const file = e.dataTransfer.files[0];
+            if (file) this.handleFile(file);
+        };
+    }
+
+    triggerUpload() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+            if (e.target.files[0]) this.handleFile(e.target.files[0]);
+        };
+        input.click();
+    }
+
+    async handleFile(file) {
+        if (!file.type.startsWith('image/')) {
+            window.app.showError("Only image frequencies allowed.");
             return;
         }
 
-        grid.innerHTML = videos.map(video => `
-            <img 
-                src="${video.thumbnail || video.video_url}" 
-                alt="${video.caption}"
-                style="cursor: pointer;"
-                onclick="window.location.href='video.html?id=${video.id}'"
-            >
-        `).join('');
+        // 1. Instant Preview
+        const reader = new FileReader();
+        const avatarImg = document.querySelector('.profile-avatar img') || document.querySelector('.profile-pic-container img');
+        
+        reader.onload = (e) => {
+            if (avatarImg) {
+                avatarImg.style.opacity = '0.5';
+                avatarImg.src = e.target.result;
+            }
+        };
+        reader.readAsDataURL(file);
+
+        // 2. Upload to Blink Cloud
+        try {
+            window.app.showLoading();
+            const base64 = await this.toBase64(file);
+            const res = await window.api.request('/users/update-profile', {
+                method: 'POST',
+                body: JSON.stringify({ profile_pic: base64, username: this.profile.username })
+            });
+
+            if (res) {
+                window.app.showSuccess("Universe identity updated!");
+                if (avatarImg) avatarImg.style.opacity = '1';
+                // Update local user object
+                const user = window.api.getCurrentUser();
+                if (user) {
+                    user.profile_pic = res.profile_pic || base64;
+                    localStorage.setItem('user', JSON.stringify(user));
+                }
+            }
+        } catch (err) {
+            console.error("Upload error:", err);
+            window.app.showError("Failed to synchronize image pulse.");
+            this.render(); // Reset UI
+        } finally {
+            window.app.hideLoading();
+        }
     }
 
-    /**
-     * Toggle follow
-     */
     async toggleFollow() {
-        if (!window.auth?.requireAuth?.()) return;
-
+        const p = this.profile;
         try {
-            const isFollowing = this.currentProfile.isFollowing;
-
-            if (isFollowing) {
-                await window.api?.unfollowUser?.(this.currentProfile.id);
-                this.currentProfile.isFollowing = false;
-                this.currentProfile.followers_count--;
-            } else {
-                await window.api?.followUser?.(this.currentProfile.id);
-                this.currentProfile.isFollowing = true;
-                this.currentProfile.followers_count++;
-            }
-
-            this.displayProfile();
-            window.app?.showSuccess?.(isFollowing ? 'Unfollowed!' : 'Following!');
-        } catch (error) {
-            window.app?.showError?.('Failed to update follow status');
+            const method = p.is_following ? 'DELETE' : 'POST';
+            await window.api.request(`/users/${p.id}/follow`, { method });
+            
+            p.is_following = !p.is_following;
+            p.followers_count += p.is_following ? 1 : -1;
+            this.render();
+        } catch (err) {
+            window.app.showError("Follow pulse failed.");
         }
     }
 
-    /**
-     * Show edit profile modal
-     */
-    showEditModal() {
+    getFallbackAvatar(username) {
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(username || 'U')}&background=ff2c55&color=fff&size=200`;
+    }
+
+    toBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    openEditModal() {
         const modal = document.getElementById('editProfileModal');
-        if (!modal) return;
-
-        const profile = this.currentProfile;
-
-        const form = modal.querySelector('form');
-        if (form) {
-            form.innerHTML = `
-                <div>
-                    <label>Display Name</label>
-                    <input type="text" value="${profile.display_name || ''}" name="display_name">
-                </div>
-                <div>
-                    <label>Username</label>
-                    <input type="text" value="${profile.username}" name="username" readonly>
-                </div>
-                <div>
-                    <label>Bio</label>
-                    <textarea name="bio" maxlength="150">${profile.bio || ''}</textarea>
-                    <small>${(profile.bio || '').length}/150</small>
-                </div>
-                <div>
-                    <label>
-                        <input type="file" accept="image/*" name="profile_photo" onchange="window.profile.handleProfilePhotoSelect(this)">
-                        Change Profile Photo
-                    </label>
-                </div>
-                <div>
-                    <label>
-                        <input type="file" accept="image/*" name="cover_photo" onchange="window.profile.handleCoverPhotoSelect(this)">
-                        Change Cover Photo
-                    </label>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <button type="button" class="btn-secondary" onclick="document.getElementById('editProfileModal').classList.remove('active')">Cancel</button>
-                    <button type="submit" class="btn-primary">Save Changes</button>
-                </div>
-            `;
-
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.saveProfile(form);
-            });
-        }
-
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-
-    /**
-     * Handle profile photo selection
-     */
-    async handleProfilePhotoSelect(input) {
-        if (!input.files[0]) return;
-
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const base64 = e.target.result;
-                await window.api?.uploadProfilePhoto?.(base64);
-                window.app?.showSuccess?.('Profile photo updated!');
-                this.currentProfile.profile_photo = base64;
-                this.displayProfile();
-            } catch (error) {
-                window.app?.showError?.('Failed to upload photo');
-            }
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-
-    /**
-     * Handle cover photo selection
-     */
-    async handleCoverPhotoSelect(input) {
-        if (!input.files[0]) return;
-
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const base64 = e.target.result;
-                await window.api?.uploadCoverPhoto?.(base64);
-                window.app?.showSuccess?.('Cover photo updated!');
-                this.currentProfile.cover_photo = base64;
-                this.displayProfile();
-            } catch (error) {
-                window.app?.showError?.('Failed to upload cover');
-            }
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-
-    /**
-     * Save profile changes
-     */
-    async saveProfile(form) {
-        try {
-            const data = new FormData(form);
-            const updates = {
-                display_name: data.get('display_name'),
-                bio: data.get('bio')
-            };
-
-            const response = await window.api?.updateProfile?.(updates);
-            if (response?.user) {
-                this.currentProfile = response.user;
-                this.displayProfile();
-                window.app?.showSuccess?.('Profile updated!');
-                document.getElementById('editProfileModal').classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        } catch (error) {
-            window.app?.showError?.('Failed to save profile');
-        }
-    }
-
-    /**
-     * Show settings
-     */
-    showSettings() {
-        alert('Settings page coming soon!');
-    }
-
-    /**
-     * Setup interactions
-     */
-    setupInteractions() {
-        const editBtn = document.querySelector('.edit-pic-btn');
-        const editCoverBtn = document.querySelector('.edit-cover-btn');
-
-        if (editBtn && this.currentProfile.id === window.auth?.getUser?.()?.id) {
-            editBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = (evt) => {
-                    if (evt.target.files[0]) {
-                        this.handleProfilePhotoSelect(evt.target);
-                    }
-                };
-                input.click();
-            });
-        }
-
-        if (editCoverBtn && this.currentProfile.id === window.auth?.getUser?.()?.id) {
-            editCoverBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = (evt) => {
-                    if (evt.target.files[0]) {
-                        this.handleCoverPhotoSelect(evt.target);
-                    }
-                };
-                input.click();
-            });
-        }
+        if (modal) modal.classList.add('active');
     }
 }
 
-// Create global instance
+// Global initialization
 window.profile = new UserProfile();
-
-export default window.profile;

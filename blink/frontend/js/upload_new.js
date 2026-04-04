@@ -1,214 +1,163 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-   BLINK v4.0 - UPLOAD MODULE
-   Video upload with compression, drag & drop, progress tracking
-   ═══════════════════════════════════════════════════════════════════════════════ */
+    BLINK v5.0 - VIDEO UPLOAD ENGINE
+    Progress bar | Preview | Dropzone | Transitions
+    ═══════════════════════════════════════════════════════════════════════════════ */
 
-class VideoUploader {
+class VideoUpload {
     constructor() {
         this.selectedFile = null;
-        this.isUploading = false;
+        this.init();
     }
 
-    /**
-     * Initialize upload page
-     */
     init() {
-        if (!window.auth?.requireAuth?.()) return;
+        if (!window.api.isAuthenticated()) return;
+        
+        // Global access
+        window.upload = this;
 
-        this.setupDropZone();
-        this.setupFileInput();
-        this.setupUploadButtons();
+        this.setupDropzone();
     }
 
-    /**
-     * Setup drag & drop zone
-     */
-    setupDropZone() {
-        const dropzone = document.querySelector('.dropzone');
+    setupDropzone() {
+        const dropzone = document.getElementById('uploadDropzone');
         if (!dropzone) return;
 
-        dropzone.addEventListener('dragover', (e) => {
+        // Click to upload
+        dropzone.onclick = () => this.triggerFilePicker();
+
+        // Drag & Drop
+        dropzone.ondragover = (e) => {
             e.preventDefault();
             dropzone.classList.add('dragover');
-        });
-
-        dropzone.addEventListener('dragleave', () => {
+        };
+        dropzone.ondragleave = () => {
             dropzone.classList.remove('dragover');
-        });
-
-        dropzone.addEventListener('drop', (e) => {
+        };
+        dropzone.ondrop = (e) => {
             e.preventDefault();
             dropzone.classList.remove('dragover');
-
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                this.handleFileSelect(files[0]);
-            }
-        });
-
-        dropzone.addEventListener('click', () => {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'video/*';
-            input.onchange = (e) => {
-                if (e.target.files.length > 0) {
-                    this.handleFileSelect(e.target.files[0]);
-                }
-            };
-            input.click();
-        });
+            const file = e.dataTransfer.files[0];
+            if (file) this.handleFile(file);
+        };
     }
 
-    /**
-     * Setup file input
-     */
-    setupFileInput() {
-        const input = document.querySelector('input[type="file"][accept="video/*"]');
-        if (input) {
-            input.addEventListener('change', (e) => {
-                if (e.target.files.length > 0) {
-                    this.handleFileSelect(e.target.files[0]);
-                }
-            });
-        }
+    triggerFilePicker() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'video/*';
+        input.onchange = (e) => {
+            if (e.target.files[0]) this.handleFile(e.target.files[0]);
+        };
+        input.click();
     }
 
-    /**
-     * Handle file selection
-     */
-    async handleFileSelect(file) {
+    handleFile(file) {
         if (!file.type.startsWith('video/')) {
-            window.app?.showError?.('Please select a video file');
-            return;
-        }
-
-        if (file.size > 500 * 1024 * 1024) {
-            window.app?.showError?.('File size must be less than 500MB');
+            window.app.showError("Invalid frequency. Only video signals allowed.");
             return;
         }
 
         this.selectedFile = file;
-        
-        // UI Transitions
-        const dropzone = document.getElementById('dropzone');
-        const previewArea = document.getElementById('preview-area');
-        
-        if (dropzone) dropzone.style.display = 'none';
-        if (previewArea) previewArea.style.display = 'block';
 
-        this.showPreview(file);
-    }
+        // 1. UI Transition
+        document.getElementById('uploadDropzone').style.display = 'none';
+        document.getElementById('uploadPreviewArea').style.display = 'block';
 
-    /**
-     * Show video preview
-     */
-    showPreview(file) {
-        const preview = document.querySelector('#preview-area video');
-        if (!preview) return;
+        // 2. Video Preview
+        const videoPreview = document.getElementById('videoPreview');
+        const fileURL = URL.createObjectURL(file);
+        videoPreview.src = fileURL;
+        videoPreview.play();
 
-        const url = URL.createObjectURL(file);
-        preview.src = url;
-
-        const durationInfo = document.querySelector('.preview-info p');
-        // If there's no specific paragraph for duration, we might need to add one or use a different selector
-        
-        preview.addEventListener('loadedmetadata', () => {
-            const minutes = Math.floor(preview.duration / 60);
-            const seconds = Math.floor(preview.duration % 60);
-            console.log(`Video duration: ${minutes}:${seconds}`);
-        });
-    }
-
-    /**
-     * Setup upload buttons
-     */
-    setupUploadButtons() {
-        const uploadBtn = document.getElementById('publish-btn');
-        const discardBtn = document.getElementById('clear-upload');
-
-        if (uploadBtn) {
-            uploadBtn.addEventListener('click', () => this.uploadVideo());
-        }
-
-        if (discardBtn) {
-            discardBtn.addEventListener('click', () => {
-                this.selectedFile = null;
-                const dropzone = document.getElementById('dropzone');
-                const previewArea = document.getElementById('preview-area');
-                
-                if (dropzone) dropzone.style.display = 'flex';
-                if (previewArea) previewArea.style.display = 'none';
-                
-                const preview = document.querySelector('#preview-area video');
-                if (preview) {
-                    preview.pause();
-                    preview.src = '';
-                }
-                window.app?.showSuccess?.('Upload cancelled');
-            });
+        // 3. Clear file info
+        const fileInfo = document.getElementById('fileInfo');
+        if (fileInfo) {
+            fileInfo.textContent = `${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
         }
     }
 
-    /**
-     * Convert file to base64
-     */
-    fileToBase64(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
-    }
+    async startUpload() {
+        if (!this.selectedFile) return;
 
-    /**
-     * Upload video
-     */
-    async uploadVideo() {
-        if (!this.selectedFile) {
-            window.app?.showError?.('Please select a video');
-            return;
-        }
-
-        if (this.isUploading) return;
-
-        const captionInput = document.querySelector('textarea[name="caption"]');
-        const caption = captionInput?.value?.trim() || '';
-
-        this.isUploading = true;
+        const caption = document.getElementById('videoCaption').value || '';
+        const progressContainer = document.getElementById('uploadProgressContainer');
+        const progressBar = document.getElementById('uploadProgressBar');
+        const statusText = document.getElementById('uploadStatusText');
 
         try {
-            window.app?.showLoading?.();
+            // UI Setup
+            progressContainer.style.display = 'block';
+            document.getElementById('uploadBtn').disabled = true;
+            statusText.textContent = "Injecting data into the Blink network...";
 
-            // Direct upload using File object (No Base64 - Optimized)
-            const response = await window.api?.uploadVideo?.(this.selectedFile, caption);
+            // Create FormData
+            const formData = new FormData();
+            formData.append('video', this.selectedFile);
+            formData.append('caption', caption);
 
-            window.app?.hideLoading?.();
+            // Using XMLHttpRequest for progress tracking
+            const xhr = new XMLHttpRequest();
+            const API_BASE = window.api.baseURL || 'https://blink-yzoo.onrender.com/api';
+            
+            xhr.open('POST', `${API_BASE}/upload/video`, true);
+            xhr.setRequestHeader('Authorization', `Bearer ${window.api.token}`);
 
-            if (response?.video) {
-                window.app?.showSuccess?.('🎉 Video uploaded successfully!');
+            // Progress event
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    progressBar.style.width = `${percent}%`;
+                    statusText.textContent = `Syncing Frequency: ${percent}%`;
+                }
+            };
 
-                // Reset form
-                setTimeout(() => {
-                    this.selectedFile = null;
-                    const preview = document.querySelector('.preview-area video');
-                    if (preview) preview.src = '';
-                    if (captionInput) captionInput.value = '';
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    window.app.showSuccess("Data pulse successful! Reel synchronized.");
+                    setTimeout(() => {
+                        window.app.navigateTo('feed');
+                        this.clearUpload();
+                    }, 1500);
+                } else {
+                    window.app.showError("Data pulse failed. Recheck the signal.");
+                    this.resetUI();
+                }
+            };
 
-                    // Redirect to feed
-                    window.app?.redirect?.('feed');
-                }, 1500);
-            }
-        } catch (error) {
-            window.app?.hideLoading?.();
-            window.app?.showError?.('Failed to upload video: ' + error.message);
-        } finally {
-            this.isUploading = false;
+            xhr.onerror = () => {
+                window.app.showError("Link to Blink network severed.");
+                this.resetUI();
+            };
+
+            xhr.send(formData);
+
+        } catch (err) {
+            console.error("Upload error:", err);
+            window.app.showError("Universe transmission error.");
+            this.resetUI();
         }
+    }
+
+    clearUpload() {
+        this.selectedFile = null;
+        this.resetUI();
+    }
+
+    resetUI() {
+        document.getElementById('uploadDropzone').style.display = 'flex';
+        document.getElementById('uploadPreviewArea').style.display = 'none';
+        document.getElementById('uploadProgressContainer').style.display = 'none';
+        document.getElementById('uploadBtn').disabled = false;
+        
+        const videoPreview = document.getElementById('videoPreview');
+        if (videoPreview) {
+            videoPreview.src = '';
+        }
+        
+        const captionInput = document.getElementById('videoCaption');
+        if (captionInput) captionInput.value = '';
     }
 }
 
-// Create global instance
-window.upload = new VideoUploader();
-
-export default window.upload;
+// Global initialization
+window.upload = new VideoUpload();

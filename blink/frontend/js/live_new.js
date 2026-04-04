@@ -1,438 +1,206 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-   BLINK v4.0 - LIVE STREAMING MODULE
-   WebRTC streaming, peer connections, viewer management
-   ═══════════════════════════════════════════════════════════════════════════════ */
+    BLINK v5.0 - LIVE STREAMING ENGINE
+    WebRTC | Socket Real-time | End Stream Confirmation | Mute Toggle
+    ═══════════════════════════════════════════════════════════════════════════════ */
 
 class LiveStreamer {
     constructor() {
-        this.isStreaming = false;
-        this.localStream = null;
-        this.peerConnections = new Map();
-        this.socket = window.Blink?.socket || null;
         this.streamId = null;
+        this.localStream = null;
+        this.isStreaming = false;
+        this.isMuted = false;
+        this.socket = window.Blink?.socket || null;
+        this.init();
     }
 
-    /**
-     * Initialize live page
-     */
     init() {
-        if (!window.auth?.requireAuth?.()) return;
+        if (!window.api.isAuthenticated()) return;
+        
+        // Global access
+        window.live = this;
 
         this.setupSocket();
-        this.setupEventListeners();
-        this.loadLiveStreams();
+        this.loadActiveStreams();
     }
 
-    /**
-     * Setup Socket.io connection
-     */
     setupSocket() {
         if (!this.socket) {
-            console.warn('Socket.io not connected');
+            setTimeout(() => {
+                this.socket = window.Blink?.socket;
+                if(this.socket) this.setupSocketListeners();
+            }, 1000);
             return;
         }
-
-        // Join stream event
-        this.socket.on('stream-joined', (data) => {
-            console.log('User joined stream:', data.userId);
-            this.handleNewViewer(data);
-        });
-
-        // Receive offer from streamer
-        this.socket.on('webrtc-offer', (data) => {
-            this.handleOffer(data);
-        });
-
-        // Receive answer
-        this.socket.on('webrtc-answer', (data) => {
-            this.handleAnswer(data);
-        });
-
-        // Receive ICE candidate
-        this.socket.on('ice-candidate', (data) => {
-            this.handleICECandidate(data);
-        });
-
-        // Stream ended
-        this.socket.on('stream-ended', () => {
-            this.handleStreamEnded();
-        });
+        this.setupSocketListeners();
     }
 
-    /**
-     * Start streaming
-     */
-    async startStream() {
-        if (!window.auth?.requireAuth?.()) return;
-
-        try {
-            window.app?.showLoading?.();
-
-            // Get user media
-            this.localStream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                },
-                audio: true
-            });
-
-            // Start live stream on backend
-            const response = await window.api?.startLiveStream?.('Going Live!');
-            if (!response?.stream) throw new Error('Failed to create stream');
-
-            this.streamId = response.stream.id;
-            this.isStreaming = true;
-
-            // Display local video
-            const video = document.querySelector('.live-container .stream-video-container video');
-            if (video) {
-                video.srcObject = this.localStream;
+    setupSocketListeners() {
+        this.socket.on('stream-ended', (data) => {
+            if (this.streamId == data.streamId) {
+                window.app.showError("The stream has ended.");
+                this.stopLocalStream();
+                window.app.navigateTo('feed');
             }
+        });
 
-            // Emit start-stream to notify viewers
-            this.socket?.emit('start-stream', {
-                streamId: this.streamId,
-                title: 'Live Stream'
-            });
-
-            window.app?.hideLoading?.();
-            this.updateStreamOverlay();
-            window.app?.showSuccess?.('✅ You\'re now live!');
-        } catch (error) {
-            window.app?.hideLoading?.();
-            window.app?.showError?.(`Failed to start stream: ${error.message}`);
-            console.error('Stream start error:', error);
-        }
+        this.socket.on('new-viewer', (data) => {
+            if (this.isStreaming) {
+                this.updateViewerCount(data.count);
+            }
+        });
     }
 
-    /**
-     * Join stream as viewer
-     */
-    async joinStream(streamId) {
+    async startLive() {
         try {
-            window.app?.showLoading?.();
-
-            this.streamId = streamId;
-
-            // Notify backend we're joining
-            this.socket?.emit('join-stream', { streamId });
-
-            // Get viewer stream (just audio from viewer)
+            window.app.showLoading();
+            
+            // 1. Get Media Permission
             this.localStream = await navigator.mediaDevices.getUserMedia({
-                video: false,
+                video: { width: 1280, height: 720 },
                 audio: true
             });
 
-            window.app?.hideLoading?.();
-            window.app?.showSuccess?.('Connected to stream!');
-        } catch (error) {
-            window.app?.hideLoading?.();
-            window.app?.showError?.(`Failed to join stream: ${error.message}`);
+            // 2. Register on Backend
+            const res = await window.api.request('/live/start', {
+                method: 'POST',
+                body: JSON.stringify({ title: "My Live Stream" })
+            });
+
+            if (res.success) {
+                this.streamId = res.stream.id;
+                this.isStreaming = true;
+                
+                // 3. UI Update
+                this.renderStreamOverlay();
+                const video = document.getElementById('liveVideo');
+                if (video) video.srcObject = this.localStream;
+
+                window.app.showSuccess("🚀 You are now LIVE!");
+                
+                // 4. Emit to Socket
+                this.socket.emit('start-stream', { streamId: this.streamId });
+            }
+        } catch (err) {
+            console.error("Live start error:", err);
+            window.app.showError("Connection to the live universe failed.");
+        } finally {
+            window.app.hideLoading();
         }
     }
 
-    /**
-     * End stream
-     */
+    async confirmEndStream() {
+        if (!this.isStreaming) return;
+        
+        if (confirm("Are you sure you want to end this transmission?")) {
+            this.endStream();
+        }
+    }
+
     async endStream() {
         try {
-            if (this.localStream) {
-                this.localStream.getTracks().forEach(track => track.stop());
-                this.localStream = null;
-            }
+            window.app.showLoading();
+            
+            await window.api.request('/live/end', {
+                method: 'POST',
+                body: JSON.stringify({ streamId: this.streamId })
+            });
 
-            if (this.streamId) {
-                await window.api?.endLiveStream?.(this.streamId);
-            }
-
-            // Close all peer connections
-            this.peerConnections.forEach(pc => pc.close());
-            this.peerConnections.clear();
-
+            this.stopLocalStream();
             this.isStreaming = false;
             this.streamId = null;
 
-            // Notify viewers
-            this.socket?.emit('end-stream');
-
-            window.app?.showSuccess?.('Stream ended');
-            window.app?.redirect?.('feed');
-        } catch (error) {
-            window.app?.showError?.('Failed to end stream');
-            console.error('Stream end error:', error);
+            window.app.showSuccess("Transmission ended successfully.");
+            window.app.navigateTo('feed');
+        } catch (err) {
+            window.app.showError("Failed to exit the live frequency.");
+        } finally {
+            window.app.hideLoading();
         }
     }
 
-    /**
-     * Load available live streams
-     */
-    async loadLiveStreams() {
-        try {
-            const response = await window.api?.getLiveStreams?.();
-            if (response?.streams) {
-                this.displayLiveStreams(response.streams);
-            } else {
-                this.showEmptyState();
+    stopLocalStream() {
+        if (this.localStream) {
+            this.localStream.getTracks().forEach(track => track.stop());
+            this.localStream = null;
+        }
+        const video = document.getElementById('liveVideo');
+        if (video) video.srcObject = null;
+    }
+
+    toggleMute() {
+        if (this.localStream) {
+            this.isMuted = !this.isMuted;
+            this.localStream.getAudioTracks().forEach(track => {
+                track.enabled = !this.isMuted;
+            });
+            
+            const btn = document.getElementById('muteBtn');
+            if (btn) {
+                btn.innerHTML = this.isMuted ? '<i class="bi bi-mic-mute"></i>' : '<i class="bi bi-mic"></i>';
+                btn.classList.toggle('active', this.isMuted);
             }
-        } catch (error) {
-            console.error('Failed to load streams:', error);
-            this.showEmptyState();
         }
     }
 
-    /**
-     * Display live streams
-     */
-    displayLiveStreams(streams) {
-        const container = document.querySelector('.live-container');
+    async loadActiveStreams() {
+        const container = document.getElementById('activeStreamsGrid');
         if (!container) return;
 
-        const html = streams.map(stream => `
-            <div class="stream-card">
-                <div class="stream-thumbnail">
-                    <img src="${stream.thumbnail_url || 'https://via.placeholder.com/300x200'}" alt="${stream.author?.username}">
-                    <span class="live-badge">LIVE</span>
+        try {
+            const data = await window.api.request('/live');
+            const streams = Array.isArray(data) ? data : (data.streams || []);
+
+            if (streams.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-broadcast"></i>
+                        <p>No active transmissions found.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = streams.map(s => `
+                <div class="stream-card" onclick="window.live.joinStream(${s.id})">
+                    <img src="${s.thumbnail || window.profile.getFallbackAvatar(s.username)}">
+                    <div class="card-overlay">
+                        <span class="live-tag">LIVE</span>
+                        <div class="card-info">
+                            <div class="card-user">@${s.username}</div>
+                            <div class="card-viewers"><i class="bi bi-eye"></i> ${s.viewers || 0}</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="stream-info">
-                    <h3>${stream.title}</h3>
-                    <p>${stream.author?.username}</p>
-                    <p>${stream.viewer_count || 0} viewers</p>
-                    <button class="btn-primary" onclick="window.live.joinStream('${stream.id}')">
-                        Join Stream
+            `).join('');
+        } catch (err) {
+            console.error("Load live error:", err);
+        }
+    }
+
+    renderStreamOverlay() {
+        const overlay = document.getElementById('liveOverlay');
+        if (overlay) {
+            overlay.innerHTML = `
+                <div class="live-status">
+                    <span class="pulse-dot"></span> LIVE
+                </div>
+                <div class="live-controls">
+                    <button id="muteBtn" class="ctrl-btn" onclick="window.live.toggleMute()">
+                        <i class="bi bi-mic"></i>
+                    </button>
+                    <button class="ctrl-btn end-btn" onclick="window.live.confirmEndStream()">
+                        End Stream
                     </button>
                 </div>
-            </div>
-        `).join('');
-
-        container.innerHTML = html;
-    }
-
-    /**
-     * Show empty state
-     */
-    showEmptyState() {
-        const container = document.querySelector('.live-container');
-        if (!container) return;
-
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="bi bi-video-off"></i>
-                <h2>No live streams</h2>
-                <p>No creators are streaming right now.</p>
-                <button class="btn-primary" onclick="window.live.startStream()">
-                    Start a Stream
-                </button>
-            </div>
-        `;
-    }
-
-    /**
-     * Handle offer from streamer
-     */
-    async handleOffer(data) {
-        try {
-            const { fromUserId, offer } = data;
-
-            let pc = this.peerConnections.get(fromUserId);
-            if (!pc) {
-                pc = this.createPeerConnection(fromUserId);
-            }
-
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-
-            this.socket?.emit('webrtc-answer', {
-                toUserId: fromUserId,
-                streamId: this.streamId,
-                answer: pc.localDescription
-            });
-        } catch (error) {
-            console.error('Error handling offer:', error);
-        }
-    }
-
-    /**
-     * Handle answer
-     */
-    async handleAnswer(data) {
-        try {
-            const { fromUserId, answer } = data;
-            const pc = this.peerConnections.get(fromUserId);
-
-            if (pc) {
-                await pc.setRemoteDescription(new RTCSessionDescription(answer));
-            }
-        } catch (error) {
-            console.error('Error handling answer:', error);
-        }
-    }
-
-    /**
-     * Handle ICE candidate
-     */
-    async handleICECandidate(data) {
-        try {
-            const { fromUserId, candidate } = data;
-            const pc = this.peerConnections.get(fromUserId);
-
-            if (pc && candidate) {
-                await pc.addIceCandidate(new RTCIceCandidate(candidate));
-            }
-        } catch (error) {
-            console.error('Error adding ICE candidate:', error);
-        }
-    }
-
-    /**
-     * Create peer connection
-     */
-    createPeerConnection(userId) {
-        const pc = new RTCPeerConnection({
-            iceServers: [
-                { urls: ['stun:stun.l.google.com:19302'] },
-                { urls: ['stun:stun1.l.google.com:19302'] }
-            ]
-        });
-
-        // Add local stream tracks
-        if (this.localStream) {
-            this.localStream.getTracks().forEach(track => {
-                pc.addTrack(track, this.localStream);
-            });
-        }
-
-        // Handle remote stream
-        pc.ontrack = (event) => {
-            const video = document.querySelector('.stream-video-container video');
-            if (video && event.streams[0]) {
-                video.srcObject = event.streams[0];
-            }
-        };
-
-        // Handle ICE candidates
-        pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                this.socket?.emit('ice-candidate', {
-                    toUserId: userId,
-                    streamId: this.streamId,
-                    candidate: event.candidate
-                });
-            }
-        };
-
-        // Handle connection state changes
-        pc.onconnectionstatechange = () => {
-            if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-                pc.close();
-                this.peerConnections.delete(userId);
-            }
-        };
-
-        this.peerConnections.set(userId, pc);
-        return pc;
-    }
-
-    /**
-     * Handle new viewer
-     */
-    handleNewViewer(data) {
-        if (this.isStreaming) {
-            this.createOffer(data.userId);
-        }
-    }
-
-    /**
-     * Create offer for viewer
-     */
-    async createOffer(viewerId) {
-        try {
-            const pc = this.createPeerConnection(viewerId);
-
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            this.socket?.emit('webrtc-offer', {
-                toUserId: viewerId,
-                streamId: this.streamId,
-                offer: pc.localDescription
-            });
-        } catch (error) {
-            console.error('Error creating offer:', error);
-        }
-    }
-
-    /**
-     * Handle stream ended
-     */
-    handleStreamEnded() {
-        this.peerConnections.forEach(pc => pc.close());
-        this.peerConnections.clear();
-        window.app?.showError?.('Stream has ended');
-        window.app?.redirect?.('live');
-    }
-
-    /**
-     * Update stream overlay
-     */
-    updateStreamOverlay() {
-        const info = document.querySelector('.stream-info');
-        if (info) {
-            info.innerHTML = `
-                <span class="live-badge">🔴 LIVE</span>
-                <span>${new Date().toLocaleTimeString()}</span>
             `;
         }
     }
 
-    /**
-     * Setup event listeners
-     */
-    setupEventListeners() {
-        // Find buttons by IDs or selectors
-        const startBtn = document.getElementById('start-stream-btn');
-        const endBtn = document.getElementById('end-stream-btn');
-        const watchBtn = document.getElementById('watch-streams-btn');
-
-        if (startBtn) {
-            startBtn.addEventListener('click', () => {
-                console.log('Start stream clicked');
-                this.startStream();
-            });
-        }
-
-        if (endBtn) {
-            endBtn.addEventListener('click', () => {
-                console.log('End stream clicked');
-                this.endStream();
-            });
-        }
-
-        if (watchBtn) {
-            watchBtn.addEventListener('click', () => {
-                console.log('Watch streams clicked');
-                this.loadLiveStreams();
-                // Toggle sections if necessary
-                const startMode = document.getElementById('start-mode');
-                const viewingMode = document.getElementById('viewing-mode');
-                if (startMode) startMode.style.display = 'none';
-                if (viewingMode) viewingMode.style.display = 'block';
-            });
-        }
-
-        // Also check for any inline onclick attributes as backup
-        document.querySelectorAll('[onclick*="startStream"]').forEach(el => {
-            el.onclick = (e) => { e.preventDefault(); this.startStream(); };
-        });
-        document.querySelectorAll('[onclick*="endStream"]').forEach(el => {
-            el.onclick = (e) => { e.preventDefault(); this.endStream(); };
-        });
+    updateViewerCount(count) {
+        const el = document.getElementById('viewerCount');
+        if (el) el.textContent = count;
     }
 }
 
-// Create global instance
+// Global initialization
 window.live = new LiveStreamer();
-
-export default window.live;

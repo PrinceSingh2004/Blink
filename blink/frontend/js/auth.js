@@ -54,18 +54,12 @@ function requireAuth() {
 // ── Universal API request helper ───────────────────────────────────
 async function apiRequest(url, options = {}) {
     try {
-        // Use the Global API wrapper for consistency and automatic base URL handling
-        const res = await window.API(url, options);
-        
-        if (res.status === 401) {
-            logout();
-            return;
-        }
-        
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        return data;
+        // Use the modern API instance for consistency
+        return await window.api.request(url, options);
     } catch (err) {
+        if (err.message.includes('401')) {
+            logout();
+        }
         throw err;
     }
 }
