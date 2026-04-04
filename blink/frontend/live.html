@@ -2,122 +2,419 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Go Live | Blink</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Blink">
+    <meta name="theme-color" content="#000">
+    <title>Blink | Watch, Create, Share</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23FF0050'/><text x='50' y='60' font-size='50' fill='white' text-anchor='middle' font-weight='bold'>B</text></svg>">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/global.css">
-    <link rel="stylesheet" href="css/components.css">
-    <link rel="stylesheet" href="css/pages.css">
-    <style>
-        .live-container {
-            position: relative;
-            width: 100%;
-            height: 100vh;
-            background: #000;
-            display: flex;
-            flex-direction: column;
-        }
-        #localVideo {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .live-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 20px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.6) 100%);
-        }
-        .live-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            pointer-events: auto;
-        }
-        .live-badge {
-            background: #ff0050;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .viewer-count {
-            background: rgba(0,0,0,0.5);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .chat-container {
-            height: 300px;
-            overflow-y: auto;
-            pointer-events: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 20px;
-            mask-image: linear-gradient(to top, black 80%, transparent 100%);
-        }
-        .chat-msg {
-            background: rgba(0,0,0,0.3);
-            padding: 6px 12px;
-            border-radius: 12px;
-            color: white;
-            font-size: 14px;
-            max-width: 80%;
-            width: fit-content;
-        }
-        .chat-msg b { color: var(--primary); margin-right: 6px; }
-        .live-controls {
-            display: flex;
-            gap: 12px;
-            pointer-events: auto;
-        }
-        #chatInput {
-            flex: 1;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 20px;
-            padding: 10px 20px;
-            color: white;
-        }
-    </style>
+    
+    <base href="/">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/css/global.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/responsive.css">
 </head>
 <body>
-    <div class="live-container">
-        <video id="localVideo" autoplay muted playsinline></video>
-        
-        <div class="live-overlay">
-            <div class="live-header">
-                <div class="live-badge">🔴 LIVE</div>
-                <div class="viewer-count" id="viewerCount">👁️ 0</div>
-                <button class="btn btn-secondary btn-sm" id="endStreamBtn" style="display:none;">End Pulse</button>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar">
+            <div class="nav-logo">
+                <i class="bi bi-play-circle-fill"></i>
+                <h2>Blink</h2>
             </div>
+            
+            <nav class="nav-links">
+                <a href="#" class="nav-link active" data-page="feed">
+                    <i class="bi bi-house-fill"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="nav-link" data-page="explore">
+                    <i class="bi bi-search"></i>
+                    <span>Explore</span>
+                </a>
+                <a href="#" class="nav-link" data-page="live">
+                    <i class="bi bi-broadcast"></i>
+                    <span>Live</span>
+                </a>
+                <a href="#" class="nav-link" data-page="messages">
+                    <i class="bi bi-chat-dots"></i>
+                    <span>Messages</span>
+                </a>
+                <a href="#" class="nav-link" data-page="profile">
+                    <i class="bi bi-person"></i>
+                    <span>Profile</span>
+                </a>
+            </nav>
 
-            <div class="live-footer">
-                <div id="chatBox" class="chat-container"></div>
-                
-                <div class="live-controls">
-                    <input type="text" id="chatInput" placeholder="Say something...">
-                    <button class="btn btn-primary" id="startBtn">Go Live</button>
+            <div class="sidebar-footer">
+                <a href="#" class="nav-link" id="logout-btn">
+                    <i class="bi bi-box-arrow-right"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Bottom Navigation (Mobile Only) -->
+        <nav class="bottom-nav">
+            <a href="#" class="bottom-link active" data-page="feed">
+                <i class="bi bi-house-fill"></i>
+                <span>Home</span>
+            </a>
+            <a href="#" class="bottom-link" data-page="explore">
+                <i class="bi bi-search"></i>
+                <span>Explore</span>
+            </a>
+            <a href="#" class="bottom-link" data-page="create">
+                <i class="bi bi-plus-circle"></i>
+                <span>Create</span>
+            </a>
+            <a href="#" class="bottom-link" data-page="messages">
+                <i class="bi bi-chat-dots"></i>
+                <span>Messages</span>
+            </a>
+            <a href="#" class="bottom-link" data-page="profile">
+                <i class="bi bi-person"></i>
+                <span>Profile</span>
+            </a>
+        </nav>
+
+            <main class="main-content">
+            <!-- PAGE: FEED / REELS -->
+            <section id="feed-page" class="page active">
+                <div class="reels-container" id="reelsContainer">
+                    <!-- Reels are dynamically injected here by feed.js -->
+                    <div class="flex-column flex-center" style="height: 100vh; gap: 20px;">
+                        <div class="loader"></div>
+                        <p style="color:var(--text-muted);">Syncing Blinks...</p>
+                    </div>
                 </div>
+            </section>
+
+        <!-- PAGE: CREATE / UPLOAD -->
+        <section id="create-page" class="page">
+            <div class="create-container">
+                <h1>Create New Post</h1>
+                
+                <div class="upload-area">
+                    <div class="dropzone" id="dropzone">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                        <h2>Upload Your Video</h2>
+                        <p>Drag & drop or tap to select</p>
+                        <input type="file" id="video-input" accept="video/*" hidden>
+                    </div>
+
+                    <div id="preview-area" class="preview-area" style="display: none;">
+                        <video id="preview-video" controls></video>
+                        <div class="preview-info">
+                            <input type="text" id="caption-input" placeholder="Add caption..." maxlength="300">
+                            <input type="text" id="hashtags-input" placeholder="Add hashtags (e.g., #blink #trending)" maxlength="200">
+                            <select id="mood-select">
+                                <option value="General">General</option>
+                                <option value="Happy">Happy</option>
+                                <option value="Funny">Funny 😂</option>
+                                <option value="Trending">Trending</option>
+                                <option value="Music">Music 🎵</option>
+                            </select>
+                            <div class="upload-buttons">
+                                <button class="btn-secondary" id="clear-upload">Clear</button>
+                                <button class="btn-primary" id="publish-btn">Publish 🚀</button>
+                            </div>
+                            <div class="progress-bar" style="display: none;">
+                                <div class="progress-fill"></div>
+                                <span class="progress-text">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: LIVE STREAMING -->
+        <section id="live-page" class="page">
+            <div class="live-container">
+                <div class="live-header">
+                    <h1>Live Streaming</h1>
+                </div>
+
+                <div id="streaming-mode" style="display: none;">
+                    <div class="stream-video-container">
+                        <video id="local-video" playsinline muted></video>
+                        <div class="stream-overlay">
+                            <div class="stream-info">
+                                <span class="live-badge">🔴 LIVE</span>
+                                <span id="viewer-count">👁️ 0 viewers</span>
+                            </div>
+                            <button class="btn-danger" id="end-stream-btn">End Stream</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="viewing-mode" style="display: none;">
+                    <div class="viewer-grid" id="streams-grid"></div>
+                </div>
+
+                <div id="start-mode" class="start-mode">
+                    <div class="start-options">
+                        <button class="option-btn" id="start-stream-btn">
+                            <i class="bi bi-broadcast"></i>
+                            <h2>Start Streaming</h2>
+                            <p>Share your moments live</p>
+                        </button>
+                        <button class="option-btn" id="watch-streams-btn">
+                            <i class="bi bi-play-circle"></i>
+                            <h2>Watch Live</h2>
+                            <p>Join active streams</p>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: MESSAGES / CHAT -->
+        <section id="messages-page" class="page">
+            <div class="messages-container">
+                <div class="messages-list" id="messages-list">
+                    <div class="empty-state">
+                        <i class="bi bi-chat-dots"></i>
+                        <p>No conversations yet</p>
+                    </div>
+                </div>
+
+                <div class="message-thread" id="message-thread" style="display: none;">
+                    <div class="thread-header">
+                        <button class="back-btn" id="back-to-list">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <h2 id="thread-username"></h2>
+                    </div>
+
+                    <div class="messages-scroll" id="messages-scroll"></div>
+
+                    <div class="message-input-area">
+                        <input type="text" id="message-input" placeholder="Type a message..." maxlength="500">
+                        <button id="send-message-btn">
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: PROFILE -->
+        <section id="profile-page" class="page">
+            <div class="profile-container">
+                <div class="profile-header">
+                    <div class="profile-cover" id="profile-cover">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 400'%3E%3Crect fill='%23FF0050' width='1200' height='400'/%3E%3C/svg%3E" alt="Cover">
+                        <button class="edit-cover-btn" id="edit-cover-btn">
+                            <i class="bi bi-camera"></i>
+                        </button>
+                    </div>
+
+                    <div class="profile-info">
+                        <div class="profile-pic-container">
+                            <img id="profile-pic" src="https://via.placeholder.com/120" alt="Profile">
+                            <button class="edit-pic-btn" id="edit-pic-btn">
+                                <i class="bi bi-camera"></i>
+                            </button>
+                        </div>
+
+                        <div class="profile-details">
+                            <h1 id="profile-username">Loading...</h1>
+                            <p id="profile-bio">No bio yet</p>
+                            
+                            <div class="profile-stats">
+                                <div class="stat">
+                                    <span class="stat-number" id="posts-count">0</span>
+                                    <span class="stat-label">Posts</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-number" id="followers-count">0</span>
+                                    <span class="stat-label">Followers</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-number" id="following-count">0</span>
+                                    <span class="stat-label">Following</span>
+                                </div>
+                            </div>
+
+                            <div class="profile-actions">
+                                <button class="btn-secondary" id="edit-profile-btn">Edit Profile</button>
+                                <button class="btn-secondary" id="logout-btn-profile">Logout</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-tabs">
+                    <button class="tab-btn active" data-tab="posts">
+                        <i class="bi bi-grid-3x3"></i> Posts
+                    </button>
+                    <button class="tab-btn" data-tab="liked">
+                        <i class="bi bi-heart"></i> Liked
+                    </button>
+                </div>
+
+                <div class="profile-grid" id="profile-grid">
+                    <div class="empty-state">
+                        <p>No posts yet</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: EXPLORE -->
+        <section id="explore-page" class="page">
+            <div class="explore-container">
+                <div class="explore-header">
+                    <div class="search-bar">
+                        <i class="bi bi-search"></i>
+                        <input type="text" id="search-input" placeholder="Search users...">
+                    </div>
+                </div>
+
+                <div class="explore-grid" id="explore-grid">
+                    <div class="empty-state">
+                        <p>Search for creators</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <!-- AUTH MODAL -->
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <div id="auth-modal" class="modal active">
+        <div class="modal-content auth-modal">
+            <div class="auth-container">
+                <div class="auth-logo">
+                    <i class="bi bi-play-circle-fill"></i>
+                    <h1>Blink</h1>
+                </div>
+
+                <div class="auth-tabs">
+                    <button class="tab active" data-tab="login">Login</button>
+                    <button class="tab" data-tab="signup">Sign Up</button>
+                </div>
+
+                <!-- LOGIN FORM -->
+                <form id="login-form" class="auth-form active">
+                    <input type="email" placeholder="Email" required>
+                    <input type="password" placeholder="Password" required>
+                    <button type="submit" class="btn-primary">Login</button>
+                    <p class="auth-message" id="login-message"></p>
+                </form>
+
+                <!-- SIGNUP FORM -->
+                <form id="signup-form" class="auth-form">
+                    <input type="text" placeholder="Username" required>
+                    <input type="email" placeholder="Email" required>
+                    <input type="password" placeholder="Password (min 6 chars)" required>
+                    <input type="password" placeholder="Confirm Password" required>
+                    <button type="submit" class="btn-primary">Create Account</button>
+                    <p class="auth-message" id="signup-message"></p>
+                </form>
             </div>
         </div>
     </div>
 
-    <!-- Required Libraries -->
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/live.js"></script>
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <!-- EDIT PROFILE MODAL -->
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <div id="edit-profile-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Profile</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="edit-profile-form">
+                <div class="profile-upload-zone" onclick="window.profile.triggerUpload()">
+                    <img id="edit-avatar-preview" src="https://via.placeholder.com/150" class="avatar-preview">
+                    <div class="upload-hint">
+                        <i class="bi bi-camera-fill"></i>
+                        <span>Change Photo</span>
+                    </div>
+                </div>
+                <input type="text" id="edit-display-name" placeholder="Name" maxlength="50">
+                <input type="text" id="edit-username" placeholder="Username" maxlength="50">
+                <textarea id="edit-bio" placeholder="Bio" maxlength="500"></textarea>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-secondary cancel-btn" onclick="document.getElementById('edit-profile-modal').classList.remove('active')">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── TOAST NOTIFICATIONS ─────────────────────────────────────── -->
+    <div id="toastContainer"></div>
+
+    <!-- Hidden file inputs -->
+    <input type="file" id="cover-input" accept="image/*" hidden>
+    <input type="file" id="pic-input" accept="image/*" hidden>
+
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    <!-- SCRIPTS - ALL MODULES LOADED IN ORDER -->
+    <!-- ═════════════════════════════════════════════════════════════════════════ -->
+    
+    <!-- Config: Environment detection -->
+    <script src="/js/config.js"></script>
+    
+    <!-- API: HTTP client wrapper -->
+    <script src="/js/api.js"></script>
+    
+    <!-- Auth: Login, signup, token management -->
+    <script src="/js/auth.js"></script>
+    
+    <!-- Feed: Infinite scroll reels -->
+    <script src="/js/feed.js"></script>
+    
+    <!-- Upload: Video upload with compression -->
+    <script src="/js/upload_new.js"></script>
+    
+    <!-- Live: WebRTC streaming -->
+    <script src="/js/live_new.js"></script>
+    
+    <!-- Messenger: Real-time messaging -->
+    <script src="/js/messages_new.js"></script>
+    
+    <!-- Profile: User profiles -->
+    <script src="/js/profile_new.js"></script>
+    
+    <!-- Explore: Discovery and search -->
+    <script src="/js/explore_new.js"></script>
+    
+    <!-- App: Main router and navigation -->
+    <script src="/js/app.js"></script>
+
+    <script>
+        // Initialize app on DOM ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check authentication
+            const isAuthenticated = window.auth?.isAuthenticated?.();
+            
+            if (isAuthenticated) {
+                // Show main feed
+                if (window.app) window.app.navigateTo('feed');
+            } else {
+                // Show auth modal
+                const authModal = document.getElementById('auth-modal');
+                if (authModal) authModal.classList.add('active');
+            }
+        });
+    </script>
 </body>
 </html>

@@ -1,7 +1,19 @@
 /**
  * pages.css – Blink Page Specific Layouts v6.0
- * Profile, Upload Studio, etc.
+ * Profile, Upload Studio, SPA Fragments
  */
+
+/* --- Global SPA Page Handling --- */
+.page {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.page.active {
+    display: block;
+    opacity: 1;
+}
 
 /* --- Profile Page v6.0 --- */
 .profile-header {
