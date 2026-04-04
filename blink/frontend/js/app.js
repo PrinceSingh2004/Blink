@@ -138,4 +138,19 @@ class BlinkApp {
 }
 
 // Global initialization
-window.app = new BlinkApp();
+document.addEventListener('DOMContentLoaded', () => {
+    const app = new BlinkApp();
+    
+    // Check authentication
+    const user = window.api?.getCurrentUser?.();
+    const authModal = document.getElementById('auth-modal');
+    
+    if (user && user.id) {
+        if (authModal) authModal.classList.remove('active');
+        app.loadInitialPage();
+    } else {
+        if (authModal) authModal.classList.add('active');
+        // Still load the background page but keep modal over it
+        app.loadInitialPage();
+    }
+});
