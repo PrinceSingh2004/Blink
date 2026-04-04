@@ -103,8 +103,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     class="reel-video"
                     loop 
                     playsinline
-                    preload="metadata">
+                    preload="metadata"
+                    onerror="this.style.display='none'; this.parentElement.querySelector('.video-error').style.display='flex'">
                 </video>
+                
+                <div class="video-error" style="display:none; position:absolute; inset:0; background:#111; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#555;">
+                    <i class="bi bi-exclamation-octagon" style="font-size:40px;"></i>
+                    <span style="font-size:12px;">Frequency Lost (404)</span>
+                </div>
                 
                 <div class="reel-overlay" onclick="window.feed.handleVideoToggle(this)">
                     <div class="video-status-icon">

@@ -56,4 +56,27 @@ router.get('/list', protect, async (req, res) => {
     }
 });
 
+// Alias for legacy support
+router.get('/conversations', protect, async (req, res) => {
+    const pool = require('../config/db');
+    try {
+        const [conversations] = await pool.query(`
+            SELECT DISTINCT 
+                CASE 
+                    WHEN sender_id = ? THEN receiver_id 
+                    ELSE sender_id 
+                END as user_id,
+                MAX(created_at) as last_message_time
+            FROM messages
+            WHERE sender_id = ? OR receiver_id = ?
+            GROUP BY user_id
+            ORDER BY last_message_time DESC
+            LIMIT 50
+        `, [req.user.id, req.user.id, req.user.id]);
+        res.json({ success: true, conversations });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

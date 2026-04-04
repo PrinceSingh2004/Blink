@@ -339,12 +339,18 @@
                 <button class="close-btn">&times;</button>
             </div>
             <form id="edit-profile-form">
+                <div class="profile-upload-zone" onclick="window.profile.triggerUpload()">
+                    <img id="edit-avatar-preview" src="https://via.placeholder.com/150" class="avatar-preview">
+                    <div class="upload-hint">
+                        <i class="bi bi-camera-fill"></i>
+                        <span>Change Photo</span>
+                    </div>
+                </div>
+                <input type="text" id="edit-display-name" placeholder="Name" maxlength="50">
                 <input type="text" id="edit-username" placeholder="Username" maxlength="50">
-                <input type="email" id="edit-email" placeholder="Email" maxlength="120">
                 <textarea id="edit-bio" placeholder="Bio" maxlength="500"></textarea>
-                <input type="url" id="edit-website" placeholder="Website" maxlength="255">
                 <div class="modal-buttons">
-                    <button type="button" class="btn-secondary cancel-btn">Cancel</button>
+                    <button type="button" class="btn-secondary cancel-btn" onclick="document.getElementById('edit-profile-modal').classList.remove('active')">Cancel</button>
                     <button type="submit" class="btn-primary">Save Changes</button>
                 </div>
             </form>

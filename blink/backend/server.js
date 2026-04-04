@@ -294,10 +294,17 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    res.sendFile(path.join(__dirname, '../frontend/index_responsive.html'));
 });
 
-// 404 Handler
+// Catch-all for SPA Client-Side Routing
+app.get('*', (req, res, next) => {
+    // If it's an API request, let it fall through to 404
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(__dirname, '../frontend/index_responsive.html'));
+});
+
+// 404 Handler for API
 app.use((req, res) => res.status(404).json({ error: "Route not found" }));
 
 // --- STARTUP ---
