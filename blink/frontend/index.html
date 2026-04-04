@@ -12,19 +12,12 @@
     <!-- Unified Design System -->
     <link rel="stylesheet" href="/css/v2_main.css">
     <base href="/">
-    
-    <style>
-        .loader-wrap { height: 100vh; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary); }
-        .live-video-box { width: 100%; aspect-ratio: 9/16; background: #000; border-radius: 20px; overflow: hidden; position: relative; }
-        .live-video-box video { width: 100%; height: 100%; object-fit: cover; }
-        .live-badge { position: absolute; top: 20px; left: 20px; background: red; padding: 5px 12px; border-radius: 5px; font-weight: 900; }
-    </style>
 </head>
 <body>
 
     <div class="app-shell" id="appShell">
         
-        <!-- SIDEBAR (Unified) -->
+        <!-- SIDEBAR (Fixed Desktop) -->
         <aside class="sidebar">
             <div class="logo"><i class="bi bi-play-circle-fill"></i><span>Blink</span></div>
             <nav class="nav-menu">
@@ -37,7 +30,7 @@
             <button class="nav-item" id="logoutBtn" style="margin-top:auto;"><i class="bi bi-box-arrow-right"></i><span>Logout</span></button>
         </aside>
 
-        <!-- MAIN MAIN STAGE -->
+        <!-- MAIN STAGE -->
         <main class="main-stage">
             
             <!-- PAGE: HOME FEED -->
@@ -45,28 +38,42 @@
                 <div class="reels-scroll" id="reelsContainer"></div>
             </section>
 
-            <!-- PAGE: LIVE -->
-            <section id="live-page" class="page">
-                <div class="live-section" style="max-width: 500px; margin: 0 auto; padding: 20px;">
-                    <div class="live-video-box">
-                        <video id="localVideoPreview" playsinline muted></video>
-                        <div class="live-badge" id="liveIndicator" style="display:none;">🔴 LIVE</div>
+            <!-- PAGE: EXPLORE / SEARCH -->
+            <section id="explore-page" class="page">
+                <div class="explore-container">
+                    <div class="search-bar">
+                        <i class="bi bi-search"></i>
+                        <input type="text" id="search-input" placeholder="Find creators...">
                     </div>
-                    
-                    <div class="live-controls" style="margin-top: 20px; display:flex; gap: 10px;">
-                        <button class="btn-primary" id="startLiveBtn" onclick="window.live.startStream()">Start Transmitting</button>
-                        <button class="btn-primary" id="endLiveBtn" style="display:none; background:red;" onclick="window.live.stopStream()">End Stream</button>
+                    <div class="explore-grid" id="explore-grid"></div>
+                </div>
+            </section>
+
+            <!-- PAGE: MESSAGING -->
+            <section id="messages-page" class="page">
+                <div class="messages-layout">
+                    <div class="messages-list"></div>
+                    <div class="message-thread">
+                        <div class="thread-header"></div>
+                        <div class="messages-scroll"></div>
+                        <div class="message-input-area" style="display:none;">
+                            <input type="text" id="messageInput" placeholder="Message...">
+                            <button onclick="window.messenger.sendMessage()"><i class="bi bi-send-fill"></i></button>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <!-- PAGE: MESSAGES -->
-            <section id="messages-page" class="page">
-                <div class="messages-layout" id="messagesMain">
-                    <div style="text-align:center; padding-top:100px;">
-                        <i class="bi bi-chat-dots" style="font-size:50px; opacity:0.3;"></i>
-                        <h2>Messaging Optimized</h2>
-                        <p>Chat list sync in progress...</p>
+            <!-- PAGE: LIVE -->
+            <section id="live-page" class="page">
+                <div class="live-section">
+                    <div class="live-video-box">
+                        <video id="localVideoPreview" playsinline muted></video>
+                        <div class="live-badge" id="liveIndicator" style="display:none;">🔴 LIVE</div>
+                    </div>
+                    <div class="live-controls">
+                        <button class="btn-primary" id="startLiveBtn" onclick="window.live.startStream()">Start Transmitting</button>
+                        <button class="btn-primary" id="endLiveBtn" style="display:none; background:red;" onclick="window.live.stopStream()">End Stream</button>
                     </div>
                 </div>
             </section>
@@ -79,14 +86,17 @@
                         <div class="upload-hint"><i class="bi bi-camera"></i></div>
                         <input type="file" id="picUpload" hidden onchange="window.profile.handleUpload(this)">
                     </div>
+                    <h2 id="dispUsername">Creator</h2>
+                    <p id="dispBio">Blink Member</p>
                     <div id="profileGrid" class="profile-grid"></div>
                 </div>
             </section>
         </main>
 
-        <!-- MOBILE NAV -->
+        <!-- BOTTOM NAV (Mobile) -->
         <nav class="bottom-nav">
             <a href="#" class="nav-item active" data-page="home"><i class="bi bi-house-door-fill"></i></a>
+            <a href="#" class="nav-item" data-page="explore"><i class="bi bi-search"></i></a>
             <a href="#" class="nav-item" data-page="live"><i class="bi bi-broadcast"></i></a>
             <a href="#" class="nav-item" data-page="messages"><i class="bi bi-chat-dots"></i></a>
             <a href="#" class="nav-item" data-page="profile"><i class="bi bi-person"></i></a>
@@ -94,13 +104,13 @@
 
     </div>
 
-    <!-- AUTH OVERLAY -->
+    <!-- AUTH OVERLAY (Centered Form) -->
     <div class="auth-overlay" id="authOverlay">
         <div class="auth-card">
-            <h2>Blink</h2>
-            <div class="auth-tabs" style="display:flex; margin-bottom: 20px; border-radius:10px; overflow:hidden;">
-                <button id="tabLogin" class="btn-primary" style="flex:1; border-radius:0;">Login</button>
-                <button id="tabSignup" class="btn-primary" style="flex:1; border-radius:0; background:#1e293b;">Signup</button>
+            <div class="logo"><i class="bi bi-play-circle-fill"></i><span>Blink</span></div>
+            <div class="auth-tabs">
+                <button id="tabLogin" class="btn-primary active" style="flex:1;">Login</button>
+                <button id="tabSignup" class="btn-primary" style="flex:1; background:#1e293b;">Signup</button>
             </div>
             
             <form id="loginForm" class="auth-form active">
@@ -125,11 +135,13 @@
     <script src="/js/api.js"></script>
     <script src="/js/v2_feed.js"></script>
     <script src="/js/v2_live.js"></script>
+    <script src="/js/messages_new.js"></script>
     <script src="/js/profile_new.js"></script>
+    <script src="/js/explore_new.js"></script>
     <script src="/js/v2_app.js"></script>
     
     <script>
-        // Module activation
+        // Global Activation
         window.feed = new BlinkFeedV2();
         window.live = new BlinkLiveV2();
     </script>
