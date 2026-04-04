@@ -110,7 +110,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     preload="auto"
                     style="width:100%; height:100%; object-fit:cover;">
                 </video>
-                <div class="reel-overlay"></div>
+                <div class="reel-overlay" onclick="handleVideoClick(this)">
+                    <div class="video-status-icon">
+                        <i class="bi bi-play-fill" style="display:none;"></i>
+                    </div>
+                </div>
+                <div class="reel-mute-btn" onclick="toggleMute(this, event)">
+                    <i class="bi bi-volume-mute-fill"></i>
+                </div>
                 <div class="reel-content">
                     <div class="reel-info">
                         <div class="reel-user" onclick="window.location.href='profile.html?id=${video.user_id}'">
@@ -138,6 +145,47 @@ document.addEventListener('DOMContentLoaded', () => {
             observer.observe(videoEl);
         });
     }
+
+    // --- Video Control Handlers ---
+    window.handleVideoClick = (overlay) => {
+        const video = overlay.parentElement.querySelector('video');
+        const icon = overlay.querySelector('.video-status-icon i');
+        
+        if (video.paused) {
+            video.play();
+            icon.style.display = 'none';
+        } else {
+            video.pause();
+            icon.className = 'bi bi-play-fill';
+            icon.style.display = 'block';
+            setTimeout(() => {
+                if (video.paused) icon.style.opacity = '1';
+            }, 10);
+        }
+    };
+
+    window.toggleMute = (btn, event) => {
+        event.stopPropagation();
+        const video = btn.parentElement.querySelector('video');
+        const icon = btn.querySelector('i');
+        
+        video.muted = !video.muted;
+        
+        if (video.muted) {
+            icon.className = 'bi bi-volume-mute-fill';
+        } else {
+            icon.className = 'bi bi-volume-up-fill';
+        }
+        
+        // Update all videos in the feed to sync mute state (standard TikTok/Reels behavior)
+        document.querySelectorAll('video').forEach(v => {
+            v.muted = video.muted;
+        });
+        
+        document.querySelectorAll('.reel-mute-btn i').forEach(i => {
+            i.className = video.muted ? 'bi bi-volume-mute-fill' : 'bi bi-volume-up-fill';
+        });
+    };
 
     // --- Infinite Scroll (Enhanced) ---
     // Listen for scroll events on the container (for desktop Reels layout) or window (mobile)

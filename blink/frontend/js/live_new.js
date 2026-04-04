@@ -391,16 +391,44 @@ class LiveStreamer {
      * Setup event listeners
      */
     setupEventListeners() {
-        const startBtn = document.querySelector('[onclick*="startStream"]');
-        const endBtn = document.querySelector('[onclick*="endStream"]');
+        // Find buttons by IDs or selectors
+        const startBtn = document.getElementById('start-stream-btn');
+        const endBtn = document.getElementById('end-stream-btn');
+        const watchBtn = document.getElementById('watch-streams-btn');
 
         if (startBtn) {
-            startBtn.addEventListener('click', () => this.startStream());
+            startBtn.addEventListener('click', () => {
+                console.log('Start stream clicked');
+                this.startStream();
+            });
         }
 
         if (endBtn) {
-            endBtn.addEventListener('click', () => this.endStream());
+            endBtn.addEventListener('click', () => {
+                console.log('End stream clicked');
+                this.endStream();
+            });
         }
+
+        if (watchBtn) {
+            watchBtn.addEventListener('click', () => {
+                console.log('Watch streams clicked');
+                this.loadLiveStreams();
+                // Toggle sections if necessary
+                const startMode = document.getElementById('start-mode');
+                const viewingMode = document.getElementById('viewing-mode');
+                if (startMode) startMode.style.display = 'none';
+                if (viewingMode) viewingMode.style.display = 'block';
+            });
+        }
+
+        // Also check for any inline onclick attributes as backup
+        document.querySelectorAll('[onclick*="startStream"]').forEach(el => {
+            el.onclick = (e) => { e.preventDefault(); this.startStream(); };
+        });
+        document.querySelectorAll('[onclick*="endStream"]').forEach(el => {
+            el.onclick = (e) => { e.preventDefault(); this.endStream(); };
+        });
     }
 }
 

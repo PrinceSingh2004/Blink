@@ -88,6 +88,14 @@ class VideoUploader {
         }
 
         this.selectedFile = file;
+        
+        // UI Transitions
+        const dropzone = document.getElementById('dropzone');
+        const previewArea = document.getElementById('preview-area');
+        
+        if (dropzone) dropzone.style.display = 'none';
+        if (previewArea) previewArea.style.display = 'block';
+
         this.showPreview(file);
     }
 
@@ -95,35 +103,28 @@ class VideoUploader {
      * Show video preview
      */
     showPreview(file) {
-        const preview = document.querySelector('.preview-area video');
+        const preview = document.querySelector('#preview-area video');
         if (!preview) return;
 
         const url = URL.createObjectURL(file);
         preview.src = url;
 
-        const duration = document.querySelector('.preview-info');
-        if (duration) {
-            preview.addEventListener('loadedmetadata', () => {
-                const minutes = Math.floor(preview.duration / 60);
-                const seconds = Math.floor(preview.duration % 60);
-                duration.innerHTML = `
-                    <div>
-                        <strong>Duration:</strong> ${minutes}:${String(seconds).padStart(2, '0')}
-                    </div>
-                    <div>
-                        <strong>Size:</strong> ${(file.size / (1024 * 1024)).toFixed(2)} MB
-                    </div>
-                `;
-            });
-        }
+        const durationInfo = document.querySelector('.preview-info p');
+        // If there's no specific paragraph for duration, we might need to add one or use a different selector
+        
+        preview.addEventListener('loadedmetadata', () => {
+            const minutes = Math.floor(preview.duration / 60);
+            const seconds = Math.floor(preview.duration % 60);
+            console.log(`Video duration: ${minutes}:${seconds}`);
+        });
     }
 
     /**
      * Setup upload buttons
      */
     setupUploadButtons() {
-        const uploadBtn = document.querySelector('.upload-buttons .btn-primary');
-        const discardBtn = document.querySelector('.upload-buttons .btn-secondary');
+        const uploadBtn = document.getElementById('publish-btn');
+        const discardBtn = document.getElementById('clear-upload');
 
         if (uploadBtn) {
             uploadBtn.addEventListener('click', () => this.uploadVideo());
@@ -132,8 +133,17 @@ class VideoUploader {
         if (discardBtn) {
             discardBtn.addEventListener('click', () => {
                 this.selectedFile = null;
-                const preview = document.querySelector('.preview-area video');
-                if (preview) preview.src = '';
+                const dropzone = document.getElementById('dropzone');
+                const previewArea = document.getElementById('preview-area');
+                
+                if (dropzone) dropzone.style.display = 'flex';
+                if (previewArea) previewArea.style.display = 'none';
+                
+                const preview = document.querySelector('#preview-area video');
+                if (preview) {
+                    preview.pause();
+                    preview.src = '';
+                }
                 window.app?.showSuccess?.('Upload cancelled');
             });
         }
