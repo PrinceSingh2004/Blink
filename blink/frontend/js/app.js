@@ -7,16 +7,18 @@ class BlinkApp {
     constructor() {
         this.currentPage = 'feed';
         this.init();
+        
+        // Handle back/forward buttons
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.page) {
+                this.navigateTo(e.state.page, {}, false); // false to avoid pushState loop
+            }
+        });
     }
 
     init() {
         // Global access
         window.app = this;
-
-        document.addEventListener('DOMContentLoaded', () => {
-            this.setupNavigation();
-            this.loadInitialPage();
-        });
     }
 
     setupNavigation() {
@@ -140,6 +142,7 @@ class BlinkApp {
 // Global initialization
 document.addEventListener('DOMContentLoaded', () => {
     const app = new BlinkApp();
+    app.setupNavigation(); // Crucial
     
     // Check authentication
     const user = window.api?.getCurrentUser?.();
@@ -147,10 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (user && user.id) {
         if (authModal) authModal.classList.remove('active');
-        app.loadInitialPage();
     } else {
         if (authModal) authModal.classList.add('active');
-        // Still load the background page but keep modal over it
-        app.loadInitialPage();
     }
+    
+    app.loadInitialPage();
 });
