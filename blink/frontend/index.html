@@ -3,105 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Blink | Pro Version</title>
+    <title>Blink | Professional SPA</title>
     
     <!-- Icons & Fonts -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- Design System -->
+    <!-- Unified Design System -->
     <link rel="stylesheet" href="/css/v2_main.css">
     <base href="/">
+    
+    <style>
+        .loader-wrap { height: 100vh; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary); }
+        .live-video-box { width: 100%; aspect-ratio: 9/16; background: #000; border-radius: 20px; overflow: hidden; position: relative; }
+        .live-video-box video { width: 100%; height: 100%; object-fit: cover; }
+        .live-badge { position: absolute; top: 20px; left: 20px; background: red; padding: 5px 12px; border-radius: 5px; font-weight: 900; }
+    </style>
 </head>
 <body>
 
     <div class="app-shell" id="appShell">
         
-        <!-- SIDEBAR (Desktop) -->
+        <!-- SIDEBAR (Unified) -->
         <aside class="sidebar">
-            <div class="logo">
-                <i class="bi bi-play-circle-fill"></i>
-                <span>Blink</span>
-            </div>
-            
+            <div class="logo"><i class="bi bi-play-circle-fill"></i><span>Blink</span></div>
             <nav class="nav-menu">
-                <a href="#" class="nav-item active" data-page="home">
-                    <i class="bi bi-house-door-fill"></i>
-                    <span>Home</span>
-                </a>
-                <a href="#" class="nav-item" data-page="explore">
-                    <i class="bi bi-search"></i>
-                    <span>Explore</span>
-                </a>
-                <a href="#" class="nav-item" data-page="create">
-                    <i class="bi bi-plus-square"></i>
-                    <span>Create</span>
-                </a>
-                <a href="#" class="nav-item" data-page="messages">
-                    <i class="bi bi-chat-dots"></i>
-                    <span>Messages</span>
-                </a>
-                <a href="#" class="nav-item" data-page="profile">
-                    <i class="bi bi-person"></i>
-                    <span>Profile</span>
-                </a>
+                <a href="#" class="nav-item active" data-page="home"><i class="bi bi-house-door-fill"></i><span>Home</span></a>
+                <a href="#" class="nav-item" data-page="explore"><i class="bi bi-search"></i><span>Explore</span></a>
+                <a href="#" class="nav-item" data-page="live"><i class="bi bi-broadcast"></i><span>Live</span></a>
+                <a href="#" class="nav-item" data-page="messages"><i class="bi bi-chat-dots"></i><span>Messages</span></a>
+                <a href="#" class="nav-item" data-page="profile"><i class="bi bi-person"></i><span>Profile</span></a>
             </nav>
-
-            <div class="sidebar-footer">
-                <button class="nav-item" id="logoutBtn">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>Logout</span>
-                </button>
-            </div>
+            <button class="nav-item" id="logoutBtn" style="margin-top:auto;"><i class="bi bi-box-arrow-right"></i><span>Logout</span></button>
         </aside>
 
-        <!-- HEADER (Mobile) -->
-        <header class="mobile-header">
-            <div class="logo">Blink</div>
-            <div class="mobile-actions">
-                <i class="bi bi-bell"></i>
-            </div>
-        </header>
-
-        <!-- MAIN STAGE -->
+        <!-- MAIN MAIN STAGE -->
         <main class="main-stage">
             
-            <!-- PAGE: REELS FEED -->
+            <!-- PAGE: HOME FEED -->
             <section id="home-page" class="page active">
-                <div class="reels-scroll" id="reelsContainer">
-                    <!-- Reels loaded dynamically by v2_feed.js -->
+                <div class="reels-scroll" id="reelsContainer"></div>
+            </section>
+
+            <!-- PAGE: LIVE -->
+            <section id="live-page" class="page">
+                <div class="live-section" style="max-width: 500px; margin: 0 auto; padding: 20px;">
+                    <div class="live-video-box">
+                        <video id="localVideoPreview" playsinline muted></video>
+                        <div class="live-badge" id="liveIndicator" style="display:none;">🔴 LIVE</div>
+                    </div>
+                    
+                    <div class="live-controls" style="margin-top: 20px; display:flex; gap: 10px;">
+                        <button class="btn-primary" id="startLiveBtn" onclick="window.live.startStream()">Start Transmitting</button>
+                        <button class="btn-primary" id="endLiveBtn" style="display:none; background:red;" onclick="window.live.stopStream()">End Stream</button>
+                    </div>
                 </div>
             </section>
 
             <!-- PAGE: MESSAGES -->
             <section id="messages-page" class="page">
-                <div class="messages-layout">
-                    <!-- Messaging UI will go here -->
+                <div class="messages-layout" id="messagesMain">
+                    <div style="text-align:center; padding-top:100px;">
+                        <i class="bi bi-chat-dots" style="font-size:50px; opacity:0.3;"></i>
+                        <h2>Messaging Optimized</h2>
+                        <p>Chat list sync in progress...</p>
+                    </div>
                 </div>
             </section>
 
             <!-- PAGE: PROFILE -->
             <section id="profile-page" class="page">
                 <div class="profile-section">
-                    <div class="profile-avatar-wrap">
+                    <div class="profile-avatar-wrap" onclick="document.getElementById('picUpload').click()">
                         <img id="userAvatar" src="https://via.placeholder.com/150">
-                        <input type="file" id="picUpload" hidden>
+                        <div class="upload-hint"><i class="bi bi-camera"></i></div>
+                        <input type="file" id="picUpload" hidden onchange="window.profile.handleUpload(this)">
                     </div>
-                    
-                    <form class="auth-form active" style="width: 100%; max-width: 500px;">
-                        <input type="text" id="profUsername" placeholder="Username">
-                        <textarea id="profBio" placeholder="Bio"></textarea>
-                        <button class="btn-primary">Update Profile</button>
-                    </form>
+                    <div id="profileGrid" class="profile-grid"></div>
                 </div>
             </section>
         </main>
 
-        <!-- BOTTOM NAV (Mobile) -->
+        <!-- MOBILE NAV -->
         <nav class="bottom-nav">
             <a href="#" class="nav-item active" data-page="home"><i class="bi bi-house-door-fill"></i></a>
-            <a href="#" class="nav-item" data-page="explore"><i class="bi bi-search"></i></a>
-            <a href="#" class="nav-item" data-page="create"><i class="bi bi-plus-square"></i></a>
+            <a href="#" class="nav-item" data-page="live"><i class="bi bi-broadcast"></i></a>
             <a href="#" class="nav-item" data-page="messages"><i class="bi bi-chat-dots"></i></a>
             <a href="#" class="nav-item" data-page="profile"><i class="bi bi-person"></i></a>
         </nav>
@@ -111,33 +97,41 @@
     <!-- AUTH OVERLAY -->
     <div class="auth-overlay" id="authOverlay">
         <div class="auth-card">
-            <div class="logo">Blink</div>
-            
-            <div class="auth-tabs">
-                <button class="btn-primary active" id="tabLogin">Login</button>
-                <button class="btn-primary" id="tabSignup">Signup</button>
+            <h2>Blink</h2>
+            <div class="auth-tabs" style="display:flex; margin-bottom: 20px; border-radius:10px; overflow:hidden;">
+                <button id="tabLogin" class="btn-primary" style="flex:1; border-radius:0;">Login</button>
+                <button id="tabSignup" class="btn-primary" style="flex:1; border-radius:0; background:#1e293b;">Signup</button>
             </div>
-
+            
             <form id="loginForm" class="auth-form active">
-                <input type="email" placeholder="Email" required>
-                <input type="password" placeholder="Password" required>
-                <button class="btn-primary">Sign In</button>
+                <input type="email" id="logEmail" placeholder="Email" required>
+                <input type="password" id="logPass" placeholder="Password" required>
+                <button type="submit" class="btn-primary">Connect</button>
             </form>
 
             <form id="signupForm" class="auth-form">
-                <input type="text" placeholder="Username" required>
-                <input type="email" placeholder="Email" required>
-                <input type="password" placeholder="Password" required>
-                <button class="btn-primary">Create Account</button>
+                <input type="text" id="regUser" placeholder="Username" required>
+                <input type="email" id="regEmail" placeholder="Email" required>
+                <input type="password" id="regPass" placeholder="Password" required>
+                <button type="submit" class="btn-primary">Create Identity</button>
             </form>
         </div>
     </div>
 
-    <!-- SCRIPTS -->
+    <div id="toastContainer" style="position:fixed; bottom:100px; right: 20px; z-index: 10000;"></div>
+
+    <!-- SCRIPT INFRASTRUCTURE -->
     <script src="/js/config.js"></script>
     <script src="/js/api.js"></script>
-    <script src="/js/auth.js"></script>
+    <script src="/js/v2_feed.js"></script>
+    <script src="/js/v2_live.js"></script>
+    <script src="/js/profile_new.js"></script>
     <script src="/js/v2_app.js"></script>
-
+    
+    <script>
+        // Module activation
+        window.feed = new BlinkFeedV2();
+        window.live = new BlinkLiveV2();
+    </script>
 </body>
 </html>

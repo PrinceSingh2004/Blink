@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-    BLINK v6.0 - PROFESSIONAL SPA ROUTER (V2)
-    Clean | Event-Driven | Module-Safe
+    BLINK v6.1 - PROFESSIONAL SPA ROUTER (V2)
+    Clean | Event-Driven | Module-Safe | Auth-Connected
     ═══════════════════════════════════════════════════════════════════════════════ */
 
 class BlinkAppV2 {
@@ -14,21 +14,90 @@ class BlinkAppV2 {
         document.addEventListener('DOMContentLoaded', () => {
             this.setupNavigation();
             this.checkAuth();
+            
+            // Re-initialization if needed
+            window.addEventListener('popstate', (e) => {
+                if(e.state?.page) this.navigateTo(e.state.page, {}, false);
+            });
         });
     }
 
     setupNavigation() {
-        // Universal click listener for data-page items
         document.addEventListener('click', (e) => {
             const link = e.target.closest('[data-page]');
             if (link) {
                 e.preventDefault();
                 const page = link.getAttribute('data-page');
-                this.navigateTo(page);
+                const params = link.dataset.params ? JSON.parse(link.dataset.params) : {};
+                this.navigateTo(page, params);
             }
         });
 
-        // Auth Tabs
+        // Auth Logic
+        this.setupAuthUI();
+    }
+
+    checkAuth() {
+        const user = window.api?.getCurrentUser();
+        if (!user) {
+            document.getElementById('authOverlay')?.classList.add('active');
+        } else {
+            document.getElementById('authOverlay')?.classList.remove('active');
+            this.loadInitialPage();
+        }
+    }
+
+    navigateTo(page, params = {}, push = true) {
+        console.log(`[BlinkV2] Routing to: ${page}`, params);
+        
+        // 1. Fragment Switch
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        const target = document.getElementById(`${page}-page`);
+        if (!target) {
+            console.error(`[BlinkV2] Target frequency missing: ${page}`);
+            return this.navigateTo('home');
+        }
+
+        target.classList.add('active');
+        this.currentPage = page;
+
+        // 2. Nav Highlight
+        document.querySelectorAll('.nav-item').forEach(link => {
+            if (link.getAttribute('data-page') === page) link.classList.add('active');
+            else link.classList.remove('active');
+        });
+
+        // 3. Update URL
+        if(push) window.history.pushState({page}, '', `/${page == 'home' ? '' : page}`);
+
+        // 4. Module Init
+        this.initModule(page, params);
+    }
+
+    initModule(page, params) {
+        switch(page) {
+            case 'home':
+                if (window.feed) window.feed.load();
+                break;
+            case 'profile':
+                if (window.profile) window.profile.load(params.id);
+                break;
+            case 'messages':
+                if (window.messenger) window.messenger.loadConversations();
+                break;
+            case 'live':
+                // Live start initialization
+                break;
+        }
+    }
+
+    loadInitialPage() {
+        const path = window.location.pathname.replace('/', '') || 'home';
+        this.navigateTo(path);
+    }
+
+    setupAuthUI() {
+        // Tab switching
         const tabLogin = document.getElementById('tabLogin');
         const tabSignup = document.getElementById('tabSignup');
         const loginForm = document.getElementById('loginForm');
@@ -49,68 +118,14 @@ class BlinkAppV2 {
         });
     }
 
-    checkAuth() {
-        const user = window.api?.getCurrentUser();
-        const authOverlay = document.getElementById('authOverlay');
-        
-        if (!user) {
-            authOverlay?.classList.add('active');
-        } else {
-            authOverlay?.classList.remove('active');
-            this.navigateTo('home');
-        }
-    }
-
-    navigateTo(page) {
-        console.log(`[BlinkV2] Routing to: ${page}`);
-        
-        // 1. Fragment Switch
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        const target = document.getElementById(`${page}-page`);
-        if (target) {
-            target.classList.add('active');
-            this.currentPage = page;
-        }
-
-        // 2. Nav Highlight
-        document.querySelectorAll('.nav-item').forEach(link => {
-            if (link.getAttribute('data-page') === page) link.classList.add('active');
-            else link.classList.remove('active');
-        });
-
-        // 3. Module Init
-        this.initModule(page);
-    }
-
-    initModule(page) {
-        switch(page) {
-            case 'home':
-                this.loadFeed();
-                break;
-            case 'profile':
-                this.loadProfile();
-                break;
-        }
-    }
-
-    async loadFeed() {
-        if (window.feed) window.feed.load();
-        else {
-            // Basic loader placeholder
-            const container = document.getElementById('reelsContainer');
-            if (container) container.innerHTML = '<div style="height: 100vh; display:flex; align-items:center; justify-content:center;"><h2>Loading Binks...</h2></div>';
-        }
-    }
-
-    loadProfile() {
-        const user = window.api?.getCurrentUser();
-        if (user) {
-            document.getElementById('profUsername').value = user.username || '';
-            document.getElementById('profBio').value = user.bio || '';
-            document.getElementById('userAvatar').src = user.profile_photo || 'https://via.placeholder.com/150';
-        }
+    showToast(msg, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerText = msg;
+        document.getElementById('toastContainer')?.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
     }
 }
 
-// Global Launch
-const blink = new BlinkAppV2();
+// Instantiate Global Module
+const appV2 = new BlinkAppV2();
