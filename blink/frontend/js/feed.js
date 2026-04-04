@@ -104,8 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     class="reel-video"
                     loop 
                     playsinline
-                    preload="metadata"
-                    onerror="this.style.setProperty('display', 'none', 'important'); this.nextElementSibling.style.setProperty('display', 'flex', 'important')">
+                    preload="metadata">
                 </video>
                 
                 <div class="video-error" style="display:none; position:absolute; inset:0; background: linear-gradient(135deg, #180000 0%, #000 100%); flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#666; border: 1px solid #330000; z-index: 100;">
