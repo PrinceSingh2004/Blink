@@ -265,6 +265,8 @@ const userRoutes       = require('./routes/userRoutes');
 const engagementRoutes = require('./routes/engagementRoutes');
 const searchRoutes     = require('./routes/searchRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const messageRoutes      = require('./routes/messageRoutes');
+const liveRoutes         = require('./routes/live');
 
 app.use('/api/auth',    authRoutes);
 app.use('/api/videos',  videoRoutes); // Unified video & feed API
@@ -274,6 +276,8 @@ app.use('/api/users',   userRoutes);
 app.use('/api/social',  engagementRoutes);
 app.use('/api/search',  searchRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/live', liveRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

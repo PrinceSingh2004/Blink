@@ -206,9 +206,12 @@ class BlinkAPI {
     }
 
     async uploadProfilePhoto(photoBase64) {
-        return this.request('/upload/profile-photo', {
+        return this.request('/users/update-profile', {
             method: 'POST',
-            body: JSON.stringify({ photo: photoBase64 })
+            body: JSON.stringify({ 
+                profile_pic: photoBase64,
+                username: this.getCurrentUser()?.username 
+            })
         });
     }
 
@@ -236,11 +239,13 @@ class BlinkAPI {
     /* ─────────────────────────────────────────────────────────────────────────── */
 
     async getMessages(recipientId) {
-        return this.request(`/messages/${recipientId}`);
+        const response = await this.request(`/messages/conversation/${recipientId}`);
+        return response;
     }
 
     async getConversations(page = 1) {
-        return this.request(`/messages?page=${page}`);
+        const response = await this.request('/messages/list');
+        return response;
     }
 
     /* ─────────────────────────────────────────────────────────────────────────── */
@@ -248,14 +253,17 @@ class BlinkAPI {
     /* ─────────────────────────────────────────────────────────────────────────── */
 
     async startLiveStream(title = '') {
-        return this.request('/live', {
+        return this.request('/live/start', {
             method: 'POST',
             body: JSON.stringify({ title })
         });
     }
 
     async endLiveStream(streamId) {
-        return this.request(`/live/${streamId}`, { method: 'DELETE' });
+        return this.request('/live/end', { 
+            method: 'POST',
+            body: JSON.stringify({ streamId })
+        });
     }
 
     async getLiveStreams() {
