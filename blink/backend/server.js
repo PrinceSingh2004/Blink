@@ -60,7 +60,7 @@ app.use('/api/live', liveRoutes);
 // --- 3. SPA ROUTING ---
 // Serve index_responsive.html for the root
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index_responsive.html'));
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // Catch-all for SPA: Only trigger if the request is NOT for an API and NOT for a file with an extension
@@ -69,7 +69,7 @@ app.get('*', (req, res, next) => {
     if (req.path.includes('.') || req.path.startsWith('/api')) {
         return next();
     }
-    res.sendFile(path.join(__dirname, '../frontend/index_responsive.html'));
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // 404 Handler for API and missing files
