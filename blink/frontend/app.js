@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-    BLINK v7.0 - UNIFIED SPA ENGINE
+    BLINK v8.0 - UNIFIED SPA ENGINE
     Auth | Feed | Live | Search | Logic
     ═══════════════════════════════════════════════════════════════════════════════ */
 
@@ -49,6 +49,7 @@ class BlinkApp {
 
         this.currentPage = page;
         if (page === 'home') this.loadFeed();
+        if (page === 'profile') this.loadProfile();
     }
 
     // --- 2. AUTH SYSTEM ---
@@ -79,7 +80,21 @@ class BlinkApp {
                     localStorage.setItem('blink_identity', JSON.stringify(res.user));
                     location.reload();
                 }
-            } catch (err) { alert("Invalid identity frequencies."); }
+            } catch (err) { alert("Invalid frequencies."); }
+        });
+
+        signupForm?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('regUser').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPass').value;
+            try {
+                const res = await this.request('/api/auth/register', 'POST', { username, email, password });
+                if (res.success) {
+                    alert("Identity created! Login now.");
+                    tabLogin.click();
+                }
+            } catch (err) { alert("Identity exists."); }
         });
     }
 
@@ -93,12 +108,12 @@ class BlinkApp {
     async loadFeed() {
         const container = document.getElementById('reelsContainer');
         if (!container) return;
-        container.innerHTML = '<div style="height:100vh; display:flex; align-items:center; justify-content:center;"><h2>Syncing...</h2></div>';
+        container.innerHTML = '<div style="height:100vh; display:flex; align-items:center; justify-content:center;"><h2>Syncing Blinks...</h2></div>';
 
         try {
             const res = await this.request('/api/videos');
             if (res.success) this.renderReels(res.data);
-        } catch (e) { container.innerHTML = '<h2>Connection Lost</h2>'; }
+        } catch (e) { container.innerHTML = '<h2>Blink Connection Error</h2>'; }
     }
 
     renderReels(videos) {
@@ -138,7 +153,7 @@ class BlinkApp {
             await this.request(`/api/videos/${videoId}/like`, 'POST');
             const count = btn.querySelector('span');
             count.innerText = parseInt(count.innerText) + 1;
-            btn.querySelector('i').style.color = 'red';
+            btn.querySelector('i').style.color = '#ff2c55';
         } catch (e) { console.error('Like failed'); }
     }
 
@@ -149,6 +164,7 @@ class BlinkApp {
         input?.addEventListener('input', () => {
             clearTimeout(timeout);
             timeout = setTimeout(async () => {
+                if (input.value.length < 2) return;
                 const res = await this.request(`/api/search?q=${input.value}`);
                 this.renderSearchResults(res.users);
             }, 500);
@@ -158,10 +174,13 @@ class BlinkApp {
     renderSearchResults(users) {
         const grid = document.getElementById('exploreGrid');
         grid.innerHTML = users.map(u => `
-            <div class="user-card">
+            <div class="user-card" onclick="window.app.navigateTo('profile')">
                 <img src="${u.profile_photo || 'https://via.placeholder.com/150'}">
-                <h3>${u.username}</h3>
-                <button onclick="window.app.navigateTo('profile')">View Profile</button>
+                <div class="user-info">
+                    <h3>${u.username}</h3>
+                    <p>${u.bio || 'Blink Creator'}</p>
+                </div>
+                <button class="btn-primary-sm">View profile</button>
             </div>
         `).join('');
     }
@@ -181,7 +200,7 @@ class BlinkApp {
                 startBtn.style.display = 'none';
                 endBtn.style.display = 'block';
                 liveTag.style.display = 'block';
-            } catch (e) { alert("Camera resource denied."); }
+            } catch (e) { alert("Camera denied."); }
         });
 
         endBtn?.addEventListener('click', () => {
@@ -193,7 +212,15 @@ class BlinkApp {
         });
     }
 
-    // --- 6. GLOBAL API HANDLER ---
+    // --- 6. PROFILE UI ---
+    loadProfile() {
+        if (!this.currentUser) return;
+        document.getElementById('profUser').innerText = `@${this.currentUser.username}`;
+        document.getElementById('profBio').innerText = this.currentUser.bio || 'Blink Member Since 2024';
+        document.getElementById('profPic').src = this.currentUser.profile_photo || 'https://via.placeholder.com/150';
+    }
+
+    // --- 7. GLOBAL API HANDLER ---
     async request(url, method = 'GET', body = null) {
         const headers = { 'Content-Type': 'application/json' };
         const token = localStorage.getItem('blink_token');
@@ -204,5 +231,5 @@ class BlinkApp {
     }
 }
 
-// Global Launch
-const app = new BlinkApp();
+// Instantiate
+new BlinkApp();

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-    BLINK v7.0 - UNIFIED BACKEND CORE
+    BLINK v8.0 - UNIFIED BACKEND CORE (REBUILD)
     Unified | SQL-Integrated | Professional | SPA-Ready
     ═══════════════════════════════════════════════════════════════════════════════ */
 
@@ -22,14 +22,18 @@ const pool = mysql.createPool({
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT || 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
     ssl: { rejectUnauthorized: false }
 });
 
 const initDB = async () => {
     try {
+        console.log('🔄 Syncing SQL Schema...');
         await pool.query(`CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(255) UNIQUE, email VARCHAR(255) UNIQUE, password VARCHAR(255), profile_photo TEXT, bio TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
         await pool.query(`CREATE TABLE IF NOT EXISTS videos (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, video_url TEXT NOT NULL, caption TEXT, likes_count INT DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
-        await pool.query(`CREATE TABLE IF NOT EXISTS likes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, video_id INT, UNIQUE KEY unique_like (user_id, video_id))`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS likes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, video_id INT, UNIQUE KEY unique_like (user_id, video_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE)`);
         console.log('✅ Blink Schema Sync Complete.');
     } catch (e) { console.error('DB Sync Error:', e.message); }
 };
@@ -42,10 +46,10 @@ const protect = async (req, res, next) => {
         if (!token) return res.status(401).json({ error: "Access denied" });
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
         const [users] = await pool.query('SELECT id, username FROM users WHERE id = ?', [decoded.id]);
-        if (!users[0]) return res.status(401).json({ error: "User frequencies lost" });
+        if (!users[0]) return res.status(401).json({ error: "Identity lost" });
         req.user = users[0];
         next();
-    } catch (e) { res.status(401).json({ error: "Invalid identity" }); }
+    } catch (e) { res.status(401).json({ error: "Invalid frequencies" }); }
 };
 
 // --- 3. APIs ---
@@ -57,14 +61,14 @@ app.post('/api/auth/register', async (req, res) => {
         const hashed = await bcrypt.hash(password, 10);
         const [reslt] = await pool.query('INSERT INTO users (username, email, password) VALUES (?, ?, ?)', [username, email, hashed]);
         res.status(201).json({ success: true, userId: reslt.insertId });
-    } catch (e) { res.status(400).json({ error: "Identity already exists" }); }
+    } catch (e) { res.status(400).json({ error: "Identity exists" }); }
 });
 
 app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-        if (!users[0] || !await bcrypt.compare(password, users[0].password)) return res.status(401).json({ error: "Invalid frequency" });
+        if (!users[0] || !await bcrypt.compare(password, users[0].password)) return res.status(401).json({ error: "Identity invalid" });
         const token = jwt.sign({ id: users[0].id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
         res.json({ success: true, token, user: users[0] });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -104,11 +108,19 @@ app.get('/api/search', async (req, res) => {
 
 // --- 4. STATIC & SPA ---
 app.use(express.static(path.join(__dirname, '../frontend')));
-app.get('*', (req, res) => {
-    if (req.path.startsWith('/api') || req.path.includes('.')) return res.status(404).send('Not Found');
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
+// Catch-all for sub-routes
+app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.includes('.')) return next();
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // --- 5. STARTUP ---
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Unified Engine Online: http://localhost:${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Unified Engine v8.0 Online: http://localhost:${PORT}`);
+});
