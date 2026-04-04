@@ -1,104 +1,100 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-   BLINK v4.0 - APP ROUTER & INITIALIZATION
-   Page routing, navigation, mobile/desktop mode, initialization
-   ═══════════════════════════════════════════════════════════════════════════════ */
+    BLINK v5.0 - APP ROUTER & SPA HUB
+    Standardized class names | Robust page switching | URL sync
+    ═══════════════════════════════════════════════════════════════════════════════ */
 
 class BlinkApp {
     constructor() {
-        this.currentPage = null;
-        this.isInitialized = false;
+        this.currentPage = 'feed';
         this.init();
     }
 
-    /**
-     * Initialize app
-     */
     init() {
-        if (this.isInitialized) return;
+        // Global access
+        window.app = this;
 
         document.addEventListener('DOMContentLoaded', () => {
             this.setupNavigation();
-            this.setupPageRouting();
-            this.setupResponsiveMode();
             this.loadInitialPage();
-            this.isInitialized = true;
         });
     }
 
-    /**
-     * Setup navigation event listeners
-     */
     setupNavigation() {
-        // Mobile bottom nav
-        const mobileNavItems = document.querySelectorAll('.mobile-nav .nav-item');
-        mobileNavItems.forEach(item => {
-            item.addEventListener('click', (e) => {
+        // Handle all navigation links with data-page attribute
+        document.addEventListener('click', (e) => {
+            const navLink = e.target.closest('[data-page]');
+            if (navLink) {
                 e.preventDefault();
-                const page = item.dataset.page;
-                this.navigateTo(page);
-                this.updateActiveNav();
-            });
-        });
-
-        // Desktop sidebar nav
-        const desktopNavLinks = document.querySelectorAll('.desktop-nav .nav-link');
-        desktopNavLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const page = link.dataset.page;
-                this.navigateTo(page);
-                this.updateActiveNav();
-            });
-        });
-
-        // Logout button
-        const logoutBtn = document.querySelector('.logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (window.auth) {
-                    window.auth.logout();
-                }
-            });
-        }
-    }
-
-    /**
-     * Navigate to page
-     */
-    navigateTo(page) {
-        // Hide all pages
-        document.querySelectorAll('.page').forEach(p => {
-            p.classList.remove('active');
-        });
-
-        // Show selected page
-        const pageElement = document.getElementById(`${page}-page`);
-        if (pageElement) {
-            pageElement.classList.add('active');
-            this.currentPage = page;
-
-            // Initialize page-specific functionality
-            this.initializePage(page);
-        }
-    }
-
-    /**
-     * Update active nav item
-     */
-    updateActiveNav() {
-        // Mobile nav
-        document.querySelectorAll('.mobile-nav .nav-item').forEach(item => {
-            if (item.dataset.page === this.currentPage) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
+                const page = navLink.getAttribute('data-page');
+                const params = navLink.dataset.params ? JSON.parse(navLink.dataset.params) : {};
+                this.navigateTo(page, params);
             }
         });
 
-        // Desktop nav
-        document.querySelectorAll('.desktop-nav .nav-link').forEach(link => {
-            if (link.dataset.page === this.currentPage) {
+        // Logout
+        document.querySelectorAll('#logout-btn, #logout-btn-profile').forEach(btn => {
+            btn.onclick = (e) => {
+                e.preventDefault();
+                window.api.logout();
+            };
+        });
+    }
+
+    navigateTo(page, params = {}) {
+        console.log(`[Blink] Navigating to: ${page}`, params);
+
+        // 1. Hide all pages
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+        // 2. Show target page
+        const pageTarget = document.getElementById(`${page}-page`);
+        if (pageTarget) {
+            pageTarget.classList.add('active');
+            this.currentPage = page;
+            
+            // Sync URL (Optional: but good for SPA)
+            window.history.pushState({page}, '', `/${page == 'feed' ? '' : page}`);
+
+            // 3. Update Nav Active States
+            this.updateActiveNav(page);
+
+            // 4. Fire page-specific init
+            this.initPageModule(page, params);
+        } else {
+            console.error(`[Blink] Fragment frequency not found: ${page}-page`);
+            this.navigateTo('feed');
+        }
+    }
+
+    initPageModule(page, params) {
+        switch(page) {
+            case 'feed':
+                if (window.feed) window.feed.load();
+                break;
+            case 'messages':
+                if (window.messenger) {
+                    if (params.id) window.messenger.openChat(params.id, params.username, params.avatar);
+                    else window.messenger.loadConversations();
+                }
+                break;
+            case 'profile':
+                if (window.profile) {
+                    const userId = params.id || window.api.getCurrentUser()?.id;
+                    window.profile.load(userId);
+                }
+                break;
+            case 'explore':
+                // Explore module init
+                break;
+            case 'live':
+                if (window.live) window.live.loadActiveStreams();
+                break;
+        }
+    }
+
+    updateActiveNav(page) {
+        document.querySelectorAll('[data-page]').forEach(link => {
+            if (link.getAttribute('data-page') === page) {
                 link.classList.add('active');
             } else {
                 link.classList.remove('active');
@@ -106,175 +102,40 @@ class BlinkApp {
         });
     }
 
-    /**
-     * Initialize page-specific functionality
-     */
-    initializePage(page) {
-        switch (page) {
-            case 'feed':
-                this.initFeedPage();
-                break;
-            case 'create':
-                this.initCreatePage();
-                break;
-            case 'live':
-                this.initLivePage();
-                break;
-            case 'messages':
-                this.initMessagesPage();
-                break;
-            case 'profile':
-                this.initProfilePage();
-                break;
-        }
-    }
-
-    /**
-     * Initialize Feed Page
-     */
-    initFeedPage() {
-        if (window.feed && typeof window.feed.loadFeed === 'function') {
-            window.feed.loadFeed();
-        }
-    }
-
-    /**
-     * Initialize Create Page
-     */
-    initCreatePage() {
-        if (window.upload && typeof window.upload.init === 'function') {
-            window.upload.init();
-        }
-    }
-
-    /**
-     * Initialize Live Page
-     */
-    initLivePage() {
-        if (window.live && typeof window.live.init === 'function') {
-            window.live.init();
-        }
-    }
-
-    /**
-     * Initialize Messages Page
-     */
-    initMessagesPage() {
-        if (window.messenger && typeof window.messenger.init === 'function') {
-            window.messenger.init();
-        }
-    }
-
-    /**
-     * Initialize Profile Page
-     */
-    initProfilePage() {
-        if (window.profile && typeof window.profile.load === 'function') {
-            const user = window.auth?.getUser?.();
-            if (user) {
-                window.profile.load(user.id);
-            }
-        }
-    }
-
-
-    /**
-     * Setup page routing from URL
-     */
-    setupPageRouting() {
-        window.addEventListener('popstate', () => {
-            this.loadInitialPage();
-        });
-    }
-
-    /**
-     * Load initial page based on auth status
-     */
     loadInitialPage() {
-        const isAuthenticated = window.auth?.isAuthenticated?.();
-
-        if (!isAuthenticated) {
-            if (!window.location.pathname.includes('login') && !window.location.pathname.includes('register')) {
-                window.auth?.showAuthModal?.();
-                this.navigateTo('feed');
-            }
-            return;
-        }
-
-        // Default to feed
-        this.navigateTo('feed');
+        const path = window.location.pathname.replace('/', '') || 'feed';
+        this.navigateTo(path);
     }
 
-    /**
-     * Setup responsive mode detection
-     */
-    setupResponsiveMode() {
-        const updateMode = () => {
-            const width = window.innerWidth;
-            const isMobile = width <= 600;
-            const isTablet = width >= 601 && width <= 1024;
-            const isDesktop = width >= 1025;
-
-            document.body.dataset.mode = isMobile ? 'mobile' : (isTablet ? 'tablet' : 'desktop');
-        };
-
-        updateMode();
-        window.addEventListener('resize', updateMode);
+    // Modal Helpers
+    showModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.classList.add('active');
     }
 
-    /**
-     * Redirect to page
-     */
-    redirect(page) {
-        this.navigateTo(page);
-        this.updateActiveNav();
+    hideModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.classList.remove('active');
     }
 
-    /**
-     * Show loading state
-     */
     showLoading() {
-        let loader = document.querySelector('.page-loader');
-        if (!loader) {
-            loader = document.createElement('div');
-            loader.className = 'page-loader';
-            loader.innerHTML = '<div class="spinner"></div>';
-            document.body.appendChild(loader);
-        }
-        loader.style.display = 'flex';
+        // UI implementation for global loader
     }
 
-    /**
-     * Hide loading state
-     */
     hideLoading() {
-        const loader = document.querySelector('.page-loader');
-        if (loader) {
-            loader.style.display = 'none';
-        }
+        // UI implementation for global loader
     }
 
-    /**
-     * Show error
-     */
-    showError(message) {
-        if (window.auth?.showToast) {
-            window.auth.showToast(message, 'error');
-        }
+    showError(msg) {
+        if(window.Blink?.showToast) window.Blink.showToast(msg, 'error');
+        else alert(msg);
     }
 
-    /**
-     * Show success
-     */
-    showSuccess(message) {
-        if (window.auth?.showToast) {
-            window.auth.showToast(message, 'success');
-        }
+    showSuccess(msg) {
+        if(window.Blink?.showToast) window.Blink.showToast(msg, 'success');
+        else console.log("Success:", msg);
     }
 }
 
-// Create global instance
+// Global initialization
 window.app = new BlinkApp();
-
-// Export
-export default window.app;

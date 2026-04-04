@@ -96,6 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const reel = document.createElement("div");
             reel.className = "reel-item animate-fade";
             reel.dataset.id = video.id;
+            reel.style.position = "relative"; // Ensure relative for absolute overlay
 
             reel.innerHTML = `
                 <video 
@@ -104,12 +105,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     loop 
                     playsinline
                     preload="metadata"
-                    onerror="this.style.display='none'; this.parentElement.querySelector('.video-error').style.display='flex'">
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
                 </video>
                 
-                <div class="video-error" style="display:none; position:absolute; inset:0; background:#111; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#555;">
-                    <i class="bi bi-exclamation-octagon" style="font-size:40px;"></i>
-                    <span style="font-size:12px;">Frequency Lost (404)</span>
+                <div class="video-error" style="display:none; position:absolute; inset:0; background: linear-gradient(135deg, #180000 0%, #000 100%); flex-direction:column; align-items:center; justify-content:center; gap:10px; color:#666; border: 1px solid #330000; z-index: 5;">
+                    <i class="bi bi-broadcast-pin" style="font-size:40px; color: var(--primary); opacity: 0.5;"></i>
+                    <span style="font-size:12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Frequency Lost (404)</span>
                 </div>
                 
                 <div class="reel-overlay" onclick="window.feed.handleVideoToggle(this)">

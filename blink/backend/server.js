@@ -57,6 +57,10 @@ app.use('/api', (req, res, next) => {
 
 app.use(express.json());
 
+// ── PRIORITY STATIC ASSETS ──
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, '../frontend')));
+
 // --- DATABASE INITIALIZATION & MIGRATION ---
 const initDB = async () => {
     console.log('🔄 Initializing Production Database Schema...');
@@ -157,63 +161,16 @@ const initDB = async () => {
 
         for (let q of baseQueries) await pool.query(q);
 
-        // Migration Check: Precise column verification for advanced engagement
-        console.log('👷 Synchronizing social media pulse (Migrations)...');
+        // Migration Check
         const [columns] = await pool.query("SHOW COLUMNS FROM videos");
         const columnNames = columns.map(c => c.Field);
+        const needed = { 'score': 'DECIMAL(15,2) DEFAULT 0', 'public_id': 'VARCHAR(255)', 'thumbnail_url': 'TEXT', 'caption': 'TEXT', 'hashtags': 'TEXT', 'duration': 'DECIMAL(10,2)', 'views_count': 'INT DEFAULT 0', 'likes_count': 'INT DEFAULT 0', 'comments_count': 'INT DEFAULT 0', 'shares_count': 'INT DEFAULT 0', 'user_id': 'INT' };
+        for (const [col, type] of Object.entries(needed)) { if (!columnNames.includes(col)) await pool.query(`ALTER TABLE videos ADD COLUMN ${col} ${type}`); }
 
-        const needed = {
-            'score': 'DECIMAL(15,2) DEFAULT 0',
-            'public_id': 'VARCHAR(255)',
-            'thumbnail_url': 'TEXT',
-            'caption': 'TEXT',
-            'hashtags': 'TEXT',
-            'duration': 'DECIMAL(10,2)',
-            'views_count': 'INT DEFAULT 0',
-            'likes_count': 'INT DEFAULT 0',
-            'comments_count': 'INT DEFAULT 0',
-            'shares_count': 'INT DEFAULT 0',
-            'user_id': 'INT'
-        };
-
-        for (const [col, type] of Object.entries(needed)) {
-            if (!columnNames.includes(col)) {
-                console.log(`🛠️ Patching missing column: ${col}...`);
-                await pool.query(`ALTER TABLE videos ADD COLUMN ${col} ${type}`);
-            }
-        }
-
-        // --- User Profile Patch ---
         const [userCols] = await pool.query("SHOW COLUMNS FROM users");
         const userNames = userCols.map(c => c.Field);
-        const userNeeded = {
-            'bio': 'TEXT',
-            'is_verified': 'BOOLEAN DEFAULT FALSE',
-            'posts_count': 'INT DEFAULT 0',
-            'followers_count': 'INT DEFAULT 0',
-            'following_count': 'INT DEFAULT 0',
-            'avatar_url': 'TEXT',
-            'profile_photo': 'TEXT'
-        };
-        for (const [col, type] of Object.entries(userNeeded)) {
-            if (!userNames.includes(col)) {
-                console.log(`🛠️ Patching users table: adding ${col}...`);
-                await pool.query(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
-            }
-        }
-
-        // --- DATABASE INDEXING (PERFORMANCE) ---
-        console.log('⚡ Optimizing indexes for high-speed engagement...');
-        const indexQueries = [
-            "CREATE INDEX IF NOT EXISTS idx_videos_user_id ON videos(user_id)",
-            "CREATE INDEX IF NOT EXISTS idx_videos_created_at ON videos(created_at)",
-            "CREATE INDEX IF NOT EXISTS idx_videos_score ON videos(score)",
-            "CREATE INDEX IF NOT EXISTS idx_likes_user_video ON likes(user_id, post_id)",
-            "CREATE INDEX IF NOT EXISTS idx_comments_video ON comments(post_id)"
-        ];
-        for (let idxQ of indexQueries) {
-            try { await pool.query(idxQ); } catch (e) { /* MySQL 8.0 standard check */ }
-        }
+        const userNeeded = { 'bio': 'TEXT', 'is_verified': 'BOOLEAN DEFAULT FALSE', 'posts_count': 'INT DEFAULT 0', 'followers_count': 'INT DEFAULT 0', 'following_count': 'INT DEFAULT 0', 'avatar_url': 'TEXT', 'profile_photo': 'TEXT' };
+        for (const [col, type] of Object.entries(userNeeded)) { if (!userNames.includes(col)) await pool.query(`ALTER TABLE users ADD COLUMN ${col} ${type}`); }
 
         console.log('✅ Blink Universe Database Schema Pulsating!');
     } catch (err) {
@@ -223,42 +180,12 @@ const initDB = async () => {
 
 // --- SIGNALING & REALTIME HUB ---
 io.on('connection', (socket) => {
-    console.log('🛸 Signal Hub: Connection established:', socket.id);
-
-    socket.on('join-stream', (roomId) => {
-        socket.join(roomId);
-        console.log(`📡 Peer ${socket.id} joined room: ${roomId}`);
-        socket.to(roomId).emit('user-joined', socket.id);
-    });
-
-    socket.on('offer', (payload) => {
-        io.to(payload.target).emit('offer', { sdp: payload.sdp, sender: socket.id });
-    });
-
-    socket.on('answer', (payload) => {
-        io.to(payload.target).emit('answer', { sdp: payload.sdp, sender: socket.id });
-    });
-
-    socket.on('ice-candidate', (payload) => {
-        io.to(payload.target).emit('ice-candidate', { candidate: payload.candidate, sender: socket.id });
-    });
-
-    socket.on('send-message', (data) => {
-        io.to(data.roomId).emit('receive-message', {
-            username: data.username,
-            text: data.text,
-            time: new Date().toLocaleTimeString()
-        });
-    });
-
-    socket.on('disconnect', () => {
-        console.log('🔌 Signal Hub: Peer disconnected:', socket.id);
-    });
+    socket.on('disconnect', () => console.log('🔌 Signal Hub: Peer disconnected'));
 });
 
-// ── MODULAR ROUTE ARCHITECTURE (Production Upgrade) ──────────
+// ── MODULAR ROUTE ARCHITECTURE ──
 const authRoutes       = require('./routes/authRoutes');
-const videoRoutes      = require('./routes/videos.js'); // Main Videos & Feed
+const videoRoutes      = require('./routes/videos.js');
 const postRoutes       = require('./routes/postRoutes');
 const uploadRoutes     = require('./routes/uploadRoutes');
 const userRoutes       = require('./routes/userRoutes');
@@ -269,7 +196,7 @@ const messageRoutes      = require('./routes/messageRoutes');
 const liveRoutes         = require('./routes/live');
 
 app.use('/api/auth',    authRoutes);
-app.use('/api/videos',  videoRoutes); // Unified video & feed API
+app.use('/api/videos',  videoRoutes);
 app.use('/api/posts',   postRoutes);
 app.use('/api/upload',  uploadRoutes);
 app.use('/api/users',   userRoutes);
@@ -279,35 +206,29 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/live', liveRoutes);
 
-// Global Error Handler
-app.use((err, req, res, next) => {
-    console.error('🔥 CRITICAL SYSTEM ERROR:', err.stack);
-    res.status(500).json({ 
-        success: false, 
-        message: 'Internal Server Error',
-        error: process.env.NODE_ENV === 'production' ? null : err.message 
-    });
-});
-
-// Static Uploads & Frontend Assets
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use(express.static(path.join(__dirname, '../frontend')));
-
+// SPA Routing Priority
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index_responsive.html'));
 });
 
-// Catch-all for SPA Client-Side Routing
-app.get('*', (req, res, next) => {
-    // If it's an API request, let it fall through to 404
+// Catch-all for SPA (excluding file extensions and API)
+app.get(/^[^\.]*$/, (req, res, next) => {
     if (req.path.startsWith('/api')) return next();
     res.sendFile(path.join(__dirname, '../frontend/index_responsive.html'));
 });
 
-// 404 Handler for API
-app.use((req, res) => res.status(404).json({ error: "Route not found" }));
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('🔥 ERROR:', err.stack);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+});
 
-// --- STARTUP ---
+// 404 Handler for API & missing files
+app.use((req, res) => {
+    if (req.path.startsWith('/api')) return res.status(404).json({ error: "API Route not found" });
+    res.status(404).send("File not found");
+});
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, async () => {
     await initDB();
