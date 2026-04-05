@@ -249,6 +249,7 @@ class BlinkApp {
             overlay.style.display = 'none';
             shell.style.display = 'flex';
             this.updateSidebar();
+            this.loadConversations();
             this.navigateTo('feed');
         } else {
             overlay.style.display = 'flex';
@@ -1229,8 +1230,24 @@ class BlinkApp {
             const data = await this.api('/chat/conversations');
             this.conversations = data?.conversations || [];
             this.renderConversations();
+            this.updateBadges();
         } catch (err) {
             list.innerHTML = `<div class="chat-error">Failed to load chats</div>`;
+        }
+    }
+
+    updateBadges() {
+        const totalUnread = this.conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+        const badge = document.getElementById('chatBadge');
+        const mobileBadge = document.getElementById('mobileChatBadge');
+        
+        if (badge) {
+            badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+            badge.style.display = totalUnread > 0 ? 'flex' : 'none';
+        }
+        if (mobileBadge) {
+            mobileBadge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+            mobileBadge.style.display = totalUnread > 0 ? 'flex' : 'none';
         }
     }
 
@@ -1392,6 +1409,7 @@ class BlinkApp {
         if (this.activeConversationId !== data.conversationId) {
             this.showToast(`New message from @user`, 'info');
             this.loadConversations();
+            this.updateBadges();
         }
     }
 

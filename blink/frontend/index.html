@@ -360,11 +360,29 @@
 
         <!-- BOTTOM NAV (Mobile) -->
         <nav class="bottom-nav" id="bottomNav">
-            <a href="#" class="bottom-link active" data-page="feed"><i class="bi bi-house-door-fill"></i></a>
-            <a href="#" class="bottom-link" data-page="explore"><i class="bi bi-compass-fill"></i></a>
-            <a href="#" class="bottom-link upload-circle" data-page="upload"><i class="bi bi-plus-lg"></i></a>
-            <a href="#" class="bottom-link" data-page="profile"><i class="bi bi-person-circle"></i></a>
-            <a href="#" class="bottom-link" id="mobileLogoutBtn"><i class="bi bi-box-arrow-left"></i></a>
+            <a href="#" class="bottom-link active" data-page="feed">
+                <i class="bi bi-house-door-fill"></i>
+                <span>Home</span>
+            </a>
+            <a href="#" class="bottom-link" data-page="chat">
+                <i class="bi bi-chat-dots-fill"></i>
+                <span>Messages</span>
+                <span class="bottom-badge" id="mobileChatBadge" style="display:none;">0</span>
+            </a>
+            <a href="#" class="bottom-link upload-item" data-page="upload">
+                <div class="upload-circle">
+                    <i class="bi bi-plus-lg"></i>
+                </div>
+                <span>Upload</span>
+            </a>
+            <a href="#" class="bottom-link" data-page="profile">
+                <i class="bi bi-person-circle"></i>
+                <span>Profile</span>
+            </a>
+            <a href="#" class="bottom-link" id="mobileLogoutBtn">
+                <i class="bi bi-box-arrow-left"></i>
+                <span>Logout</span>
+            </a>
         </nav>
     </div>
 
