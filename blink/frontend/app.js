@@ -14,6 +14,10 @@ class BlinkApp {
         this.isMuted = true;           // Feature 6: mute state
         this.viewedVideos = new Set();  // Feature 5: session-based view tracking
         this.commentVideoId = null;    // Feature 3: active comment video
+        
+        // Phase 4: Socket.IO
+        this.socket = typeof io !== 'undefined' ? io() : null;
+        this.setupSocket();
 
         document.addEventListener('DOMContentLoaded', () => this.init());
     }
@@ -35,12 +39,24 @@ class BlinkApp {
     detectApiBase() {
         const host = window.location.hostname;
         if (host === 'localhost' || host === '127.0.0.1') {
-            return `http://${host}:5000`; // Always point to node backend
+            return `http://${host}:5000`;
         }
         if (window.location.protocol === 'file:') {
             return 'http://localhost:5000';
         }
         return 'https://blink-yzoo.onrender.com';
+    }
+
+    setupSocket() {
+        if (!this.socket) return;
+        this.socket.on('update_likes', (data) => {
+            const btn = document.querySelector(`.like-btn[data-id="${data.videoId}"]`);
+            if (btn) btn.querySelector('span').textContent = this.formatCount(data.likes_count);
+        });
+        this.socket.on('update_views', (data) => {
+            const btn = document.querySelector(`.reel-card[data-id="${data.videoId}"] .view-count-btn span`);
+            if (btn) btn.textContent = this.formatCount(data.views_count);
+        });
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -723,11 +739,38 @@ class BlinkApp {
 
                 const avatarUrl = u.profile_photo || `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
                 document.getElementById('userProfileAvatar').src = avatarUrl;
+                
+                // Phase 4: Follow Button
+                const btnWrap = document.getElementById('userProfileActions');
+                if (btnWrap) {
+                    btnWrap.innerHTML = `
+                        <button class="profile-follow-btn ${u.is_following ? 'following' : ''}" id="followBtn" data-id="${u.id}">
+                            ${u.is_following ? 'Following' : 'Follow'}
+                        </button>
+                    `;
+                    document.getElementById('followBtn').onclick = () => this.toggleFollow(u.id);
+                }
 
                 this.loadUserVideos(userId, 'userProfileVideos');
             }
         } catch (err) {
             this.showToast('Failed to load profile', 'error');
+        }
+    }
+
+    async toggleFollow(userId) {
+        const btn = document.getElementById('followBtn');
+        if (!this.user) { this.showToast('Please sign in to follow', 'error'); return; }
+        
+        try {
+            const data = await this.api(`/users/follow/${userId}`, { method: 'POST' });
+            if (data?.success) {
+                const isFollowing = btn.classList.toggle('following');
+                btn.textContent = isFollowing ? 'Following' : 'Follow';
+                this.showToast(isFollowing ? 'Followed!' : 'Unfollowed');
+            }
+        } catch (err) {
+            this.showToast('Failed to toggle follow', 'error');
         }
     }
 
@@ -748,17 +791,33 @@ class BlinkApp {
 
             container.innerHTML = data.data.map(v => {
                 const thumb = v.thumbnail_url || v.video_url;
+                const isOwn = this.user && userId === this.user.id;
                 return `
-                <div class="profile-video-card">
+                <div class="profile-video-card" data-id="${v.id}">
                     <img src="${thumb}" alt="${v.caption || 'Video'}" loading="lazy"
                          onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin', '<video src=\\'${v.video_url}\\' muted></video>')">
                     <div class="video-stats">
                         <span><i class="bi bi-heart-fill"></i> ${this.formatCount(v.likes_count)}</span>
                         <span><i class="bi bi-eye-fill"></i> ${this.formatCount(v.views_count)}</span>
-                        <span><i class="bi bi-chat-dots-fill"></i> ${this.formatCount(v.comments_count || 0)}</span>
                     </div>
+                    ${isOwn ? `<button class="video-delete-btn" data-id="${v.id}"><i class="bi bi-trash3-fill"></i></button>` : ''}
                 </div>`;
             }).join('');
+
+            // Bind delete
+            container.querySelectorAll('.video-delete-btn').forEach(btn => {
+                btn.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (!confirm('Delete this video forever?')) return;
+                    try {
+                        const res = await this.api(`/videos/${btn.dataset.id}`, { method: 'DELETE' });
+                        if (res?.success) {
+                            btn.closest('.profile-video-card').remove();
+                            this.showToast('Video deleted');
+                        }
+                    } catch (err) { this.showToast('Delete failed', 'error'); }
+                };
+            });
         } catch {
             container.innerHTML = '<div class="profile-empty"><p>Failed to load videos</p></div>';
         }
@@ -889,27 +948,51 @@ class BlinkApp {
 
             form.style.display = 'none';
             progressDiv.style.display = 'block';
+            
+            // Phase 6: Upload Progress via XHR
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `${this.API_BASE}/api/upload/video`);
+            if (this.token) xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
 
-            try {
-                const data = await this.api('/upload/video', { method: 'POST', body: formData });
-                if (data?.success) {
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    document.getElementById('progressText').textContent = `${percent}%`;
+                    const offset = 283 - (283 * percent) / 100;
+                    document.getElementById('progressCircle').style.strokeDashoffset = offset;
+                }
+            };
+
+            xhr.onload = () => {
+                this.setButtonLoading(uploadBtn, false);
+                const data = JSON.parse(xhr.responseText);
+                if (xhr.status >= 200 && xhr.status < 300 && data.success) {
                     this.showToast('Video published! 🎬', 'success');
                     this.feedLoaded = false;
-                    selectedFile = null; fileInput.value = '';
-                    document.getElementById('uploadCaption').value = '';
-                    document.getElementById('uploadHashtags').value = '';
-                    captionCount.textContent = '0/500';
+                    selectedFile = null; 
+                    if(fileInput) fileInput.value = '';
+                    if(form) form.style.display = 'none';
+                    if(dropzone) dropzone.style.display = 'block';
+                    if(document.getElementById('uploadCaption')) document.getElementById('uploadCaption').value = '';
+                    if(document.getElementById('uploadHashtags')) document.getElementById('uploadHashtags').value = '';
+                    if(captionCount) captionCount.textContent = '0/500';
                     progressDiv.style.display = 'none';
-                    dropzone.style.display = 'block';
                     this.navigateTo('feed');
+                } else {
+                    this.showToast(`Upload failed: ${data.error || 'Server error'}`, 'error');
+                    progressDiv.style.display = 'none';
+                    if(form) form.style.display = 'block';
                 }
-            } catch (err) {
-                this.showToast(`Upload failed: ${err.message}`, 'error');
-                progressDiv.style.display = 'none';
-                form.style.display = 'block';
-            } finally {
+            };
+
+            xhr.onerror = () => {
                 this.setButtonLoading(uploadBtn, false);
-            }
+                this.showToast('Upload failed: Connection error', 'error');
+                progressDiv.style.display = 'none';
+                if(form) form.style.display = 'block';
+            };
+
+            xhr.send(formData);
         });
     }
 
