@@ -107,3 +107,33 @@ exports.searchUsers = async (req, res) => {
         res.status(500).json({ error: 'Search failed' });
     }
 };
+/**
+ * POST /api/users/follow/:id — Toggle follow
+ */
+exports.followUser = async (req, res) => {
+    try {
+        const followerId = req.user.id;
+        const followingId = parseInt(req.params.id);
+
+        if (followerId === followingId) return res.status(400).json({ error: 'Cannot follow yourself' });
+
+        const [existing] = await pool.query(
+            'SELECT id FROM follows WHERE follower_id = ? AND following_id = ?',
+            [followerId, followingId]
+        );
+
+        if (existing.length > 0) {
+            await pool.query('DELETE FROM follows WHERE follower_id = ? AND following_id = ?', [followerId, followingId]);
+        } else {
+            await pool.query('INSERT INTO follows (follower_id, following_id) VALUES (?, ?)', [followerId, followingId]);
+        }
+
+        const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM follows WHERE following_id = ?', [followingId]);
+        console.log("Follow toggled:", followingId, "New count:", count);
+        res.json({ success: true, follower_count: count });
+    } catch (err) {
+        res.status(500).json({ error: 'Follow failed' });
+    }
+};
+
+console.log('✅ User Controller Exports Loaded:', Object.keys(exports));
