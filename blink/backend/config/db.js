@@ -105,6 +105,56 @@ const initDB = async () => {
             console.log('✅ Added missing comments_count column.');
         }
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user1_id INT NOT NULL,
+                user2_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_conv (user1_id, user2_id),
+                FOREIGN KEY (user1_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (user2_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS messages (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                conversation_id INT NOT NULL,
+                sender_id INT NOT NULL,
+                text TEXT DEFAULT NULL,
+                media_url TEXT DEFAULT NULL,
+                seen TINYINT(1) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+                FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS follows (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                follower_id INT NOT NULL,
+                following_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_follow (follower_id, following_id),
+                FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (following_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        // Safe schema migrations
+        const [mCols] = await pool.query(`
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'messages'
+              AND COLUMN_NAME = 'conversation_id'
+        `);
+        if (mCols.length === 0) {
+            await pool.query(`ALTER TABLE messages ADD COLUMN conversation_id INT NOT NULL`);
+            console.log('✅ Added missing conversation_id column to messages.');
+        }
+
         console.log('✅ Database schema synchronized.');
     } catch (err) {
         console.error('❌ Schema sync error:', err.message);
