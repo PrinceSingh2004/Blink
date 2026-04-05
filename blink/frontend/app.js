@@ -60,18 +60,20 @@ class BlinkApp {
 
         try {
             const res = await fetch(url, { ...options, headers });
-            const data = await res.json();
+            const data = await res.json().catch(() => null);
 
             if (res.status === 401) {
                 this.logout();
                 return null;
             }
             if (!res.ok) {
-                throw new Error(data.error || data.message || `HTTP ${res.status}`);
+                const errorMsg = data?.error || data?.message || `HTTP ${res.status}`;
+                console.error(`API Error [${res.status}] on ${endpoint}:`, data);
+                throw new Error(errorMsg);
             }
             return data;
         } catch (err) {
-            console.error(`API ${endpoint}:`, err.message);
+            console.error(`API ${endpoint} failed:`, err.message, err);
             throw err;
         }
     }

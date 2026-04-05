@@ -16,6 +16,7 @@ const { initDB, testConnection } = require('./config/db');
 
 // ── Express App ────────────────────────────────────────
 const app = express();
+app.set('trust proxy', 1); // For Render deployment
 
 // ── Security ───────────────────────────────────────────
 app.use(helmet({
