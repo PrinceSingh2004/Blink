@@ -216,6 +216,7 @@ class BlinkApp {
         });
 
         document.getElementById('logoutBtn')?.addEventListener('click', () => this.logout());
+        document.getElementById('mobileLogoutBtn')?.addEventListener('click', (e) => { e.preventDefault(); this.logout(); });
     }
 
     checkAuth() {
