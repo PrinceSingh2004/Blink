@@ -54,8 +54,8 @@ exports.getFeed = async (req, res) => {
 
         res.json({ success: true, data: videos, page, limit });
     } catch (err) {
-        console.error('Feed error:', err.message);
-        res.status(500).json({ error: 'Failed to load feed' });
+        console.error('Feed error:', err.code, err.sqlMessage || err.message);
+        res.status(500).json({ error: 'Failed to load feed', detail: err.sqlMessage || err.message });
     }
 };
 
