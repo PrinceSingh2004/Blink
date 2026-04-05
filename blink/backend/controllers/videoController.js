@@ -12,58 +12,35 @@ const { getColumn } = require('../utils/columnMapper');
  */
 exports.getFeed = async (req, res) => {
     try {
-        // Step 1: Detect Real Columns Dynamically
-        const videoIdCol = await getColumn('videos', ['id', 'videoId', 'video_id']);
-        const videoUrlCol = await getColumn('videos', ['videoUrl', 'video_url', 'url', 'file_url']);
-        const videoUserCol = await getColumn('videos', ['userId', 'user_id', 'uploader_id', 'creator_id']);
-        const videoActiveCol = await getColumn('videos', ['is_active', 'is_published', 'active']);
-        const videoCreatedCol = await getColumn('videos', ['createdAt', 'created_at', 'date_added']);
-
-        const likesVideoCol = await getColumn('likes', ['videoId', 'video_id', 'vid']);
-        const likesUserCol = await getColumn('likes', ['userId', 'user_id', 'uid']);
-
-        const commsVideoCol = await getColumn('comments', ['videoId', 'video_id', 'vid']);
-        const viewsVideoCol = await getColumn('views', ['videoId', 'video_id', 'vid']);
-
-        // Step 2: Build Safe Select & Atomic Joins
-        const select = [
-            `v.${videoIdCol || 'id'} AS id`,
-            videoUrlCol ? `v.${videoUrlCol} AS videoUrl` : 'NULL AS videoUrl',
-            `v.caption`,
-            `u.username`,
-            `u.profile_photo AS profilePic`,
-            `COUNT(DISTINCT l.id) AS likeCount`,
-            `COUNT(DISTINCT c.id) AS commentCount`,
-            `COUNT(DISTINCT vw.id) AS viewCount`
-        ].join(', ');
-
-        const joinLikes = likesVideoCol ? `LEFT JOIN likes l ON l.${likesVideoCol} = v.${videoIdCol}` : 'LEFT JOIN (SELECT NULL id) l ON 1=0';
-        const joinComms = commsVideoCol ? `LEFT JOIN comments c ON c.${commsVideoCol} = v.${videoIdCol}` : 'LEFT JOIN (SELECT NULL id) c ON 1=0';
-        const joinViews = viewsVideoCol ? `LEFT JOIN views vw ON vw.${viewsVideoCol} = v.${videoIdCol}` : 'LEFT JOIN (SELECT NULL id) vw ON 1=0';
-
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 20;
-        const offset = (page - 1) * limit;
-
         const query = `
-            SELECT ${select}
+            SELECT 
+                v.id,
+                v.user_id,
+                v.user_id AS userId,
+                v.video_url AS videoUrl,
+                v.caption,
+                u.username,
+                u.profile_pic AS profile_photo,
+                COUNT(DISTINCT l.id) AS likes_count,
+                COUNT(DISTINCT c.id) AS comments_count,
+                COUNT(DISTINCT vw.id) AS views_count
             FROM videos v
-            JOIN users u ON v.${videoUserCol || 'userId'} = u.id
-            ${joinLikes}
-            ${joinComms}
-            ${joinViews}
-            WHERE ${videoActiveCol ? `v.${videoActiveCol}` : '1'} = 1
-            GROUP BY v.${videoIdCol || 'id'}
-            ORDER BY v.${videoCreatedCol || videoIdCol || 'id'} DESC
-            LIMIT ? OFFSET ?
+            LEFT JOIN users u ON v.user_id = u.id
+            LEFT JOIN likes l ON l.video_id = v.id
+            LEFT JOIN comments c ON c.video_id = v.id
+            LEFT JOIN views vw ON vw.video_id = v.id
+            GROUP BY v.id
+            ORDER BY v.created_at DESC
         `;
 
-        const [videos] = await pool.query(query, [limit, offset]);
-        res.json({ success: true, videos });
-
+        const [rows] = await pool.query(query);
+        console.log("Feed loaded successfully, rows:", rows.length);
+        
+        res.json({ success: true, data: rows || [] });
     } catch (err) {
-        console.error('🔥 [Critical Crash Prevented] Feed Fail:', err.message);
-        res.status(500).json({ error: 'Feed Loading Failed', detail: err.message });
+        console.error('🔥 FEED ERROR:', err.message);
+        // Fail-safe mode: return [] instead of crashing
+        res.json({ success: false, data: [] });
     }
 };
 
