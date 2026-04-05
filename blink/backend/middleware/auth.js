@@ -1,66 +1,45 @@
 /**
- * middleware/auth.js – JWT Authentication Middleware
- * ═══════════════════════════════════════════════════════════════════════════════
- * Exports: protect, optionalAuth, adminOnly
- * ═══════════════════════════════════════════════════════════════════════════════
+ * middleware/auth.js — JWT Authentication Middleware
+ * ══════════════════════════════════════════════════════
+ * Exports: protect, optionalAuth
  */
 
 const jwt = require('jsonwebtoken');
 
-// ════════════════════════════════════════════════════════════════════════════════
-// REQUIRED AUTH — Returns 401 if token is missing or invalid
-// ════════════════════════════════════════════════════════════════════════════════
+/**
+ * REQUIRED AUTH — Returns 401 if token is missing or invalid
+ */
 const protect = (req, res, next) => {
-    // Check JWT_SECRET is configured
     if (!process.env.JWT_SECRET) {
-        console.error('❌ JWT_SECRET is not set in environment variables');
+        console.error('❌ JWT_SECRET not configured');
         return res.status(500).json({ error: 'Server configuration error' });
     }
 
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-            error: true,
-            message: 'Not authorized – token missing',
-            redirect: '/pages/login.html'
-        });
+        return res.status(401).json({ error: 'Access denied — no token provided' });
     }
 
     const token = authHeader.split(' ')[1];
-
-    // Guard against string "null" or "undefined" tokens
     if (!token || token === 'null' || token === 'undefined') {
-        return res.status(401).json({
-            error: true,
-            message: 'Invalid token format',
-            redirect: '/pages/login.html'
-        });
+        return res.status(401).json({ error: 'Invalid token format' });
     }
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        req.userId = decoded.id;
+        req.user = { id: decoded.id };
         next();
     } catch (err) {
-        if (err.name === 'TokenExpiredError') {
-            return res.status(401).json({
-                error: true,
-                message: 'Token expired – please log in again',
-                redirect: '/pages/login.html'
-            });
-        }
-        return res.status(401).json({
-            error: true,
-            message: 'Invalid token',
-            redirect: '/pages/login.html'
-        });
+        const message = err.name === 'TokenExpiredError'
+            ? 'Token expired — please log in again'
+            : 'Invalid token';
+        return res.status(401).json({ error: message });
     }
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
-// OPTIONAL AUTH — Decodes token if present, but doesn't fail if missing
-// ════════════════════════════════════════════════════════════════════════════════
+/**
+ * OPTIONAL AUTH — Decodes token if present, continues regardless
+ */
 const optionalAuth = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -68,30 +47,13 @@ const optionalAuth = (req, res, next) => {
         if (token && token !== 'null' && token !== 'undefined') {
             try {
                 const decoded = jwt.verify(token, process.env.JWT_SECRET);
-                req.user = decoded;
-                req.userId = decoded.id;
+                req.user = { id: decoded.id };
             } catch {
-                // Token invalid — proceed without auth (don't fail)
+                // Invalid token — continue without auth
             }
         }
     }
     next();
 };
 
-// ════════════════════════════════════════════════════════════════════════════════
-// ADMIN ONLY — Requires req.user.isAdmin to be true
-// ════════════════════════════════════════════════════════════════════════════════
-const adminOnly = (req, res, next) => {
-    if (!req.user?.isAdmin) {
-        return res.status(403).json({
-            error: true,
-            message: 'Admin access required'
-        });
-    }
-    next();
-};
-
-// ════════════════════════════════════════════════════════════════════════════════
-// EXPORT — Every middleware used in any route file MUST be listed here
-// ════════════════════════════════════════════════════════════════════════════════
-module.exports = { protect, optionalAuth, adminOnly };
+module.exports = { protect, optionalAuth };

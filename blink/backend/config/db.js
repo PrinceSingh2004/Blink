@@ -1,51 +1,61 @@
+/**
+ * config/db.js — Single MySQL Connection Pool (Railway)
+ * ═══════════════════════════════════════════════════════
+ * One pool. One export. No duplicates.
+ */
+
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 3306,
+    host:     process.env.DB_HOST || 'localhost',
+    user:     process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'blink_db',
+    port:     parseInt(process.env.DB_PORT, 10) || 3306,
     waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    ssl: { rejectUnauthorized: false } // Required for Railway/Render
+    connectionLimit:    10,
+    queueLimit:         0,
+    connectTimeout:     30000,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
 });
 
+/**
+ * Initialize database schema — idempotent
+ */
 const initDB = async () => {
     try {
-        console.log('🔄 Syncing Blink Database Schema...');
-        
-        // Users Table
+        console.log('🔄 Syncing database schema...');
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(255) UNIQUE NOT NULL,
+                username VARCHAR(100) UNIQUE NOT NULL,
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
-                profile_photo TEXT,
-                bio TEXT,
+                profile_photo TEXT DEFAULT NULL,
+                bio TEXT DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
 
-        // Videos Table
         await pool.query(`
             CREATE TABLE IF NOT EXISTS videos (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
                 video_url TEXT NOT NULL,
-                caption TEXT,
-                hashtags TEXT,
+                thumbnail_url TEXT DEFAULT NULL,
+                caption TEXT DEFAULT NULL,
+                hashtags TEXT DEFAULT NULL,
+                duration INT DEFAULT 0,
                 likes_count INT DEFAULT 0,
+                views_count INT DEFAULT 0,
                 is_active TINYINT(1) DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         `);
 
-        // Likes Table
         await pool.query(`
             CREATE TABLE IF NOT EXISTS likes (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -58,10 +68,25 @@ const initDB = async () => {
             )
         `);
 
-        console.log('✅ Blink Schema Synchronized.');
+        console.log('✅ Database schema synchronized.');
     } catch (err) {
-        console.error('❌ Schema Sync Error:', err.message);
+        console.error('❌ Schema sync error:', err.message);
     }
 };
 
-module.exports = { pool, initDB };
+/**
+ * Test database connection
+ */
+const testConnection = async () => {
+    try {
+        const conn = await pool.getConnection();
+        console.log('✅ Database connected successfully.');
+        conn.release();
+        return { success: true, message: 'Connected' };
+    } catch (err) {
+        console.error('❌ Database connection failed:', err.message);
+        return { success: false, message: err.message };
+    }
+};
+
+module.exports = { pool, initDB, testConnection };

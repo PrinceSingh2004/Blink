@@ -1,15 +1,14 @@
+/**
+ * routes/userRoutes.js
+ */
 const express = require('express');
 const router = express.Router();
-const { getProfile, updateProfile, getUser } = require('../controllers/userController');
-const { protect } = require('../middleware/auth'); // Auth middleware
+const { getProfile, getUser, updateProfile, searchUsers } = require('../controllers/userController');
+const { protect } = require('../middleware/auth');
 
-// GET /api/users - Fetch own universe profile (Self)
-router.get('/', protect, getUser);
-
-// GET /api/users/:id - Fetch another universe profile (Public)
+router.get('/me', protect, getProfile);
+router.get('/search', searchUsers);
 router.get('/:id', getUser);
-
-// POST /api/users/update-profile - Modify profile photo
-router.post('/update-profile', protect, updateProfile);
+router.put('/profile', protect, updateProfile);
 
 module.exports = router;

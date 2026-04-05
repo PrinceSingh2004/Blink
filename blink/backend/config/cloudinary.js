@@ -1,23 +1,24 @@
+/**
+ * config/cloudinary.js — Cloudinary SDK Configuration
+ * ════════════════════════════════════════════════════════
+ */
+
 const cloudinary = require('cloudinary').v2;
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config();
 
-// ── TASK: FIX "Must supply api_key" ERROR ──────────────────────
-// Names must EXACTLY match the keys in your .env / Render dashboard.
-const config = {
-  cloud_name: process.env.CLOUDINARY_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure:     true
-};
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key:    process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure:     true
+});
 
-// --- PRODUCTION DEBUG PULSE ---
-if (!config.api_key || !config.api_secret || !config.cloud_name) {
-    console.error("❌ CLOUDINARY CONFIG FAILURE: Environment variables (CLOUDINARY_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) are NOT being loaded. Check Render settings.");
+// Startup validation
+const { cloud_name, api_key, api_secret } = cloudinary.config();
+if (!cloud_name || !api_key || !api_secret) {
+    console.error('❌ Cloudinary config missing. Check CLOUDINARY_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.');
 } else {
-    console.log("✅ CLOUDINARY CONFIG SUCCESS: Pulse detected from universe", config.cloud_name);
+    console.log(`✅ Cloudinary configured: ${cloud_name}`);
 }
-
-cloudinary.config(config);
 
 module.exports = cloudinary;

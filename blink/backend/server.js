@@ -1,126 +1,108 @@
-/* ═══════════════════════════════════════════════════════════════════════════════
-    BLINK v8.0 - UNIFIED BACKEND CORE (REBUILD)
-    Unified | SQL-Integrated | Professional | SPA-Ready
-    ═══════════════════════════════════════════════════════════════════════════════ */
+/**
+ * server.js — Blink Backend (Production)
+ * ═══════════════════════════════════════
+ * Express + Railway MySQL + Cloudinary
+ * Clean MVC Architecture
+ */
 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
-const mysql = require('mysql2/promise');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
+const { initDB, testConnection } = require('./config/db');
+
+// ── Express App ────────────────────────────────────────
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-// --- 1. DATABASE POOL ---
-const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 3306,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    ssl: { rejectUnauthorized: false }
+// ── Security ───────────────────────────────────────────
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+}));
+
+// ── CORS ───────────────────────────────────────────────
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+app.use(cors({
+    origin: allowedOrigins.length > 0
+        ? (origin, cb) => {
+            if (!origin || allowedOrigins.includes(origin)) cb(null, true);
+            else cb(null, true); // Allow all in case of misconfiguration
+        }
+        : true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// ── Body Parsing ───────────────────────────────────────
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// ── Rate Limiting ──────────────────────────────────────
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 min
+    max: 200,
+    message: { error: 'Too many requests. Try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+app.use('/api/', apiLimiter);
+
+// ── Health Check ───────────────────────────────────────
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-const initDB = async () => {
-    try {
-        console.log('🔄 Syncing SQL Schema...');
-        await pool.query(`CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(255) UNIQUE, email VARCHAR(255) UNIQUE, password VARCHAR(255), profile_photo TEXT, bio TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
-        await pool.query(`CREATE TABLE IF NOT EXISTS videos (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, video_url TEXT NOT NULL, caption TEXT, likes_count INT DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)`);
-        await pool.query(`CREATE TABLE IF NOT EXISTS likes (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, video_id INT, UNIQUE KEY unique_like (user_id, video_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE)`);
-        console.log('✅ Blink Schema Sync Complete.');
-    } catch (e) { console.error('DB Sync Error:', e.message); }
-};
-initDB();
+// ── API Routes ─────────────────────────────────────────
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/videos', require('./routes/videoRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
 
-// --- 2. AUTH MIDDLEWARE ---
-const protect = async (req, res, next) => {
-    try {
-        const token = req.headers.authorization?.split(' ')[1];
-        if (!token) return res.status(401).json({ error: "Access denied" });
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-        const [users] = await pool.query('SELECT id, username FROM users WHERE id = ?', [decoded.id]);
-        if (!users[0]) return res.status(401).json({ error: "Identity lost" });
-        req.user = users[0];
-        next();
-    } catch (e) { res.status(401).json({ error: "Invalid frequencies" }); }
-};
-
-// --- 3. APIs ---
-
-// ── Auth ──
-app.post('/api/auth/register', async (req, res) => {
-    try {
-        const { username, email, password } = req.body;
-        const hashed = await bcrypt.hash(password, 10);
-        const [reslt] = await pool.query('INSERT INTO users (username, email, password) VALUES (?, ?, ?)', [username, email, hashed]);
-        res.status(201).json({ success: true, userId: reslt.insertId });
-    } catch (e) { res.status(400).json({ error: "Identity exists" }); }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-        if (!users[0] || !await bcrypt.compare(password, users[0].password)) return res.status(401).json({ error: "Identity invalid" });
-        const token = jwt.sign({ id: users[0].id }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-        res.json({ success: true, token, user: users[0] });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Videos ──
-app.get('/api/videos', async (req, res) => {
-    try {
-        const [vids] = await pool.query('SELECT v.*, u.username, u.profile_photo as profile_pic FROM videos v JOIN users u ON v.user_id = u.id ORDER BY created_at DESC LIMIT 20');
-        res.json({ success: true, data: vids });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/videos/upload', protect, async (req, res) => {
-    try {
-        const { video_url, caption } = req.body;
-        await pool.query('INSERT INTO videos (user_id, video_url, caption) VALUES (?, ?, ?)', [req.user.id, video_url, caption]);
-        res.status(201).json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/videos/:id/like', protect, async (req, res) => {
-    try {
-        await pool.query('INSERT IGNORE INTO likes (user_id, video_id) VALUES (?, ?)', [req.user.id, req.params.id]);
-        await pool.query('UPDATE videos SET likes_count = likes_count + 1 WHERE id = ?', [req.params.id]);
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Search ──
-app.get('/api/search', async (req, res) => {
-    try {
-        const [users] = await pool.query('SELECT id, username, profile_photo, bio FROM users WHERE username LIKE ?', [`%${req.query.q}%`]);
-        res.json({ success: true, users });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// --- 4. STATIC & SPA ---
+// ── Static Frontend ────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
-});
-
-// Catch-all for sub-routes
+// SPA catch-all: serve index.html for non-API, non-file routes
 app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api') || req.path.includes('.')) return next();
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
-// --- 5. STARTUP ---
+// ── Global Error Handler ───────────────────────────────
+app.use((err, req, res, next) => {
+    console.error('Server error:', err.message);
+
+    // Multer file size error
+    if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'File too large. Max 100MB.' });
+    }
+
+    res.status(err.status || 500).json({
+        error: err.message || 'Internal server error'
+    });
+});
+
+// ── Startup ────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`🚀 Unified Engine v8.0 Online: http://localhost:${PORT}`);
+
+const start = async () => {
+    await testConnection();
+    await initDB();
+
+    app.listen(PORT, () => {
+        console.log(`🚀 Blink server running on port ${PORT}`);
+        console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+};
+
+start().catch(err => {
+    console.error('❌ Failed to start server:', err.message);
+    process.exit(1);
 });

@@ -3,113 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Blink | Professional SPA v8.0</title>
-    
-    <!-- Icons & Fonts -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
-    
+    <meta name="description" content="Blink — Share moments that matter. A premium video sharing platform.">
+    <title>Blink — Share Moments</title>
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+    <link rel="icon" href="favicon.ico">
     <link rel="stylesheet" href="style.css">
-    <base href="/">
 </head>
 <body>
+    <!-- ═══════════════════════════════════════════════════
+         AUTH OVERLAY
+         ═══════════════════════════════════════════════════ -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-backdrop"></div>
+        <div class="auth-card" id="authCard">
+            <!-- Animated gradient orbs -->
+            <div class="auth-orb auth-orb-1"></div>
+            <div class="auth-orb auth-orb-2"></div>
 
-    <div class="app-shell" id="appShell">
+            <div class="auth-content">
+                <div class="auth-logo">
+                    <div class="auth-logo-icon"><i class="bi bi-play-circle-fill"></i></div>
+                    <h1 class="auth-brand">Blink</h1>
+                    <p class="auth-tagline">Share moments that matter</p>
+                </div>
+
+                <!-- Tabs -->
+                <div class="auth-tabs" id="authTabs">
+                    <button class="auth-tab active" data-tab="login" id="tabLogin">Sign In</button>
+                    <button class="auth-tab" data-tab="signup" id="tabSignup">Create Account</button>
+                    <div class="auth-tab-indicator" id="tabIndicator"></div>
+                </div>
+
+                <!-- Login Form -->
+                <form id="loginForm" class="auth-form active">
+                    <div class="input-group">
+                        <i class="bi bi-person-fill input-icon"></i>
+                        <input type="text" id="loginIdentifier" placeholder="Email or username" required autocomplete="username">
+                    </div>
+                    <div class="input-group">
+                        <i class="bi bi-lock-fill input-icon"></i>
+                        <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password">
+                        <button type="button" class="pw-toggle" tabindex="-1"><i class="bi bi-eye-fill"></i></button>
+                    </div>
+                    <div class="auth-alert" id="loginAlert"></div>
+                    <button type="submit" class="btn-submit" id="loginBtn">
+                        <span class="btn-text">Sign In</span>
+                        <span class="btn-loader"><i class="bi bi-arrow-clockwise spin"></i></span>
+                    </button>
+                </form>
+
+                <!-- Signup Form -->
+                <form id="signupForm" class="auth-form">
+                    <div class="input-group">
+                        <i class="bi bi-at input-icon"></i>
+                        <input type="text" id="signupUsername" placeholder="Username" required minlength="3" maxlength="30" autocomplete="username">
+                    </div>
+                    <div class="input-group">
+                        <i class="bi bi-envelope-fill input-icon"></i>
+                        <input type="email" id="signupEmail" placeholder="Email address" required autocomplete="email">
+                    </div>
+                    <div class="input-group">
+                        <i class="bi bi-lock-fill input-icon"></i>
+                        <input type="password" id="signupPassword" placeholder="Password (min 6 chars)" required minlength="6" autocomplete="new-password">
+                        <button type="button" class="pw-toggle" tabindex="-1"><i class="bi bi-eye-fill"></i></button>
+                    </div>
+                    <div class="auth-alert" id="signupAlert"></div>
+                    <button type="submit" class="btn-submit" id="signupBtn">
+                        <span class="btn-text">Create Account</span>
+                        <span class="btn-loader"><i class="bi bi-arrow-clockwise spin"></i></span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+         MAIN APP SHELL
+         ═══════════════════════════════════════════════════ -->
+    <div class="app-shell" id="appShell" style="display:none;">
         
-        <!-- SIDEBAR (Unified Fixed) -->
-        <aside class="sidebar">
-            <div class="logo"><i class="bi bi-play-circle-fill"></i><span>Blink</span></div>
-            <nav class="nav-menu">
-                <a href="#" class="nav-item active" data-page="home"><i class="bi bi-house-door-fill"></i><span>Home</span></a>
-                <a href="#" class="nav-item" data-page="explore"><i class="bi bi-search"></i><span>Explore</span></a>
-                <a href="#" class="nav-item" data-page="live"><i class="bi bi-broadcast"></i><span>Live</span></a>
-                <a href="#" class="nav-item" data-page="profile"><i class="bi bi-person-fill"></i><span>Profile</span></a>
+        <!-- SIDEBAR (Desktop) -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-logo">
+                <i class="bi bi-play-circle-fill"></i>
+                <span>Blink</span>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-link active" data-page="feed" id="navHome">
+                    <i class="bi bi-house-door-fill"></i>
+                    <span>Home</span>
+                </a>
+                <a href="#" class="nav-link" data-page="explore" id="navExplore">
+                    <i class="bi bi-compass-fill"></i>
+                    <span>Explore</span>
+                </a>
+                <a href="#" class="nav-link" data-page="upload" id="navUpload">
+                    <i class="bi bi-plus-square-fill"></i>
+                    <span>Upload</span>
+                </a>
+                <a href="#" class="nav-link" data-page="profile" id="navProfile">
+                    <i class="bi bi-person-circle"></i>
+                    <span>Profile</span>
+                </a>
             </nav>
-            <button class="nav-item" id="logoutBtn" style="margin-top:auto;"><i class="bi bi-box-arrow-right"></i><span>Logout</span></button>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-user" id="sidebarUser">
+                    <div class="sidebar-avatar" id="sidebarAvatar">U</div>
+                    <div class="sidebar-user-info">
+                        <span class="sidebar-username" id="sidebarUsername">User</span>
+                    </div>
+                </div>
+                <button class="nav-link logout-btn" id="logoutBtn">
+                    <i class="bi bi-box-arrow-left"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
         </aside>
 
-        <!-- MAIN STAGE -->
-        <main class="main-stage">
-            
-            <!-- PAGE: REELS FEED (Like Instagram) -->
-            <section id="home-page" class="page active">
-                <div class="reels-scroll" id="reelsContainer"></div>
-            </section>
+        <!-- MAIN CONTENT -->
+        <main class="main-content" id="mainContent">
 
-            <!-- PAGE: EXPLORE / SEARCH -->
-            <section id="explore-page" class="page">
-                <div class="explore-wrap">
-                    <div class="search-bar">
-                        <i class="bi bi-search"></i>
-                        <input type="text" id="searchInput" placeholder="Find creators...">
-                    </div>
-                    <div class="explore-grid" id="exploreGrid"></div>
-                </div>
-            </section>
-
-            <!-- PAGE: LIVE TRANSMISSION -->
-            <section id="live-page" class="page">
-                <div class="live-wrap">
-                    <div class="live-box">
-                        <video id="localVideo" playsinline muted></video>
-                        <div class="live-indicator" id="liveTag">🔴 LIVE</div>
-                    </div>
-                    <div class="live-controls">
-                        <button class="btn-primary" id="startLiveBtn">Start Stream</button>
-                        <button class="btn-primary" id="endLiveBtn" style="display:none; background:red;">End Stream</button>
+            <!-- ═══ PAGE: VIDEO FEED ═══ -->
+            <section class="page active" id="page-feed">
+                <div class="reels-container" id="reelsContainer">
+                    <div class="reels-loading">
+                        <div class="pulse-loader"></div>
+                        <p>Loading your feed...</p>
                     </div>
                 </div>
             </section>
 
-            <!-- PAGE: PROFILE -->
-            <section id="profile-page" class="page">
-                <div class="profile-view">
-                    <div class="prof-header">
-                        <img id="profPic" src="https://via.placeholder.com/150">
-                        <h2 id="profUser">Creator</h2>
-                        <p id="profBio">Blink Member Since 2024</p>
+            <!-- ═══ PAGE: EXPLORE ═══ -->
+            <section class="page" id="page-explore">
+                <div class="explore-container">
+                    <div class="explore-header">
+                        <h1>Explore</h1>
+                        <div class="search-box" id="searchBox">
+                            <i class="bi bi-search"></i>
+                            <input type="text" placeholder="Search creators & videos..." id="searchInput">
+                            <button class="search-clear" id="searchClear" style="display:none;"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                    </div>
+                    <div class="explore-grid" id="exploreGrid">
+                        <div class="explore-empty">
+                            <i class="bi bi-compass"></i>
+                            <p>Search for creators to discover new content</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ PAGE: UPLOAD ═══ -->
+            <section class="page" id="page-upload">
+                <div class="upload-container">
+                    <div class="upload-card" id="uploadCard">
+                        <div class="upload-dropzone" id="uploadDropzone">
+                            <div class="upload-icon"><i class="bi bi-cloud-arrow-up-fill"></i></div>
+                            <h2>Upload Video</h2>
+                            <p>Drag and drop or click to select</p>
+                            <p class="upload-hint">MP4, WebM, MOV • Max 100MB</p>
+                            <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime" hidden>
+                        </div>
+
+                        <!-- Upload Form (hidden until file selected) -->
+                        <div class="upload-form" id="uploadForm" style="display:none;">
+                            <div class="upload-preview">
+                                <video id="uploadPreview" muted playsinline></video>
+                                <button class="upload-change-btn" id="changeVideoBtn"><i class="bi bi-arrow-repeat"></i> Change</button>
+                            </div>
+                            <div class="upload-fields">
+                                <div class="input-group">
+                                    <textarea id="uploadCaption" placeholder="Write a caption..." rows="3" maxlength="500"></textarea>
+                                    <span class="char-count" id="captionCount">0/500</span>
+                                </div>
+                                <div class="input-group">
+                                    <input type="text" id="uploadHashtags" placeholder="#hashtags (comma-separated)">
+                                </div>
+                                <button class="btn-submit upload-btn" id="uploadBtn">
+                                    <span class="btn-text"><i class="bi bi-cloud-upload"></i> Publish</span>
+                                    <span class="btn-loader"><i class="bi bi-arrow-clockwise spin"></i> Uploading...</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Upload Progress -->
+                        <div class="upload-progress" id="uploadProgress" style="display:none;">
+                            <div class="progress-ring">
+                                <svg viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="45" class="progress-bg"/>
+                                    <circle cx="50" cy="50" r="45" class="progress-fill" id="progressCircle"/>
+                                </svg>
+                                <span class="progress-text" id="progressText">0%</span>
+                            </div>
+                            <p id="uploadStatus">Uploading to cloud...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ PAGE: PROFILE ═══ -->
+            <section class="page" id="page-profile">
+                <div class="profile-container">
+                    <div class="profile-header">
+                        <div class="profile-avatar-wrap">
+                            <img src="https://ui-avatars.com/api/?name=U&background=6366f1&color=fff&size=150" id="profileAvatar" alt="avatar" class="profile-avatar">
+                            <label class="profile-avatar-edit" for="avatarInput">
+                                <i class="bi bi-camera-fill"></i>
+                            </label>
+                            <input type="file" id="avatarInput" accept="image/*" hidden>
+                        </div>
+                        <div class="profile-info">
+                            <h1 id="profileUsername">@user</h1>
+                            <p class="profile-bio" id="profileBio">Blink member</p>
+                            <div class="profile-stats">
+                                <div class="stat"><span class="stat-num" id="statPosts">0</span><span class="stat-label">Posts</span></div>
+                                <div class="stat"><span class="stat-num" id="statJoined">—</span><span class="stat-label">Member since</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="profile-videos" id="profileVideos">
+                        <div class="profile-empty">
+                            <i class="bi bi-camera-video"></i>
+                            <p>No videos yet. Upload your first Blink!</p>
+                        </div>
                     </div>
                 </div>
             </section>
         </main>
 
         <!-- BOTTOM NAV (Mobile) -->
-        <nav class="bottom-nav">
-            <a href="#" class="nav-item active" data-page="home"><i class="bi bi-house-door-fill"></i></a>
-            <a href="#" class="nav-item" data-page="explore"><i class="bi bi-search"></i></a>
-            <a href="#" class="nav-item" data-page="live"><i class="bi bi-broadcast"></i></a>
-            <a href="#" class="nav-item" data-page="profile"><i class="bi bi-person"></i></a>
+        <nav class="bottom-nav" id="bottomNav">
+            <a href="#" class="bottom-link active" data-page="feed"><i class="bi bi-house-door-fill"></i></a>
+            <a href="#" class="bottom-link" data-page="explore"><i class="bi bi-compass-fill"></i></a>
+            <a href="#" class="bottom-link upload-circle" data-page="upload"><i class="bi bi-plus-lg"></i></a>
+            <a href="#" class="bottom-link" data-page="profile"><i class="bi bi-person-circle"></i></a>
         </nav>
-
     </div>
 
-    <!-- AUTH OVERLAY (Centered Professionally) -->
-    <div class="auth-overlay active" id="authModal">
-        <div class="auth-card">
-            <h1>Blink</h1>
-            <div class="auth-tabs">
-                <button class="btn-tab active" id="tabLogin">Login</button>
-                <button class="btn-tab" id="tabSignup">Signup</button>
-            </div>
-            
-            <form id="loginForm" class="auth-form active">
-                <input type="email" id="logEmail" placeholder="Email" required>
-                <input type="password" id="logPass" placeholder="Password" required>
-                <button type="submit" class="btn-primary">Connect</button>
-            </form>
-
-            <form id="signupForm" class="auth-form">
-                <input type="text" id="regUser" placeholder="Username" required>
-                <input type="email" id="regEmail" placeholder="Email" required>
-                <input type="password" id="regPass" placeholder="Password" required>
-                <button type="submit" class="btn-primary">Create Identity</button>
-            </form>
-        </div>
-    </div>
-
+    <!-- Toast Container -->
     <div id="toastContainer"></div>
 
-    <!-- SCRIPTS (Monolith Rebuild) -->
     <script src="app.js"></script>
 </body>
 </html>

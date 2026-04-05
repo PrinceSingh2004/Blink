@@ -1,63 +1,131 @@
-const pool = require('../config/db');
+/**
+ * controllers/videoController.js — Video Feed & Interactions
+ * ═══════════════════════════════════════════════════════════
+ */
 
-// ── GET FEED VIDEOS ──────────────────────────────────────────
-exports.getVideos = async (req, res) => {
+const { pool } = require('../config/db');
+
+/**
+ * GET /api/videos — Public feed
+ */
+exports.getFeed = async (req, res) => {
     try {
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+        const offset = (page - 1) * limit;
+
         const [videos] = await pool.query(`
-            SELECT v.*, u.username, u.profile_photo as profile_pic 
-            FROM videos v 
-            JOIN users u ON v.user_id = u.id 
+            SELECT 
+                v.id, v.user_id, v.video_url, v.thumbnail_url,
+                v.caption, v.hashtags, v.duration,
+                v.likes_count, v.views_count, v.created_at,
+                u.username, u.profile_photo
+            FROM videos v
+            JOIN users u ON v.user_id = u.id
             WHERE v.is_active = 1
-            ORDER BY v.created_at DESC 
-            LIMIT 20
-        `);
-        
-        // Return structured JSON
-        res.json({ 
-            success: true, 
-            data: videos || [],
-            message: "Feed synced successfully"
-        });
+            ORDER BY v.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [limit, offset]);
+
+        res.json({ success: true, data: videos, page, limit });
     } catch (err) {
-        console.error('[VideoController] Feed Error:', err);
-        res.status(500).json({ success: false, error: "Frequency loss in feed" });
+        console.error('Feed error:', err.message);
+        res.status(500).json({ error: 'Failed to load feed' });
     }
 };
 
-// ── UPLOAD VIDEO ──────────────────────────────────────────────
-exports.uploadVideo = async (req, res) => {
+/**
+ * GET /api/videos/search?q=keyword
+ */
+exports.searchVideos = async (req, res) => {
     try {
-        const { video_url, caption, hashtags } = req.body;
-        const userId = req.user.id;
+        const q = (req.query.q || '').trim();
+        if (q.length < 2) {
+            return res.json({ success: true, data: [] });
+        }
 
-        if (!video_url) return res.status(400).json({ error: "Missing link" });
+        const [videos] = await pool.query(`
+            SELECT 
+                v.id, v.video_url, v.thumbnail_url, v.caption,
+                v.likes_count, v.views_count,
+                u.username, u.profile_photo
+            FROM videos v
+            JOIN users u ON v.user_id = u.id
+            WHERE v.is_active = 1 
+              AND (v.caption LIKE ? OR v.hashtags LIKE ? OR u.username LIKE ?)
+            ORDER BY v.likes_count DESC
+            LIMIT 20
+        `, [`%${q}%`, `%${q}%`, `%${q}%`]);
 
-        const [result] = await pool.query(
-            "INSERT INTO videos (user_id, video_url, caption, hashtags) VALUES (?, ?, ?, ?)",
-            [userId, video_url, caption, hashtags]
-        );
-
-        res.status(201).json({ 
-            success: true, 
-            videoId: result.insertId,
-            message: "Blink transmitted to the universe"
-        });
+        res.json({ success: true, data: videos });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Search error:', err.message);
+        res.status(500).json({ error: 'Search failed' });
     }
 };
 
-// ── LIKE VIDEO ────────────────────────────────────────────────
+/**
+ * POST /api/videos/:id/like — Toggle like
+ */
 exports.likeVideo = async (req, res) => {
     try {
-        const { videoId } = req.params;
+        const videoId = parseInt(req.params.id);
         const userId = req.user.id;
-        
-        await pool.query("INSERT IGNORE INTO likes (user_id, post_id) VALUES (?, ?)", [userId, videoId]);
-        await pool.query("UPDATE videos SET likes_count = likes_count + 1 WHERE id = ?", [videoId]);
-        
-        res.json({ success: true, message: "Heart synced" });
+
+        // Check if already liked
+        const [existing] = await pool.query(
+            'SELECT id FROM likes WHERE user_id = ? AND video_id = ?',
+            [userId, videoId]
+        );
+
+        if (existing.length > 0) {
+            // Unlike
+            await pool.query('DELETE FROM likes WHERE user_id = ? AND video_id = ?', [userId, videoId]);
+            await pool.query('UPDATE videos SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [videoId]);
+            return res.json({ success: true, liked: false, message: 'Unliked' });
+        }
+
+        // Like
+        await pool.query('INSERT INTO likes (user_id, video_id) VALUES (?, ?)', [userId, videoId]);
+        await pool.query('UPDATE videos SET likes_count = likes_count + 1 WHERE id = ?', [videoId]);
+        res.json({ success: true, liked: true, message: 'Liked' });
+
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Like error:', err.message);
+        res.status(500).json({ error: 'Like operation failed' });
+    }
+};
+
+/**
+ * POST /api/videos/:id/view — Increment view count
+ */
+exports.viewVideo = async (req, res) => {
+    try {
+        const videoId = parseInt(req.params.id);
+        await pool.query('UPDATE videos SET views_count = views_count + 1 WHERE id = ?', [videoId]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'View tracking failed' });
+    }
+};
+
+/**
+ * GET /api/videos/user/:userId — Get user's videos
+ */
+exports.getUserVideos = async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const [videos] = await pool.query(`
+            SELECT id, video_url, thumbnail_url, caption, hashtags,
+                   likes_count, views_count, duration, created_at
+            FROM videos
+            WHERE user_id = ? AND is_active = 1
+            ORDER BY created_at DESC
+        `, [userId]);
+
+        res.json({ success: true, data: videos });
+    } catch (err) {
+        console.error('User videos error:', err.message);
+        res.status(500).json({ error: 'Failed to load videos' });
     }
 };

@@ -1,41 +1,6 @@
-# ── Dependencies ──────────────────────────────────────────────
 node_modules/
-.npm
-package-lock.json
-
-# ── Environment (NEVER commit .env with secrets) ─────────────
 .env
-.env.local
-.env.production
-.env.staging
-
-# ── Uploads (user content – use cloud storage in production) ──
-blink/backend/uploads/videos/*
-blink/backend/uploads/avatars/*
-!blink/backend/uploads/videos/.gitkeep
-!blink/backend/uploads/avatars/.gitkeep
-
-# ── HLS temp (legacy, no longer used) ────────────────────────
-hls/
-
-# ── OS / IDE ──────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-.vscode/settings.json
 *.log
-npm-debug.log*
-
-# ── Build / Temp ──────────────────────────────────────────────
-dist/
-.cache/
-*.tmp
-db_check_result.txt
-temp_lines.txt
-repair_and_run.ps1
-RUN_APP.bat
-run_project.bat
-check_db.js
-migrate.js
-
-# ── Gemini/Antigravity agent artifacts ────────────────────────
-.gemini/
+uploads/
+temp/
+.DS_Store

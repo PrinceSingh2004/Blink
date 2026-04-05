@@ -1,5 +1,4 @@
 services:
-  # ── Blink Web Service (Node.js + Express + Socket.IO) ──────
   - type: web
     name: blink-app
     runtime: node
@@ -26,11 +25,13 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      - key: JWT_EXPIRES
-        value: 7d
-      - key: EMAIL_USER
+      - key: CLOUDINARY_NAME
         sync: false
-      - key: EMAIL_PASS
+      - key: CLOUDINARY_API_KEY
         sync: false
-      - key: CLIENT_URL
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
         sync: false
