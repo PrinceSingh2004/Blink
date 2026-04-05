@@ -14,19 +14,18 @@ const { pool } = require('../config/db');
 exports.register = async (req, res) => {
     try {
         const { username, email, password } = req.body;
+        if (!username) return res.status(400).json({ success: false, field: 'username', message: 'Username is required' });
+        if (!email) return res.status(400).json({ success: false, field: 'email', message: 'Email is required' });
+        if (!password) return res.status(400).json({ success: false, field: 'password', message: 'Password is required' });
 
-        // Input validation
-        if (!username || !email || !password) {
-            return res.status(400).json({ error: 'Username, email, and password are required' });
-        }
         if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
+            return res.status(400).json({ success: false, field: 'password', message: 'Password must be at least 6 characters' });
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            return res.status(400).json({ error: 'Invalid email format' });
+            return res.status(400).json({ success: false, field: 'email', message: 'Invalid email format' });
         }
         if (username.length < 3 || username.length > 30) {
-            return res.status(400).json({ error: 'Username must be 3-30 characters' });
+            return res.status(400).json({ success: false, field: 'username', message: 'Username must be 3-30 characters' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 12);
@@ -53,10 +52,11 @@ exports.register = async (req, res) => {
 
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ error: 'Username or email already exists' });
+            const field = err.message.includes('email') ? 'email' : 'username';
+            return res.status(409).json({ success: false, field, message: `${field.charAt(0).toUpperCase() + field.slice(1)} already taken` });
         }
         console.error('Register error:', err.message);
-        res.status(500).json({ error: 'Registration failed' });
+        res.status(500).json({ success: false, message: 'Registration failed' });
     }
 };
 
@@ -66,11 +66,14 @@ exports.register = async (req, res) => {
  */
 exports.login = async (req, res) => {
     try {
-        const { identifier, email, password } = req.body;
-        const loginId = (identifier || email || '').trim();
+        const { identifier, password } = req.body;
+        const loginId = (identifier || '').trim();
 
-        if (!loginId || !password) {
-            return res.status(400).json({ error: 'Email/username and password are required' });
+        if (!loginId) {
+            return res.status(400).json({ success: false, field: 'identifier', message: 'Email or username is required' });
+        }
+        if (!password) {
+            return res.status(400).json({ success: false, field: 'password', message: 'Password is required' });
         }
 
         // Search by email OR username
@@ -80,14 +83,14 @@ exports.login = async (req, res) => {
         );
 
         if (users.length === 0) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(404).json({ success: false, field: 'identifier', message: 'User not found' });
         }
 
         const user = users[0];
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, field: 'password', message: 'Incorrect password' });
         }
 
         const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -108,7 +111,7 @@ exports.login = async (req, res) => {
 
     } catch (err) {
         console.error('Login error:', err.message);
-        res.status(500).json({ error: 'Login failed' });
+        res.status(500).json({ success: false, message: 'Login failed server-side' });
     }
 };
 

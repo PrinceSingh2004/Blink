@@ -171,6 +171,24 @@ img { display: block; max-width: 100%; }
 .input-group textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .input-group input:focus + .input-icon,
 .input-group input:focus ~ .input-icon { color: var(--accent); }
+
+/* Field Error Styling */
+.input-group input.field-error {
+    border-color: #f43f5e !important;
+    background: rgba(244, 63, 94, 0.03);
+    animation: shake 0.4s var(--ease);
+}
+.input-group input.field-error + .input-icon {
+    color: #f43f5e;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    50% { transform: translateX(6px); }
+    75% { transform: translateX(-3px); }
+}
+
 .pw-toggle {
     position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
     background: none; color: var(--text-muted); font-size: 18px; transition: color 0.2s;

@@ -120,10 +120,15 @@ class BlinkApp {
             e.preventDefault();
             const btn = document.getElementById('loginBtn');
             const alert = document.getElementById('loginAlert');
-            const identifier = document.getElementById('loginIdentifier').value.trim();
-            const password = document.getElementById('loginPassword').value;
+            const identifierInput = document.getElementById('loginIdentifier');
+            const passwordInput = document.getElementById('loginPassword');
+            const identifier = identifierInput.value.trim();
+            const password = passwordInput.value;
 
-            if (!identifier || !password) { this.showAlert(alert, 'Please fill in all fields', 'error'); return; }
+            this.clearFieldErrors(loginForm);
+            if (!identifier) { this.highlightFieldError(identifierInput, alert, 'Email or username is required'); return; }
+            if (!password) { this.highlightFieldError(passwordInput, alert, 'Password is required'); return; }
+            
             this.setButtonLoading(btn, true); this.hideAlert(alert);
 
             try {
@@ -137,9 +142,20 @@ class BlinkApp {
                     setTimeout(() => window.location.reload(), 600);
                 }
             } catch (err) {
-                this.showAlert(alert, err.message || 'Invalid credentials', 'error');
                 this.setButtonLoading(btn, false);
+                // Handle field-specific errors from backend
+                const fieldMap = { 'identifier': identifierInput, 'password': passwordInput };
+                if (err.field && fieldMap[err.field]) {
+                    this.highlightFieldError(fieldMap[err.field], alert, err.message);
+                } else {
+                    this.showAlert(alert, err.message || 'Invalid credentials', 'error');
+                }
             }
+        });
+
+        // Add auto-clear on type
+        loginForm?.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => this.clearFieldErrors(loginForm));
         });
 
         // Signup
@@ -147,12 +163,20 @@ class BlinkApp {
             e.preventDefault();
             const btn = document.getElementById('signupBtn');
             const alert = document.getElementById('signupAlert');
-            const username = document.getElementById('signupUsername').value.trim();
-            const email = document.getElementById('signupEmail').value.trim();
-            const password = document.getElementById('signupPassword').value;
+            const userInput = document.getElementById('signupUsername');
+            const emailInput = document.getElementById('signupEmail');
+            const passInput = document.getElementById('signupPassword');
+            
+            const username = userInput.value.trim();
+            const email = emailInput.value.trim();
+            const password = passInput.value;
 
-            if (!username || !email || !password) { this.showAlert(alert, 'All fields are required', 'error'); return; }
-            if (password.length < 6) { this.showAlert(alert, 'Password must be at least 6 characters', 'error'); return; }
+            this.clearFieldErrors(signupForm);
+            if (!username) { this.highlightFieldError(userInput, alert, 'Username is required'); return; }
+            if (!email) { this.highlightFieldError(emailInput, alert, 'Email is required'); return; }
+            if (!password) { this.highlightFieldError(passInput, alert, 'Password is required'); return; }
+            if (password.length < 6) { this.highlightFieldError(passInput, alert, 'Password must be at least 6 characters'); return; }
+            
             this.setButtonLoading(btn, true); this.hideAlert(alert);
 
             try {
@@ -166,9 +190,18 @@ class BlinkApp {
                     setTimeout(() => window.location.reload(), 600);
                 }
             } catch (err) {
-                this.showAlert(alert, err.message || 'Registration failed', 'error');
                 this.setButtonLoading(btn, false);
+                const fieldMap = { 'username': userInput, 'email': emailInput, 'password': passInput };
+                if (err.field && fieldMap[err.field]) {
+                    this.highlightFieldError(fieldMap[err.field], alert, err.message);
+                } else {
+                    this.showAlert(alert, err.message || 'Registration failed', 'error');
+                }
             }
+        });
+
+        signupForm?.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => this.clearFieldErrors(signupForm));
         });
 
         document.getElementById('logoutBtn')?.addEventListener('click', () => this.logout());
@@ -1034,6 +1067,20 @@ class BlinkApp {
 
     showAlert(el, message, type) { if (!el) return; el.textContent = message; el.className = `auth-alert ${type}`; }
     hideAlert(el) { if (!el) return; el.className = 'auth-alert'; el.textContent = ''; }
+    
+    highlightFieldError(input, alertEl, message) {
+        if (!input) return;
+        input.classList.add('field-error');
+        this.showAlert(alertEl, message, 'error');
+        input.focus();
+    }
+
+    clearFieldErrors(form) {
+        if (!form) return;
+        form.querySelectorAll('input').forEach(i => i.classList.remove('field-error'));
+        const alert = form.querySelector('.auth-alert');
+        if (alert) this.hideAlert(alert);
+    }
     setButtonLoading(btn, loading) { if (!btn) return; btn.classList.toggle('loading', loading); btn.disabled = loading; }
 
     formatCount(num) {
