@@ -24,7 +24,7 @@ services:
       - key: DB_NAME
         sync: false
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: CLOUDINARY_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
