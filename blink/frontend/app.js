@@ -15,6 +15,11 @@ class BlinkApp {
         this.viewedVideos = new Set();  // Feature 5: session-based view tracking
         this.commentVideoId = null;    // Feature 3: active comment video
         
+        // Phase 7: Chat State
+        this.activeConversationId = null;
+        this.conversations = [];
+        this.isTypingTimeout = null;
+        
         // Phase 4: Socket.IO
         this.socket = typeof io !== 'undefined' ? io() : null;
         this.setupSocket();
@@ -33,6 +38,7 @@ class BlinkApp {
         this.setupProfile();
         this.setupPasswordToggles();
         this.setupComments();
+        this.setupChat(); // Phase 7
         this.checkAuth();
     }
 
@@ -57,6 +63,12 @@ class BlinkApp {
             const btn = document.querySelector(`.reel-card[data-id="${data.videoId}"] .view-count-btn span`);
             if (btn) btn.textContent = this.formatCount(data.views_count);
         });
+
+        // Phase 7: Chat Sockets
+        this.socket.on('receive_message', (msg) => this.handleReceiveMessage(msg));
+        this.socket.on('user_typing', (data) => this.handleUserTyping(data));
+        this.socket.on('new_message_notification', (data) => this.handleChatNotification(data));
+        this.socket.on('online_status', (data) => this.handleOnlineStatus(data));
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -278,6 +290,14 @@ class BlinkApp {
 
         if (page === 'feed' && !this.feedLoaded) this.loadFeed();
         if (page === 'profile') this.loadProfile();
+        if (page === 'chat') {
+            this.loadConversations();
+            // Reset chat list visibility for mobile
+            const panel = document.getElementById('chatListPanel');
+            if (panel) panel.classList.remove('hidden');
+            const window = document.getElementById('chatWindowPanel');
+            if (window) window.classList.remove('active');
+        }
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -1113,6 +1133,221 @@ class BlinkApp {
         if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
         if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
         return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       Phase 7: DIRECT MESSAGING (DM)
+       ───────────────────────────────────────────────────────── */
+    setupChat() {
+        const input = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendMsgBtn');
+        const backBtn = document.getElementById('chatBack');
+
+        input?.addEventListener('input', () => {
+            const hasText = input.value.trim().length > 0;
+            sendBtn.disabled = !hasText;
+            sendBtn.classList.toggle('active', hasText);
+            
+            // Typing Indicator
+            this.socket.emit('typing', { 
+                conversationId: this.activeConversationId, 
+                userId: this.user.id, 
+                isTyping: hasText 
+            });
+        });
+
+        sendBtn?.addEventListener('click', () => this.sendMessage());
+        input?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        backBtn?.addEventListener('click', () => {
+            document.getElementById('chatListPanel')?.classList.remove('hidden');
+            document.getElementById('chatWindowPanel')?.classList.remove('active');
+        });
+    }
+
+    async loadConversations() {
+        const list = document.getElementById('conversationList');
+        if (!list) return;
+
+        try {
+            const data = await this.api('/chat/conversations');
+            this.conversations = data?.conversations || [];
+            this.renderConversations();
+        } catch (err) {
+            list.innerHTML = `<div class="chat-error">Failed to load chats</div>`;
+        }
+    }
+
+    renderConversations() {
+        const list = document.getElementById('conversationList');
+        if (!list) return;
+
+        if (this.conversations.length === 0) {
+            list.innerHTML = `<div class="chat-empty-list">No messages yet</div>`;
+            return;
+        }
+
+        list.innerHTML = this.conversations.map(c => {
+            const avatar = c.other_profile_photo || `https://ui-avatars.com/api/?name=${c.other_username}&background=6366f1&color=fff`;
+            const activeClass = this.activeConversationId === c.id ? 'active' : '';
+            const unread = c.unread_count > 0 ? `<span class="conv-unread">${c.unread_count}</span>` : '';
+            
+            return `
+            <div class="conv-item ${activeClass}" data-id="${c.id}" onclick="app.openChat(${c.id}, '${c.other_username}', '${avatar}')">
+                <div class="conv-avatar-wrap">
+                    <img src="${avatar}" class="conv-avatar">
+                    <div class="status-dot offline" data-user-id="${c.other_user_id}"></div>
+                </div>
+                <div class="conv-info">
+                    <div class="conv-name-row">
+                        <span class="conv-name">${c.other_username}</span>
+                        <span class="conv-time">${this.timeAgo(c.last_message_at || c.created_at)}</span>
+                    </div>
+                    <div class="conv-msg-row">
+                        <span class="conv-last-msg">${this.escapeHtml(c.last_message || 'No messages yet')}</span>
+                        ${unread}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async openChat(convId, username, avatar) {
+        this.activeConversationId = convId;
+        this.renderConversations(); // Update active state in list
+
+        // UI Transitions
+        document.getElementById('chatEmptyState').style.display = 'none';
+        document.getElementById('chatActive').style.display = 'flex';
+        
+        // Mobile Transition
+        if (window.innerWidth <= 768) {
+            document.getElementById('chatListPanel').classList.add('hidden');
+            document.getElementById('chatWindowPanel').classList.add('active');
+        }
+
+        // Header Info
+        document.getElementById('chatHeaderName').textContent = username;
+        document.getElementById('chatHeaderAvatar').src = avatar;
+
+        // Join Room
+        this.socket.emit('join_room', convId);
+
+        // Load Messages
+        const msgContainer = document.getElementById('chatMessages');
+        msgContainer.innerHTML = '<div class="chat-loading"><i class="bi bi-arrow-clockwise spin"></i></div>';
+
+        try {
+            const data = await this.api(`/chat/messages/${convId}`);
+            this.renderMessages(data.messages || []);
+        } catch (err) {
+            msgContainer.innerHTML = '<div class="chat-error">Failed to load history</div>';
+        }
+    }
+
+    renderMessages(messages) {
+        const container = document.getElementById('chatMessages');
+        if (!container) return;
+
+        container.innerHTML = messages.map(m => {
+            const isSent = m.sender_id === this.user.id;
+            const seenIcon = isSent ? (m.seen ? '<i class="bi bi-check2-all msg-seen"></i>' : '<i class="bi bi-check2"></i>') : '';
+            return `
+            <div class="message ${isSent ? 'sent' : 'received'}">
+                <div class="msg-bubble">${this.escapeHtml(m.text)}</div>
+                <div class="msg-meta">
+                    ${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    ${seenIcon}
+                </div>
+            </div>`;
+        }).join('');
+        
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text || !this.activeConversationId) return;
+
+        const conv = this.conversations.find(c => c.id === this.activeConversationId);
+        const receiverId = conv ? conv.other_user_id : null;
+
+        input.value = '';
+        document.getElementById('sendMsgBtn').disabled = true;
+
+        // Optimistic UI & Socket
+        const msgData = {
+            conversationId: this.activeConversationId,
+            senderId: this.user.id,
+            receiverId: receiverId,
+            text: text,
+            created_at: new Date()
+        };
+
+        this.socket.emit('send_message', msgData);
+        
+        // Save to DB
+        try {
+            await this.api('/chat/messages', {
+                method: 'POST',
+                body: JSON.stringify({
+                    receiverId,
+                    text
+                })
+            });
+        } catch (err) {
+            this.showToast('Message failed to sync', 'error');
+        }
+    }
+
+    handleReceiveMessage(msg) {
+        if (this.activeConversationId === msg.conversationId) {
+            const container = document.getElementById('chatMessages');
+            const isSent = msg.senderId === this.user.id;
+            const msgHtml = `
+            <div class="message ${isSent ? 'sent' : 'received'}">
+                <div class="msg-bubble">${this.escapeHtml(msg.text)}</div>
+                <div class="msg-meta">
+                    ${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+            </div>`;
+            container.insertAdjacentHTML('beforeend', msgHtml);
+            container.scrollTop = container.scrollHeight;
+            
+            // Emit seen if received
+            if (!isSent) this.socket.emit('seen', { conversationId: msg.conversationId, userId: this.user.id });
+        }
+        this.loadConversations(); // Refresh last message in list
+    }
+
+    handleUserTyping(data) {
+        if (this.activeConversationId === data.conversationId) {
+            const indicator = document.getElementById('chatTyping');
+            if (data.isTyping) {
+                indicator.classList.add('visible');
+            } else {
+                indicator.classList.remove('visible');
+            }
+        }
+    }
+
+    handleChatNotification(data) {
+        if (this.activeConversationId !== data.conversationId) {
+            this.showToast(`New message from @user`, 'info');
+            this.loadConversations();
+        }
+    }
+
+    handleOnlineStatus(data) {
+        document.querySelectorAll(`.status-dot[data-user-id="${data.userId}"]`).forEach(dot => {
+            dot.className = `status-dot ${data.status}`;
+        });
     }
 
     escapeHtml(str) {
