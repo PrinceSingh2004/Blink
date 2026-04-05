@@ -30,7 +30,8 @@ exports.getFeed = async (req, res) => {
             LEFT JOIN comments c ON c.video_id = v.id
             LEFT JOIN views vw ON vw.video_id = v.id
             GROUP BY v.id
-            ORDER BY v.created_at DESC
+            ORDER BY RAND()
+            LIMIT 20
         `;
 
         const [rows] = await pool.query(query);
@@ -67,7 +68,15 @@ exports.likeVideo = async (req, res) => {
         } else {
             await pool.query(`INSERT INTO likes (${userIdCol}, ${videoIdCol}) VALUES (?, ?)`, [userId, videoId]);
         }
-        res.json({ success: true });
+        
+        // Phase 3: Real-time update
+        const [[{ likes_count }]] = await pool.query(`SELECT COUNT(*) as likes_count FROM likes WHERE ${videoIdCol} = ?`, [videoId]);
+        const { getIO } = require('../utils/socket');
+        const io = getIO();
+        if (io) io.emit('update_likes', { videoId, likes_count });
+
+        console.log("Like updated:", videoId, "New count:", likes_count);
+        res.json({ success: true, likes_count });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -79,6 +88,14 @@ exports.viewVideo = async (req, res) => {
         const videoIdCol = await getColumn('views', ['videoId', 'video_id']);
         if (videoIdCol) {
             await pool.query(`INSERT INTO views (${videoIdCol}) VALUES (?)`, [videoId]);
+            
+            // Phase 3: Real-time Views
+            const [[{ views_count }]] = await pool.query('SELECT COUNT(*) as views_count FROM views WHERE video_id = ?', [videoId]);
+            const { getIO } = require('../utils/socket');
+            const io = getIO();
+            if (io) io.emit('update_views', { videoId, views_count });
+            
+            console.log("View counted:", videoId, "New count:", views_count);
         }
         res.json({ success: true });
     } catch (err) {
@@ -262,5 +279,33 @@ exports.deleteVideo = async (req, res) => {
     } catch (err) {
         console.error('Delete video error:', err.message);
         res.status(500).json({ error: 'Failed to delete video' });
+    }
+};
+/**
+ * POST /api/users/follow/:id — Toggle follow
+ */
+exports.followUser = async (req, res) => {
+    try {
+        const followerId = req.user.id;
+        const followingId = parseInt(req.params.id);
+
+        if (followerId === followingId) return res.status(400).json({ error: 'Cannot follow yourself' });
+
+        const [existing] = await pool.query(
+            'SELECT id FROM follows WHERE follower_id = ? AND following_id = ?',
+            [followerId, followingId]
+        );
+
+        if (existing.length > 0) {
+            await pool.query('DELETE FROM follows WHERE follower_id = ? AND following_id = ?', [followerId, followingId]);
+        } else {
+            await pool.query('INSERT INTO follows (follower_id, following_id) VALUES (?, ?)', [followerId, followingId]);
+        }
+
+        const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM follows WHERE following_id = ?', [followingId]);
+        console.log("Follow toggled:", followingId, "New count:", count);
+        res.json({ success: true, follower_count: count });
+    } catch (err) {
+        res.status(500).json({ error: 'Follow failed' });
     }
 };

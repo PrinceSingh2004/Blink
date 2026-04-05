@@ -7,8 +7,10 @@ const { Server } = require('socket.io');
 
 const userSockets = new Map(); // userId -> [socketIds]
 
+let io;
+
 const initSocket = (server) => {
-    const io = new Server(server, {
+    io = new Server(server, {
         cors: {
             origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
             methods: ["GET", "POST"]
@@ -85,4 +87,6 @@ const initSocket = (server) => {
     return io;
 };
 
-module.exports = { initSocket };
+const getIO = () => io;
+
+module.exports = { initSocket, getIO };
