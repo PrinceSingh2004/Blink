@@ -38,9 +38,9 @@ exports.getFeed = async (req, res) => {
         
         res.json({ success: true, data: rows || [] });
     } catch (err) {
-        console.error('🔥 FEED ERROR:', err.message);
+        console.error('🔥 Feed error:', err);  // ✅ Added logging for Phase 1
         // Fail-safe mode: return [] instead of crashing
-        res.json({ success: false, data: [] });
+        res.json({ success: false, data: [], error: err.message });
     }
 };
 

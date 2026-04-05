@@ -31,20 +31,26 @@ exports.uploadVideo = async (req, res) => {
         const { caption = '', hashtags = '' } = req.body;
 
         if (!req.file) {
-            return res.status(400).json({ error: 'No video file provided' });
+            return res.status(400).json({ success: false, error: "No video file provided" });
         }
 
-        // Upload to Cloudinary with async support for large files
+        // ✅ UPLOAD VALIDATION: Max 100MB
+        const maxSize = 100 * 1024 * 1024;
+        if (req.file.size > maxSize) {
+            return res.status(400).json({ success: false, error: "Video exceeds 100MB limit" });
+        }
+
+        // ✅ CLOUDINARY ASYNC UPLOAD (Fixes "too large to process synchronously" error)
+        // OLD: const result = await uploadToCloudinary(req.file.buffer, { resource_type: 'video' });
         const result = await uploadToCloudinary(req.file.buffer, {
             resource_type: 'video',
             folder: 'blink/videos',
             public_id: `vid_${userId}_${Date.now()}`,
+            eager: [{ quality: "auto", fetch_format: "mp4" }],
+            eager_async: true,  // ✅ Fixed timeout via async processing
+            timeout: 120000,    // 2 min timeout
             quality: 'auto',
-            format: 'mp4',
-            eager: [
-                { quality: "auto", fetch_format: "mp4" }
-            ],
-            eager_async: true
+            format: 'mp4'
         });
 
         console.log('☁️ Cloudinary result:', result.secure_url);
