@@ -60,6 +60,17 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ── DB Health Check ────────────────────────────────────
+app.get('/health/db', async (req, res) => {
+    const { testConnection } = require('./config/db');
+    const result = await testConnection();
+    res.status(result.success ? 200 : 503).json({
+        status: result.success ? 'ok' : 'error',
+        db: result.message,
+        timestamp: new Date().toISOString()
+    });
+});
+
 // ── API Routes ─────────────────────────────────────────
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/videos', require('./routes/videoRoutes'));
