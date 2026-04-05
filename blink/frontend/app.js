@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
    BLINK 2.0 — Unified SPA Engine
-   Auth | Feed | Explore | Upload | Profile
+   Auth | Feed | Double-Tap Like | Comments | Profiles | Mute | Search
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 class BlinkApp {
@@ -11,6 +11,9 @@ class BlinkApp {
         this.currentPage = 'feed';
         this.feedLoaded = false;
         this.feedObserver = null;
+        this.isMuted = true;           // Feature 6: mute state
+        this.viewedVideos = new Set();  // Feature 5: session-based view tracking
+        this.commentVideoId = null;    // Feature 3: active comment video
 
         document.addEventListener('DOMContentLoaded', () => this.init());
     }
@@ -25,6 +28,7 @@ class BlinkApp {
         this.setupSearch();
         this.setupProfile();
         this.setupPasswordToggles();
+        this.setupComments();
         this.checkAuth();
     }
 
@@ -47,28 +51,21 @@ class BlinkApp {
             headers['Authorization'] = `Bearer ${this.token}`;
         }
 
-        // Don't set Content-Type for FormData
         if (!(options.body instanceof FormData)) {
             headers['Content-Type'] = 'application/json';
         }
 
         try {
-            const res = await fetch(url, {
-                ...options,
-                headers
-            });
-
+            const res = await fetch(url, { ...options, headers });
             const data = await res.json();
 
             if (res.status === 401) {
                 this.logout();
                 return null;
             }
-
             if (!res.ok) {
                 throw new Error(data.error || data.message || `HTTP ${res.status}`);
             }
-
             return data;
         } catch (err) {
             console.error(`API ${endpoint}:`, err.message);
@@ -80,7 +77,6 @@ class BlinkApp {
        AUTH SYSTEM
        ───────────────────────────────────────────────────────── */
     setupAuth() {
-        // Tab switching
         const tabLogin = document.getElementById('tabLogin');
         const tabSignup = document.getElementById('tabSignup');
         const loginForm = document.getElementById('loginForm');
@@ -88,18 +84,13 @@ class BlinkApp {
         const indicator = document.getElementById('tabIndicator');
 
         tabLogin?.addEventListener('click', () => {
-            tabLogin.classList.add('active');
-            tabSignup.classList.remove('active');
-            loginForm.classList.add('active');
-            signupForm.classList.remove('active');
+            tabLogin.classList.add('active'); tabSignup.classList.remove('active');
+            loginForm.classList.add('active'); signupForm.classList.remove('active');
             indicator?.classList.remove('right');
         });
-
         tabSignup?.addEventListener('click', () => {
-            tabSignup.classList.add('active');
-            tabLogin.classList.remove('active');
-            signupForm.classList.add('active');
-            loginForm.classList.remove('active');
+            tabSignup.classList.add('active'); tabLogin.classList.remove('active');
+            signupForm.classList.add('active'); loginForm.classList.remove('active');
             indicator?.classList.add('right');
         });
 
@@ -111,20 +102,14 @@ class BlinkApp {
             const identifier = document.getElementById('loginIdentifier').value.trim();
             const password = document.getElementById('loginPassword').value;
 
-            if (!identifier || !password) {
-                this.showAlert(alert, 'Please fill in all fields', 'error');
-                return;
-            }
-
-            this.setButtonLoading(btn, true);
-            this.hideAlert(alert);
+            if (!identifier || !password) { this.showAlert(alert, 'Please fill in all fields', 'error'); return; }
+            this.setButtonLoading(btn, true); this.hideAlert(alert);
 
             try {
                 const data = await this.api('/auth/login', {
                     method: 'POST',
                     body: JSON.stringify({ identifier, password })
                 });
-
                 if (data?.success) {
                     this.setAuth(data.token, data.user);
                     this.showToast(`Welcome back, ${data.user.username}!`, 'success');
@@ -145,24 +130,15 @@ class BlinkApp {
             const email = document.getElementById('signupEmail').value.trim();
             const password = document.getElementById('signupPassword').value;
 
-            if (!username || !email || !password) {
-                this.showAlert(alert, 'All fields are required', 'error');
-                return;
-            }
-            if (password.length < 6) {
-                this.showAlert(alert, 'Password must be at least 6 characters', 'error');
-                return;
-            }
-
-            this.setButtonLoading(btn, true);
-            this.hideAlert(alert);
+            if (!username || !email || !password) { this.showAlert(alert, 'All fields are required', 'error'); return; }
+            if (password.length < 6) { this.showAlert(alert, 'Password must be at least 6 characters', 'error'); return; }
+            this.setButtonLoading(btn, true); this.hideAlert(alert);
 
             try {
                 const data = await this.api('/auth/register', {
                     method: 'POST',
                     body: JSON.stringify({ username, email, password })
                 });
-
                 if (data?.success) {
                     this.setAuth(data.token, data.user);
                     this.showToast('Account created! Welcome to Blink! 🎉', 'success');
@@ -174,14 +150,12 @@ class BlinkApp {
             }
         });
 
-        // Logout
         document.getElementById('logoutBtn')?.addEventListener('click', () => this.logout());
     }
 
     checkAuth() {
         const overlay = document.getElementById('authOverlay');
         const shell = document.getElementById('appShell');
-
         if (this.token && this.user) {
             overlay.style.display = 'none';
             shell.style.display = 'flex';
@@ -194,32 +168,27 @@ class BlinkApp {
     }
 
     setAuth(token, user) {
-        this.token = token;
-        this.user = user;
+        this.token = token; this.user = user;
         localStorage.setItem('blink_token', token);
         localStorage.setItem('blink_user', JSON.stringify(user));
     }
 
     logout() {
-        this.token = null;
-        this.user = null;
+        this.token = null; this.user = null;
         localStorage.removeItem('blink_token');
         localStorage.removeItem('blink_user');
         window.location.reload();
     }
 
     loadUser() {
-        try {
-            const u = localStorage.getItem('blink_user');
-            return u ? JSON.parse(u) : null;
-        } catch { return null; }
+        try { return JSON.parse(localStorage.getItem('blink_user')); }
+        catch { return null; }
     }
 
     updateSidebar() {
         if (!this.user) return;
         const name = document.getElementById('sidebarUsername');
         const avatar = document.getElementById('sidebarAvatar');
-
         if (name) name.textContent = `@${this.user.username}`;
         if (avatar) {
             if (this.user.profile_photo) {
@@ -236,38 +205,30 @@ class BlinkApp {
     setupNavigation() {
         document.addEventListener('click', (e) => {
             const link = e.target.closest('[data-page]');
-            if (link) {
-                e.preventDefault();
-                this.navigateTo(link.getAttribute('data-page'));
-            }
+            if (link) { e.preventDefault(); this.navigateTo(link.getAttribute('data-page')); }
         });
     }
 
     navigateTo(page) {
-        // Update pages
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         const target = document.getElementById(`page-${page}`);
         if (target) target.classList.add('active');
 
-        // Update sidebar nav
         document.querySelectorAll('.nav-link[data-page]').forEach(link => {
             link.classList.toggle('active', link.getAttribute('data-page') === page);
         });
-
-        // Update bottom nav
         document.querySelectorAll('.bottom-link[data-page]').forEach(link => {
             link.classList.toggle('active', link.getAttribute('data-page') === page);
         });
 
         this.currentPage = page;
 
-        // Page-specific loading
         if (page === 'feed' && !this.feedLoaded) this.loadFeed();
         if (page === 'profile') this.loadProfile();
     }
 
     /* ─────────────────────────────────────────────────────────
-       VIDEO FEED — Vertical Reels
+       VIDEO FEED — With all social features
        ───────────────────────────────────────────────────────── */
     async loadFeed() {
         const container = document.getElementById('reelsContainer');
@@ -301,24 +262,33 @@ class BlinkApp {
 
     createReelCard(video) {
         const avatar = video.profile_photo || `https://ui-avatars.com/api/?name=${video.username}&background=6366f1&color=fff&size=80`;
+        const likedClass = video.liked_by_me ? 'liked' : '';
         return `
-        <div class="reel-card" data-id="${video.id}">
-            <video src="${video.video_url}" loop playsinline preload="metadata"></video>
+        <div class="reel-card" data-id="${video.id}" data-user-id="${video.user_id}">
+            <video src="${video.video_url}" loop playsinline preload="metadata" muted></video>
             <div class="reel-overlay"></div>
             <div class="reel-play-indicator"><i class="bi bi-play-fill"></i></div>
+            <div class="double-tap-heart"><i class="bi bi-heart-fill"></i></div>
             <div class="reel-actions">
-                <button class="reel-action-btn like-btn" data-id="${video.id}">
+                <button class="reel-action-btn like-btn ${likedClass}" data-id="${video.id}">
                     <i class="bi bi-heart-fill"></i>
                     <span>${this.formatCount(video.likes_count || 0)}</span>
                 </button>
-                <button class="reel-action-btn" onclick="app.showToast('Views: ${video.views_count || 0}', 'info')">
+                <button class="reel-action-btn comment-btn" data-id="${video.id}">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span>${this.formatCount(video.comments_count || 0)}</span>
+                </button>
+                <button class="reel-action-btn view-count-btn">
                     <i class="bi bi-eye-fill"></i>
                     <span>${this.formatCount(video.views_count || 0)}</span>
                 </button>
+                <button class="reel-action-btn mute-btn" title="Toggle sound">
+                    <i class="bi bi-volume-mute-fill"></i>
+                </button>
             </div>
             <div class="reel-info">
-                <div class="reel-author">
-                    <img src="${avatar}" class="reel-author-avatar" alt="${video.username}">
+                <div class="reel-author" data-user-id="${video.user_id}">
+                    <img src="${avatar}" class="reel-author-avatar" alt="${video.username}" loading="lazy">
                     <span class="reel-author-name">@${video.username}</span>
                 </div>
                 ${video.caption ? `<p class="reel-caption">${this.escapeHtml(video.caption)}</p>` : ''}
@@ -326,52 +296,157 @@ class BlinkApp {
         </div>`;
     }
 
+    /* ─────────────────────────────────────────────────────────
+       REEL INTERACTIONS — Like, Double-tap, Mute, Comments, Views
+       ───────────────────────────────────────────────────────── */
     setupReelInteractions() {
-        // Click to play/pause
-        document.querySelectorAll('.reel-card video').forEach(video => {
-            video.addEventListener('click', () => {
-                const indicator = video.closest('.reel-card').querySelector('.reel-play-indicator');
-                if (video.paused) {
-                    video.play();
-                    indicator?.classList.remove('visible');
+        const cards = document.querySelectorAll('.reel-card');
+
+        cards.forEach(card => {
+            const video = card.querySelector('video');
+            const indicator = card.querySelector('.reel-play-indicator');
+            const doubleTapHeart = card.querySelector('.double-tap-heart');
+            let lastTap = 0;
+
+            // ── FEATURE 2: DOUBLE TAP TO LIKE ──────────────────
+            video.addEventListener('click', (e) => {
+                const now = Date.now();
+                const timeSince = now - lastTap;
+
+                if (timeSince < 300 && timeSince > 0) {
+                    // Double tap detected!
+                    e.preventDefault();
+                    this.handleDoubleTapLike(card);
                 } else {
-                    video.pause();
-                    indicator?.classList.add('visible');
+                    // Single tap — play/pause after a short delay
+                    setTimeout(() => {
+                        const now2 = Date.now();
+                        if (now2 - lastTap >= 300) {
+                            if (video.paused) {
+                                video.play();
+                                indicator?.classList.remove('visible');
+                            } else {
+                                video.pause();
+                                indicator?.classList.add('visible');
+                            }
+                        }
+                    }, 300);
                 }
+                lastTap = now;
             });
+
+            // Prevent context menu on long press mobile
+            video.addEventListener('contextmenu', e => e.preventDefault());
         });
 
-        // Like buttons
+        // ── FEATURE 1: LIKE BUTTON ──────────────────────────
         document.querySelectorAll('.like-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const videoId = btn.dataset.id;
-                try {
-                    const data = await this.api(`/videos/${videoId}/like`, { method: 'POST' });
-                    if (data?.success) {
-                        btn.classList.toggle('liked', data.liked);
-                        const span = btn.querySelector('span');
-                        const current = parseInt(span.textContent) || 0;
-                        span.textContent = data.liked ? current + 1 : Math.max(0, current - 1);
-                    }
-                } catch (err) {
-                    this.showToast('Please log in to like', 'error');
-                }
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.toggleLike(btn);
             });
         });
 
-        // Track views
-        document.querySelectorAll('.reel-card').forEach(card => {
-            let viewed = false;
+        // ── FEATURE 3: COMMENT BUTTON ───────────────────────
+        document.querySelectorAll('.comment-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openComments(btn.dataset.id);
+            });
+        });
+
+        // ── FEATURE 6: MUTE / UNMUTE ────────────────────────
+        document.querySelectorAll('.mute-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.isMuted = !this.isMuted;
+                this.updateAllMuteState();
+            });
+        });
+
+        // ── FEATURE 5: VIEW COUNT (once per session) ────────
+        cards.forEach(card => {
             const observer = new IntersectionObserver(entries => {
                 entries.forEach(entry => {
-                    if (entry.isIntersecting && !viewed) {
-                        viewed = true;
+                    if (entry.isIntersecting) {
                         const id = card.dataset.id;
-                        this.api(`/videos/${id}/view`, { method: 'POST' }).catch(() => {});
+                        if (!this.viewedVideos.has(id)) {
+                            this.viewedVideos.add(id);
+                            this.api(`/videos/${id}/view`, { method: 'POST' }).catch(() => {});
+                        }
                     }
                 });
             }, { threshold: 0.5 });
             observer.observe(card);
+        });
+
+        // ── FEATURE 4: CLICK USERNAME → OPEN PROFILE ────────
+        document.querySelectorAll('.reel-author').forEach(author => {
+            author.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const userId = author.dataset.userId;
+                if (userId) this.openUserProfile(parseInt(userId));
+            });
+        });
+    }
+
+    /* ── FEATURE 2: Double Tap Heart Animation ───────────── */
+    async handleDoubleTapLike(card) {
+        const videoId = card.dataset.id;
+        const heartOverlay = card.querySelector('.double-tap-heart');
+        const likeBtn = card.querySelector('.like-btn');
+
+        // Trigger heart animation
+        heartOverlay.classList.remove('active');
+        void heartOverlay.offsetWidth; // Force reflow
+        heartOverlay.classList.add('active');
+
+        // Remove animation class after it completes
+        setTimeout(() => heartOverlay.classList.remove('active'), 900);
+
+        // Only like if not already liked
+        if (!likeBtn.classList.contains('liked')) {
+            await this.toggleLike(likeBtn);
+        }
+    }
+
+    /* ── FEATURE 1: Toggle Like with optimistic update ───── */
+    async toggleLike(btn) {
+        const videoId = btn.dataset.id;
+        const wasLiked = btn.classList.contains('liked');
+        const span = btn.querySelector('span');
+        const currentCount = parseInt(span.textContent) || 0;
+
+        // Optimistic update
+        btn.classList.toggle('liked');
+        btn.classList.add('pop');
+        span.textContent = wasLiked ? Math.max(0, currentCount - 1) : currentCount + 1;
+
+        // Remove pop class after animation
+        setTimeout(() => btn.classList.remove('pop'), 400);
+
+        try {
+            const data = await this.api(`/videos/${videoId}/like`, { method: 'POST' });
+            if (data?.success) {
+                // Sync with server truth
+                btn.classList.toggle('liked', data.liked);
+                span.textContent = this.formatCount(data.likes_count);
+            }
+        } catch (err) {
+            // Revert optimistic update
+            btn.classList.toggle('liked', wasLiked);
+            span.textContent = currentCount;
+            this.showToast('Please log in to like', 'error');
+        }
+    }
+
+    /* ── FEATURE 6: Mute/Unmute all videos ───────────────── */
+    updateAllMuteState() {
+        document.querySelectorAll('.reel-card video').forEach(video => {
+            video.muted = this.isMuted;
+        });
+        document.querySelectorAll('.mute-btn i').forEach(icon => {
+            icon.className = this.isMuted ? 'bi bi-volume-mute-fill' : 'bi bi-volume-up-fill';
         });
     }
 
@@ -383,8 +458,8 @@ class BlinkApp {
                 const video = entry.target.querySelector('video');
                 if (!video) return;
                 if (entry.isIntersecting) {
+                    video.muted = this.isMuted;
                     video.play().catch(() => {});
-                    video.muted = true; // Browser autoplay policy
                 } else {
                     video.pause();
                 }
@@ -394,6 +469,281 @@ class BlinkApp {
         document.querySelectorAll('.reel-card').forEach(card => {
             this.feedObserver.observe(card);
         });
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       FEATURE 3: COMMENTS SYSTEM
+       ───────────────────────────────────────────────────────── */
+    setupComments() {
+        const drawer = document.getElementById('commentsDrawer');
+        const backdrop = document.getElementById('commentsBackdrop');
+        const closeBtn = document.getElementById('commentsClose');
+        const form = document.getElementById('commentForm');
+
+        // Close
+        backdrop?.addEventListener('click', () => this.closeComments());
+        closeBtn?.addEventListener('click', () => this.closeComments());
+
+        // Submit
+        form?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('commentInput');
+            const text = input.value.trim();
+            if (!text || !this.commentVideoId) return;
+
+            const sendBtn = document.getElementById('commentSendBtn');
+            sendBtn.disabled = true;
+            input.value = '';
+
+            try {
+                const data = await this.api(`/videos/${this.commentVideoId}/comments`, {
+                    method: 'POST',
+                    body: JSON.stringify({ text })
+                });
+
+                if (data?.success) {
+                    this.prependComment(data.comment);
+                    this.updateCommentCount(this.commentVideoId, data.comments_count);
+                    document.getElementById('commentsCountBadge').textContent = data.comments_count;
+                }
+            } catch (err) {
+                this.showToast(err.message || 'Failed to post comment', 'error');
+                input.value = text; // Restore on failure
+            } finally {
+                sendBtn.disabled = false;
+                input.focus();
+            }
+        });
+    }
+
+    async openComments(videoId) {
+        this.commentVideoId = videoId;
+        const drawer = document.getElementById('commentsDrawer');
+        const list = document.getElementById('commentsList');
+        const badge = document.getElementById('commentsCountBadge');
+
+        drawer.classList.add('open');
+        list.innerHTML = '<div class="comments-empty"><div class="pulse-loader" style="width:32px;height:32px;"></div></div>';
+        badge.textContent = '…';
+
+        try {
+            const data = await this.api(`/videos/${videoId}/comments`);
+            const comments = data?.data || [];
+            badge.textContent = comments.length;
+
+            if (comments.length === 0) {
+                list.innerHTML = `
+                    <div class="comments-empty">
+                        <i class="bi bi-chat-dots"></i>
+                        <p>No comments yet. Be the first!</p>
+                    </div>`;
+            } else {
+                list.innerHTML = comments.map(c => this.createCommentHTML(c)).join('');
+                this.bindCommentActions();
+            }
+        } catch (err) {
+            list.innerHTML = '<div class="comments-empty"><p>Failed to load comments</p></div>';
+        }
+
+        document.getElementById('commentInput')?.focus();
+    }
+
+    closeComments() {
+        document.getElementById('commentsDrawer')?.classList.remove('open');
+        this.commentVideoId = null;
+    }
+
+    createCommentHTML(c) {
+        const avatar = c.profile_photo || `https://ui-avatars.com/api/?name=${c.username}&background=6366f1&color=fff&size=72`;
+        const isOwn = this.user && c.user_id === this.user.id;
+        return `
+        <div class="comment-item" data-id="${c.id}">
+            <img src="${avatar}" class="comment-avatar" data-user-id="${c.user_id}" alt="${c.username}">
+            <div class="comment-body">
+                <div class="comment-meta">
+                    <span class="comment-username" data-user-id="${c.user_id}">@${c.username}</span>
+                    <span class="comment-time">${this.timeAgo(c.created_at)}</span>
+                    ${isOwn ? `<button class="comment-delete" data-id="${c.id}" title="Delete"><i class="bi bi-trash3"></i></button>` : ''}
+                </div>
+                <p class="comment-text">${this.escapeHtml(c.text)}</p>
+            </div>
+        </div>`;
+    }
+
+    prependComment(c) {
+        const list = document.getElementById('commentsList');
+        const empty = list.querySelector('.comments-empty');
+        if (empty) empty.remove();
+
+        const temp = document.createElement('div');
+        temp.innerHTML = this.createCommentHTML(c);
+        const item = temp.firstElementChild;
+        list.prepend(item);
+        this.bindCommentActions();
+    }
+
+    bindCommentActions() {
+        // Delete buttons
+        document.querySelectorAll('.comment-delete').forEach(btn => {
+            btn.onclick = async () => {
+                const commentId = btn.dataset.id;
+                try {
+                    const data = await this.api(`/comments/${commentId}`, { method: 'DELETE' });
+                    if (data?.success) {
+                        btn.closest('.comment-item')?.remove();
+                        this.updateCommentCount(this.commentVideoId, data.comments_count);
+                        document.getElementById('commentsCountBadge').textContent = data.comments_count;
+
+                        if (!document.querySelector('.comment-item')) {
+                            document.getElementById('commentsList').innerHTML = `
+                                <div class="comments-empty">
+                                    <i class="bi bi-chat-dots"></i>
+                                    <p>No comments yet. Be the first!</p>
+                                </div>`;
+                        }
+                    }
+                } catch (err) {
+                    this.showToast('Failed to delete', 'error');
+                }
+            };
+        });
+
+        // Click on username/avatar → open profile
+        document.querySelectorAll('.comment-username, .comment-avatar').forEach(el => {
+            el.onclick = () => {
+                const userId = el.dataset.userId;
+                if (userId) {
+                    this.closeComments();
+                    this.openUserProfile(parseInt(userId));
+                }
+            };
+        });
+    }
+
+    updateCommentCount(videoId, count) {
+        const btn = document.querySelector(`.comment-btn[data-id="${videoId}"]`);
+        if (btn) btn.querySelector('span').textContent = this.formatCount(count);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       FEATURE 4: USER PROFILE — Self & Others
+       ───────────────────────────────────────────────────────── */
+    setupProfile() {
+        const avatarInput = document.getElementById('avatarInput');
+        avatarInput?.addEventListener('change', async () => {
+            const file = avatarInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('photo', file);
+
+            try {
+                this.showToast('Updating avatar...', 'info');
+                const data = await this.api('/upload/profile-photo', { method: 'POST', body: formData });
+
+                if (data?.success) {
+                    this.user.profile_photo = data.profile_photo;
+                    localStorage.setItem('blink_user', JSON.stringify(this.user));
+                    document.getElementById('profileAvatar').src = data.profile_photo;
+                    this.updateSidebar();
+                    this.showToast('Avatar updated! ✨', 'success');
+                }
+            } catch (err) {
+                this.showToast('Avatar upload failed', 'error');
+            }
+        });
+    }
+
+    async loadProfile() {
+        if (!this.user) return;
+
+        try {
+            const data = await this.api('/users/me');
+            if (data?.user) {
+                const u = data.user;
+                document.getElementById('profileUsername').textContent = `@${u.username}`;
+                document.getElementById('profileBio').textContent = u.bio || 'Blink member';
+                document.getElementById('statPosts').textContent = u.posts_count || 0;
+                document.getElementById('statLikes').textContent = this.formatCount(u.total_likes || 0);
+                document.getElementById('statViews').textContent = this.formatCount(u.total_views || 0);
+
+                const avatarUrl = u.profile_photo || `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
+                document.getElementById('profileAvatar').src = avatarUrl;
+
+                this.loadUserVideos(u.id, 'profileVideos');
+            }
+        } catch (err) {
+            console.error('Profile load error:', err);
+        }
+    }
+
+    /* ── Open other user's profile ───────────────────────── */
+    async openUserProfile(userId) {
+        // If it's the current user, navigate to own profile
+        if (this.user && userId === this.user.id) {
+            this.navigateTo('profile');
+            return;
+        }
+
+        // Show user profile page
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById('page-user-profile').classList.add('active');
+        this.currentPage = 'user-profile';
+
+        // Clear active nav
+        document.querySelectorAll('.nav-link[data-page], .bottom-link[data-page]').forEach(l => l.classList.remove('active'));
+
+        try {
+            const data = await this.api(`/users/${userId}`);
+            if (data?.user) {
+                const u = data.user;
+                document.getElementById('userProfileUsername').textContent = `@${u.username}`;
+                document.getElementById('userProfileBio').textContent = u.bio || 'Blink member';
+                document.getElementById('userStatPosts').textContent = u.posts_count || 0;
+                document.getElementById('userStatLikes').textContent = this.formatCount(u.total_likes || 0);
+                document.getElementById('userStatViews').textContent = this.formatCount(u.total_views || 0);
+
+                const avatarUrl = u.profile_photo || `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
+                document.getElementById('userProfileAvatar').src = avatarUrl;
+
+                this.loadUserVideos(userId, 'userProfileVideos');
+            }
+        } catch (err) {
+            this.showToast('Failed to load profile', 'error');
+        }
+    }
+
+    async loadUserVideos(userId, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        try {
+            const data = await this.api(`/videos/user/${userId}`);
+            if (!data?.data || data.data.length === 0) {
+                container.innerHTML = `
+                    <div class="profile-empty">
+                        <i class="bi bi-camera-video"></i>
+                        <p>No videos yet${containerId === 'profileVideos' ? '. Upload your first Blink!' : ''}</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = data.data.map(v => {
+                const thumb = v.thumbnail_url || v.video_url;
+                return `
+                <div class="profile-video-card">
+                    <img src="${thumb}" alt="${v.caption || 'Video'}" loading="lazy"
+                         onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin', '<video src=\\'${v.video_url}\\' muted></video>')">
+                    <div class="video-stats">
+                        <span><i class="bi bi-heart-fill"></i> ${this.formatCount(v.likes_count)}</span>
+                        <span><i class="bi bi-eye-fill"></i> ${this.formatCount(v.views_count)}</span>
+                        <span><i class="bi bi-chat-dots-fill"></i> ${this.formatCount(v.comments_count || 0)}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch {
+            container.innerHTML = '<div class="profile-empty"><p>Failed to load videos</p></div>';
+        }
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -408,12 +758,7 @@ class BlinkApp {
             clearTimeout(debounce);
             const q = input.value.trim();
             clearBtn.style.display = q ? 'block' : 'none';
-
-            if (q.length < 2) {
-                this.renderSearchResults([]);
-                return;
-            }
-
+            if (q.length < 2) { this.renderSearchResults([]); return; }
             debounce = setTimeout(() => this.searchUsers(q), 400);
         });
 
@@ -449,12 +794,20 @@ class BlinkApp {
         grid.innerHTML = users.map(u => {
             const avatar = u.profile_photo || `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
             return `
-            <div class="user-card">
+            <div class="user-card" data-user-id="${u.id}">
                 <img src="${avatar}" class="user-card-avatar" alt="${u.username}">
                 <div class="user-card-name">@${u.username}</div>
                 <div class="user-card-bio">${this.escapeHtml(u.bio || 'Blink Creator')}</div>
             </div>`;
         }).join('');
+
+        // Click user cards → open profile
+        grid.querySelectorAll('.user-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const userId = parseInt(card.dataset.userId);
+                if (userId) this.openUserProfile(userId);
+            });
+        });
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -469,37 +822,23 @@ class BlinkApp {
         const captionCount = document.getElementById('captionCount');
         const changeBtn = document.getElementById('changeVideoBtn');
         const uploadBtn = document.getElementById('uploadBtn');
-
         let selectedFile = null;
 
-        // Dropzone click
         dropzone?.addEventListener('click', () => fileInput?.click());
-
-        // Drag & drop
-        dropzone?.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropzone.classList.add('dragover');
-        });
+        dropzone?.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
         dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
         dropzone?.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropzone.classList.remove('dragover');
+            e.preventDefault(); dropzone.classList.remove('dragover');
             const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('video/')) {
-                selectFile(file);
-            }
+            if (file && file.type.startsWith('video/')) selectFile(file);
         });
 
-        // File selection
         fileInput?.addEventListener('change', () => {
             if (fileInput.files[0]) selectFile(fileInput.files[0]);
         });
 
         const selectFile = (file) => {
-            if (file.size > 100 * 1024 * 1024) {
-                this.showToast('File too large. Max 100MB.', 'error');
-                return;
-            }
+            if (file.size > 100 * 1024 * 1024) { this.showToast('File too large. Max 100MB.', 'error'); return; }
             selectedFile = file;
             preview.src = URL.createObjectURL(file);
             preview.play();
@@ -507,25 +846,17 @@ class BlinkApp {
             form.style.display = 'block';
         };
 
-        // Change video
         changeBtn?.addEventListener('click', () => {
-            selectedFile = null;
-            form.style.display = 'none';
-            dropzone.style.display = 'block';
-            fileInput.value = '';
+            selectedFile = null; form.style.display = 'none';
+            dropzone.style.display = 'block'; fileInput.value = '';
         });
 
-        // Character count
         captionInput?.addEventListener('input', () => {
             captionCount.textContent = `${captionInput.value.length}/500`;
         });
 
-        // Submit upload
         uploadBtn?.addEventListener('click', async () => {
-            if (!selectedFile) {
-                this.showToast('Select a video first', 'error');
-                return;
-            }
+            if (!selectedFile) { this.showToast('Select a video first', 'error'); return; }
 
             const caption = document.getElementById('uploadCaption')?.value || '';
             const hashtags = document.getElementById('uploadHashtags')?.value || '';
@@ -537,31 +868,21 @@ class BlinkApp {
 
             this.setButtonLoading(uploadBtn, true);
             const progressDiv = document.getElementById('uploadProgress');
-            const uploadCard = document.getElementById('uploadCard');
 
-            // Show progress
             form.style.display = 'none';
             progressDiv.style.display = 'block';
 
             try {
-                const data = await this.api('/upload/video', {
-                    method: 'POST',
-                    body: formData
-                });
-
+                const data = await this.api('/upload/video', { method: 'POST', body: formData });
                 if (data?.success) {
                     this.showToast('Video published! 🎬', 'success');
-                    this.feedLoaded = false; // Force refresh
-                    
-                    // Reset form
-                    selectedFile = null;
-                    fileInput.value = '';
+                    this.feedLoaded = false;
+                    selectedFile = null; fileInput.value = '';
                     document.getElementById('uploadCaption').value = '';
                     document.getElementById('uploadHashtags').value = '';
                     captionCount.textContent = '0/500';
                     progressDiv.style.display = 'none';
                     dropzone.style.display = 'block';
-                    
                     this.navigateTo('feed');
                 }
             } catch (err) {
@@ -575,98 +896,6 @@ class BlinkApp {
     }
 
     /* ─────────────────────────────────────────────────────────
-       PROFILE
-       ───────────────────────────────────────────────────────── */
-    setupProfile() {
-        const avatarInput = document.getElementById('avatarInput');
-        avatarInput?.addEventListener('change', async () => {
-            const file = avatarInput.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('photo', file);
-
-            try {
-                this.showToast('Updating avatar...', 'info');
-                const data = await this.api('/upload/profile-photo', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (data?.success) {
-                    this.user.profile_photo = data.profile_photo;
-                    localStorage.setItem('blink_user', JSON.stringify(this.user));
-                    document.getElementById('profileAvatar').src = data.profile_photo;
-                    this.updateSidebar();
-                    this.showToast('Avatar updated! ✨', 'success');
-                }
-            } catch (err) {
-                this.showToast('Avatar upload failed', 'error');
-            }
-        });
-    }
-
-    async loadProfile() {
-        if (!this.user) return;
-
-        try {
-            const data = await this.api('/users/me');
-            if (data?.user) {
-                const u = data.user;
-                document.getElementById('profileUsername').textContent = `@${u.username}`;
-                document.getElementById('profileBio').textContent = u.bio || 'Blink member';
-                document.getElementById('statPosts').textContent = u.posts_count || 0;
-
-                const joinDate = u.created_at ? new Date(u.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—';
-                document.getElementById('statJoined').textContent = joinDate;
-
-                if (u.profile_photo) {
-                    document.getElementById('profileAvatar').src = u.profile_photo;
-                } else {
-                    document.getElementById('profileAvatar').src = `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
-                }
-
-                // Load user's videos
-                this.loadUserVideos(u.id);
-            }
-        } catch (err) {
-            console.error('Profile load error:', err);
-        }
-    }
-
-    async loadUserVideos(userId) {
-        const container = document.getElementById('profileVideos');
-        if (!container) return;
-
-        try {
-            const data = await this.api(`/videos/user/${userId}`);
-            if (!data?.data || data.data.length === 0) {
-                container.innerHTML = `
-                    <div class="profile-empty">
-                        <i class="bi bi-camera-video"></i>
-                        <p>No videos yet. Upload your first Blink!</p>
-                    </div>`;
-                return;
-            }
-
-            container.innerHTML = data.data.map(v => {
-                const thumb = v.thumbnail_url || v.video_url;
-                return `
-                <div class="profile-video-card">
-                    <img src="${thumb}" alt="${v.caption || 'Video'}" loading="lazy" 
-                         onerror="this.parentElement.innerHTML='<video src=\\'${v.video_url}\\' muted></video>'">
-                    <div class="video-stats">
-                        <span><i class="bi bi-heart-fill"></i> ${this.formatCount(v.likes_count)}</span>
-                        <span><i class="bi bi-eye-fill"></i> ${this.formatCount(v.views_count)}</span>
-                    </div>
-                </div>`;
-            }).join('');
-        } catch {
-            container.innerHTML = '<div class="profile-empty"><p>Failed to load videos</p></div>';
-        }
-    }
-
-    /* ─────────────────────────────────────────────────────────
        UI UTILITIES
        ───────────────────────────────────────────────────────── */
     setupPasswordToggles() {
@@ -676,13 +905,8 @@ class BlinkApp {
                 const input = btn.closest('.input-group')?.querySelector('input');
                 if (!input) return;
                 const icon = btn.querySelector('i');
-                if (input.type === 'password') {
-                    input.type = 'text';
-                    icon.className = 'bi bi-eye-slash-fill';
-                } else {
-                    input.type = 'password';
-                    icon.className = 'bi bi-eye-fill';
-                }
+                input.type = input.type === 'password' ? 'text' : 'password';
+                icon.className = input.type === 'password' ? 'bi bi-eye-fill' : 'bi bi-eye-slash-fill';
             });
         });
     }
@@ -697,10 +921,7 @@ class BlinkApp {
 
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
-        toast.innerHTML = `
-            <span>${message}</span>
-            <button class="toast-close" onclick="this.parentElement.remove()">×</button>
-        `;
+        toast.innerHTML = `<span>${message}</span><button class="toast-close" onclick="this.parentElement.remove()">×</button>`;
         container.appendChild(toast);
 
         requestAnimationFrame(() => toast.classList.add('show'));
@@ -710,28 +931,26 @@ class BlinkApp {
         }, 4000);
     }
 
-    showAlert(el, message, type) {
-        if (!el) return;
-        el.textContent = message;
-        el.className = `auth-alert ${type}`;
-    }
-
-    hideAlert(el) {
-        if (!el) return;
-        el.className = 'auth-alert';
-        el.textContent = '';
-    }
-
-    setButtonLoading(btn, loading) {
-        if (!btn) return;
-        btn.classList.toggle('loading', loading);
-        btn.disabled = loading;
-    }
+    showAlert(el, message, type) { if (!el) return; el.textContent = message; el.className = `auth-alert ${type}`; }
+    hideAlert(el) { if (!el) return; el.className = 'auth-alert'; el.textContent = ''; }
+    setButtonLoading(btn, loading) { if (!btn) return; btn.classList.toggle('loading', loading); btn.disabled = loading; }
 
     formatCount(num) {
+        num = parseInt(num) || 0;
         if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
         if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-        return String(num || 0);
+        return String(num);
+    }
+
+    timeAgo(dateStr) {
+        const now = Date.now();
+        const date = new Date(dateStr).getTime();
+        const diff = Math.floor((now - date) / 1000);
+        if (diff < 60) return 'just now';
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+        return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
 
     escapeHtml(str) {
