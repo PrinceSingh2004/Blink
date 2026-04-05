@@ -1,60 +1,57 @@
-/**
- * controllers/userController.js — User Profile Management
- * ═══════════════════════════════════════════════════════════
- */
-
 const { pool } = require('../config/db');
+const { getColumn } = require('../utils/columnMapper');
 
 /**
- * GET /api/users/me — Current user profile with stats
+ * GET /api/users/me — AUTO-HEALING Dynamic Profile
  */
 exports.getProfile = async (req, res) => {
     try {
-        const [rows] = await pool.query(`
-            SELECT 
-                u.id, u.username, u.email, u.profile_photo, u.bio, u.created_at,
-                (SELECT COUNT(*) FROM videos WHERE userId = u.id AND is_active = 1) AS posts_count,
-                (SELECT COALESCE(SUM(likes_count), 0) FROM videos WHERE userId = u.id AND is_active = 1) AS total_likes,
-                (SELECT COALESCE(SUM(views_count), 0) FROM videos WHERE userId = u.id AND is_active = 1) AS total_views
-            FROM users u
-            WHERE u.id = ?
-        `, [req.user.id]);
-
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        res.json({ success: true, user: rows[0] });
-    } catch (err) {
-        console.error('Profile error:', err.message);
-        res.status(500).json({ error: 'Failed to load profile' });
-    }
-};
-
-/**
- * GET /api/users/:id — Any user's public profile with stats
- */
-exports.getUser = async (req, res) => {
-    try {
-        const userId = parseInt(req.params.id);
+        const userId = req.user.id;
+        
+        // Dynamic Detection
+        const videoUserCol = await getColumn('videos', ['userId', 'user_id', 'creator_id']);
+        const videoActiveCol = await getColumn('videos', ['is_active', 'active']);
+        const viewsCountCol = await getColumn('videos', ['views_count', 'viewsCount', 'views']);
+        const likesCountCol = await getColumn('videos', ['likes_count', 'likesCount', 'likes']);
 
         const [rows] = await pool.query(`
             SELECT 
-                u.id, u.username, u.profile_photo, u.bio, u.created_at,
-                (SELECT COUNT(*) FROM videos WHERE userId = u.id AND is_active = 1) AS posts_count,
-                (SELECT COALESCE(SUM(likes_count), 0) FROM videos WHERE userId = u.id AND is_active = 1) AS total_likes,
-                (SELECT COALESCE(SUM(views_count), 0) FROM videos WHERE userId = u.id AND is_active = 1) AS total_views
+                u.*,
+                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'userId'} = u.id AND ${videoActiveCol || 'is_active'} = 1) AS posts_count,
+                (SELECT COALESCE(SUM(${likesCountCol || 'likes_count'}), 0) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS total_likes,
+                (SELECT COALESCE(SUM(${viewsCountCol || 'views_count'}), 0) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS total_views
             FROM users u
             WHERE u.id = ?
         `, [userId]);
 
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
+        if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ success: true, user: rows[0] });
 
+    } catch (err) {
+        console.error('🔥 [Profile Fail]:', err.message);
+        res.status(500).json({ error: 'Profile failed', detail: err.message });
+    }
+};
+
+/**
+ * GET /api/users/:id — Public Dynamic Profile
+ */
+exports.getUser = async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const videoUserCol = await getColumn('videos', ['userId', 'user_id']);
+
+        const [rows] = await pool.query(`
+            SELECT 
+                u.id, u.username, u.profile_photo, u.bio,
+                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS posts_count
+            FROM users u
+            WHERE u.id = ?
+        `, [userId]);
+
+        if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
         res.json({ success: true, user: rows[0] });
     } catch (err) {
-        console.error('Get user error:', err.message);
         res.status(500).json({ error: 'Failed to load user' });
     }
 };

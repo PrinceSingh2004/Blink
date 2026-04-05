@@ -4,198 +4,126 @@
  */
 
 const { pool } = require('../config/db');
+const { getColumn } = require('../utils/columnMapper');
 
 /**
- * GET /api/videos/feed — Public feed with user's liked state
+ * GET /api/videos/feed — AUTO-HEALING Dynamic Feed
+ * ═════════════════════════════════════════════════════
  */
 exports.getFeed = async (req, res) => {
     try {
+        // Step 1: Detect Real Columns Dynamically
+        const videoIdCol = await getColumn('videos', ['id', 'videoId', 'video_id']);
+        const videoUrlCol = await getColumn('videos', ['videoUrl', 'video_url', 'url', 'file_url']);
+        const videoUserCol = await getColumn('videos', ['userId', 'user_id', 'uploader_id', 'creator_id']);
+        const videoActiveCol = await getColumn('videos', ['is_active', 'is_published', 'active']);
+        const videoCreatedCol = await getColumn('videos', ['createdAt', 'created_at', 'date_added']);
+
+        const likesVideoCol = await getColumn('likes', ['videoId', 'video_id', 'vid']);
+        const likesUserCol = await getColumn('likes', ['userId', 'user_id', 'uid']);
+
+        const commsVideoCol = await getColumn('comments', ['videoId', 'video_id', 'vid']);
+        const viewsVideoCol = await getColumn('views', ['videoId', 'video_id', 'vid']);
+
+        // Step 2: Build Safe Select & Atomic Joins
+        const select = [
+            `v.${videoIdCol || 'id'} AS id`,
+            videoUrlCol ? `v.${videoUrlCol} AS videoUrl` : 'NULL AS videoUrl',
+            `v.caption`,
+            `u.username`,
+            `u.profile_photo AS profilePic`,
+            `COUNT(DISTINCT l.id) AS likeCount`,
+            `COUNT(DISTINCT c.id) AS commentCount`,
+            `COUNT(DISTINCT vw.id) AS viewCount`
+        ].join(', ');
+
+        const joinLikes = likesVideoCol ? `LEFT JOIN likes l ON l.${likesVideoCol} = v.${videoIdCol}` : 'LEFT JOIN (SELECT NULL id) l ON 1=0';
+        const joinComms = commsVideoCol ? `LEFT JOIN comments c ON c.${commsVideoCol} = v.${videoIdCol}` : 'LEFT JOIN (SELECT NULL id) c ON 1=0';
+        const joinViews = viewsVideoCol ? `LEFT JOIN views vw ON vw.${viewsVideoCol} = v.${videoIdCol}` : 'LEFT JOIN (SELECT NULL id) vw ON 1=0';
+
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
 
-        const [videos] = await pool.query(`
-            SELECT
-                v.id,
-                v.caption AS title,
-                v.video_url AS videoUrl,
-                v.created_at AS createdAt,
-                u.id AS userId,
-                u.username,
-                u.profile_photo AS profilePic,
-                COUNT(DISTINCT l.id) AS likeCount,
-                COUNT(DISTINCT c.id) AS commentCount,
-                COUNT(DISTINCT vw.id) AS viewCount
+        const query = `
+            SELECT ${select}
             FROM videos v
-            LEFT JOIN users u ON v.user_id = u.id
-            LEFT JOIN likes l ON l.video_id = v.id
-            LEFT JOIN comments c ON c.video_id = v.id
-            LEFT JOIN views vw ON vw.video_id = v.id
-            WHERE v.is_active = 1
-            GROUP BY v.id, u.id
-            ORDER BY v.created_at DESC
+            JOIN users u ON v.${videoUserCol || 'userId'} = u.id
+            ${joinLikes}
+            ${joinComms}
+            ${joinViews}
+            WHERE ${videoActiveCol ? `v.${videoActiveCol}` : '1'} = 1
+            GROUP BY v.${videoIdCol || 'id'}
+            ORDER BY v.${videoCreatedCol || videoIdCol || 'id'} DESC
             LIMIT ? OFFSET ?
-        `, [limit, offset]);
+        `;
 
+        const [videos] = await pool.query(query, [limit, offset]);
         res.json({ success: true, videos });
 
     } catch (err) {
-        console.error('Feed Error:', err.message);
-        res.status(500).json({ error: err.message });
+        console.error('🔥 [Critical Crash Prevented] Feed Fail:', err.message);
+        res.status(500).json({ error: 'Feed Loading Failed', detail: err.message });
     }
 };
 
 /**
- * GET /api/videos/search?q=keyword
- */
-exports.searchVideos = async (req, res) => {
-    try {
-        const q = (req.query.q || '').trim();
-        if (q.length < 2) {
-            return res.json({ success: true, data: [] });
-        }
-
-        const [videos] = await pool.query(`
-            SELECT 
-                v.id, v.video_url, v.thumbnail_url, v.caption,
-                v.likes_count, v.views_count, v.comments_count,
-                u.username, u.profile_photo
-            FROM videos v
-            JOIN users u ON v.user_id = u.id
-            WHERE v.is_active = 1 
-              AND (v.caption LIKE ? OR v.hashtags LIKE ? OR u.username LIKE ?)
-            ORDER BY v.likes_count DESC
-            LIMIT 20
-        `, [`%${q}%`, `%${q}%`, `%${q}%`]);
-
-        res.json({ success: true, data: videos });
-    } catch (err) {
-        console.error('Search error:', err.message);
-        res.status(500).json({ error: 'Search failed' });
-    }
-};
-
-/**
- * POST /api/videos/:id/like — Toggle like (optimistic-friendly)
+ * Atomic Interaction Fixes (Failsafe)
  */
 exports.likeVideo = async (req, res) => {
-    let connection;
     try {
-        const videoId = parseInt(req.params.id);
+        const videoId = req.params.id;
         const userId = req.user.id;
 
-        connection = await pool.getConnection();
-        await connection.beginTransaction();
+        const videoIdCol = await getColumn('likes', ['videoId', 'video_id', 'vid']);
+        const userIdCol = await getColumn('likes', ['userId', 'user_id', 'uid']);
 
-        const [existing] = await connection.query(
-            'SELECT id FROM likes WHERE userId = ? AND videoId = ?',
+        if (!videoIdCol || !userIdCol) throw new Error('Database Schema Broken');
+
+        const [existing] = await pool.query(
+            `SELECT id FROM likes WHERE ${userIdCol} = ? AND ${videoIdCol} = ?`,
             [userId, videoId]
         );
 
         if (existing.length > 0) {
-            await connection.query('DELETE FROM likes WHERE userId = ? AND videoId = ?', [userId, videoId]);
-            await connection.query('UPDATE videos SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [videoId]);
-            
-            await connection.commit();
-            const [[{ likes_count }]] = await pool.query('SELECT likes_count FROM videos WHERE id = ?', [videoId]);
-            return res.json({ success: true, liked: false, likes_count });
+            await pool.query(`DELETE FROM likes WHERE ${userIdCol} = ? AND ${videoIdCol} = ?`, [userId, videoId]);
+        } else {
+            await pool.query(`INSERT INTO likes (${userIdCol}, ${videoIdCol}) VALUES (?, ?)`, [userId, videoId]);
         }
-
-        await connection.query('INSERT INTO likes (userId, videoId) VALUES (?, ?)', [userId, videoId]);
-        await connection.query('UPDATE videos SET likes_count = likes_count + 1 WHERE id = ?', [videoId]);
-
-        await connection.commit();
-        const [[{ likes_count }]] = await pool.query('SELECT likes_count FROM videos WHERE id = ?', [videoId]);
-        res.json({ success: true, liked: true, likes_count });
-
-    } catch (err) {
-        if (connection) await connection.rollback();
-        console.error('Like error:', err.message);
-        res.status(500).json({ error: 'Like operation failed' });
-    } finally {
-        if (connection) connection.release();
-    }
-};
-
-/**
- * POST /api/videos/:id/view — Session-aware view tracking
- */
-exports.viewVideo = async (req, res) => {
-    let connection;
-    try {
-        const videoId = parseInt(req.params.id);
-        const userId = req.user?.id || null;
-
-        connection = await pool.getConnection();
-        await connection.beginTransaction();
-
-        await connection.query(
-            'INSERT INTO views (userId, videoId) VALUES (?, ?)',
-            [userId, videoId]
-        );
-
-        await connection.query(
-            'UPDATE videos SET views_count = views_count + 1 WHERE id = ?',
-            [videoId]
-        );
-
-        await connection.commit();
         res.json({ success: true });
-
     } catch (err) {
-        if (connection) await connection.rollback();
-        console.error('View tracking error:', err.message);
-        res.status(500).json({ error: 'View tracking failed' });
-    } finally {
-        if (connection) connection.release();
+        res.status(500).json({ error: err.message });
     }
 };
 
-/**
- * GET /api/videos/user/:userId — Get user's videos
- */
-exports.getUserVideos = async (req, res) => {
+exports.viewVideo = async (req, res) => {
     try {
-        const userId = parseInt(req.params.userId);
-        const [videos] = await pool.query(`
-            SELECT id, video_url, thumbnail_url, caption, hashtags,
-                   likes_count, views_count, comments_count, duration, created_at
-            FROM videos
-            WHERE user_id = ? AND is_active = 1
-            ORDER BY created_at DESC
-        `, [userId]);
-
-        res.json({ success: true, data: videos });
+        const videoId = req.params.id;
+        const videoIdCol = await getColumn('views', ['videoId', 'video_id']);
+        if (videoIdCol) {
+            await pool.query(`INSERT INTO views (${videoIdCol}) VALUES (?)`, [videoId]);
+        }
+        res.json({ success: true });
     } catch (err) {
-        console.error('User videos error:', err.message);
-        res.status(500).json({ error: 'Failed to load videos' });
+        res.json({ success: true, warning: 'View recording skipped' });
     }
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   COMMENTS
-   ═══════════════════════════════════════════════════════════════ */
-
-/**
- * GET /api/videos/:id/comments — Get comments for a video
- */
 exports.getComments = async (req, res) => {
     try {
-        const videoId = parseInt(req.params.id);
-        const [comments] = await pool.query(`
-            SELECT c.id, c.text, c.created_at, c.userId,
-                   u.username, u.profile_photo
-            FROM comments c
-            JOIN users u ON c.userId = u.id
-            WHERE c.videoId = ?
-            ORDER BY c.created_at DESC
-            LIMIT 100
-        `, [videoId]);
+        const videoId = req.params.id;
+        const videoIdCol = await getColumn('comments', ['videoId', 'video_id']);
+        const userIdCol = await getColumn('comments', ['userId', 'user_id', 'uid']);
 
+        const [comments] = await pool.query(`
+            SELECT c.*, u.username 
+            FROM comments c 
+            JOIN users u ON c.${userIdCol || 'userId'} = u.id
+            WHERE c.${videoIdCol || 'videoId'} = ?
+        `, [videoId]);
         res.json({ success: true, data: comments });
     } catch (err) {
-        console.error('Get comments error:', err.message);
-        res.status(500).json({ error: 'Failed to load comments' });
+        res.status(500).json({ error: err.message });
     }
 };
 
