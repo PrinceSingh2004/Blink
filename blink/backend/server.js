@@ -75,6 +75,12 @@ const { deleteComment } = require('./controllers/videoController');
 const { protect: authProtect } = require('./middleware/auth');
 app.delete('/api/comments/:id', authProtect, deleteComment);
 
+// ── Global Logout ─────────────────────────────────────
+app.post("/api/logout", (req, res) => {
+    res.clearCookie("token"); // if using cookies
+    res.json({ success: true, message: "Logged out successfully" });
+});
+
 // ── Static Frontend ────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend')));
 

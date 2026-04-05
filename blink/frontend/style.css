@@ -279,8 +279,42 @@ img { display: block; max-width: 100%; }
     font-size: 14px; font-weight: 600; color: var(--text-primary);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.logout-btn { color: var(--text-muted) !important; }
-.logout-btn:hover { color: #f43f5e !important; background: rgba(244,63,94,0.08) !important; }
+
+/* ── Sidebar User Dropdown ── */
+.sidebar-user-menu {
+    position: relative; width: 100%;
+}
+.sidebar-user {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; border-radius: var(--radius-md);
+    cursor: pointer; transition: all 0.2s;
+}
+.sidebar-user:hover {
+    background: var(--bg-hover);
+}
+.sidebar-user i.bi-three-dots { margin-left: auto; color: var(--text-muted); font-size: 14px; }
+
+.sidebar-user-dropdown {
+    position: absolute; bottom: calc(100% + 10px); left: 0; right: 0;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 8px;
+    box-shadow: var(--shadow-lg); display: none;
+    flex-direction: column; gap: 4px;
+    animation: fadeSlideUp 0.3s var(--spring);
+    z-index: 1000;
+}
+.sidebar-user-dropdown.active { display: flex; }
+
+.dropdown-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: var(--radius-md);
+    color: var(--text-secondary); font-size: 14px; font-weight: 600;
+    transition: all 0.2s; background: none; text-align: left;
+}
+.dropdown-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.dropdown-item.logout-item { color: #f43f5e; }
+.dropdown-item.logout-item:hover { background: rgba(244, 63, 94, 0.08); }
+.dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
 
 /* ── MAIN CONTENT ──────────────────────────────────────── */
 .main-content { flex: 1; overflow: hidden; position: relative; background: var(--bg-deep); }
@@ -707,12 +741,39 @@ img { display: block; max-width: 100%; }
 }
 .profile-back-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 
+/* ── Logout Actions ───────────────────────────────────── */
+.profile-actions-main {
+    margin-bottom: 20px;
+}
+.profile-logout-btn {
+    width: 100%;
+    display: flex;
+    align-items: center; justify-content: center; gap: 10px;
+    padding: 12px 20px; border-radius: var(--radius-md);
+    background: rgba(244, 63, 94, 0.08);
+    color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.15);
+    font-weight: 700; font-size: 14px;
+    transition: all 0.3s var(--spring);
+}
+.profile-logout-btn:hover {
+    background: #f43f5e; color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(244, 63, 94, 0.3);
+}
+.profile-logout-btn i { font-size: 18px; }
+
+#mobileLogoutBtn:hover {
+    background: rgba(244, 63, 94, 0.1) !important;
+    color: #f43f5e !important;
+}
+
 /* ══════════════════════════════════════════════════════════
    BOTTOM NAV — Mobile
    ══════════════════════════════════════════════════════════ */
 .bottom-nav {
     display: none; position: fixed; bottom: 0; left: 0; right: 0;
-    height: var(--bottom-nav-h); background: rgba(12,18,32,0.95);
+    height: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0));
+    background: rgba(12,18,32,0.95);
     backdrop-filter: blur(20px); border-top: 1px solid var(--border);
     z-index: 100; justify-content: space-around; align-items: center;
     padding-bottom: env(safe-area-inset-bottom, 0);

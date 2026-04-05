@@ -39,6 +39,7 @@ class BlinkApp {
         this.setupPasswordToggles();
         this.setupComments();
         this.setupChat(); // Phase 7
+        this.runSafetyCheck();
         this.checkAuth();
     }
 
@@ -217,6 +218,28 @@ class BlinkApp {
 
         document.getElementById('logoutBtn')?.addEventListener('click', () => this.logout());
         document.getElementById('mobileLogoutBtn')?.addEventListener('click', (e) => { e.preventDefault(); this.logout(); });
+        document.getElementById('profilePageLogoutBtn')?.addEventListener('click', (e) => { e.preventDefault(); this.logout(); });
+        document.getElementById('logoutBtnDropdown')?.addEventListener('click', (e) => { e.preventDefault(); this.logout(); });
+
+        // Toggle User Dropdown
+        const userMenu = document.getElementById('sidebarUser');
+        const dropdown = document.getElementById('userDropdown');
+        userMenu?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown?.classList.toggle('active');
+        });
+        document.addEventListener('click', () => dropdown?.classList.remove('active'));
+    }
+
+    /* ── Global Safety Check ── */
+    runSafetyCheck() {
+        if (!localStorage.getItem('blink_token')) {
+            // Already handled by checkAuth() which shows overlay,
+            // but for absolute certainty on all pages:
+            this.token = null; 
+            this.user = null;
+            this.checkAuth();
+        }
     }
 
     checkAuth() {
@@ -240,19 +263,34 @@ class BlinkApp {
     }
 
     async logout() {
-        try {
-            // Server-side logout (clears session in DB)
-            await this.api('/auth/logout', { method: 'POST' });
-        } catch (err) {
-            console.error('Logout API failed:', err);
-        }
+        if (!confirm("Are you sure you want to logout?")) return;
 
-        // Client-side cleanup
-        this.token = null; 
-        this.user = null;
-        localStorage.removeItem('blink_token');
-        localStorage.removeItem('blink_user');
-        window.location.reload();
+        try {
+            // Global Logout API call
+            await fetch(`${this.API_BASE}/api/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            // Clean specific app tokens
+            this.token = null; 
+            this.user = null;
+            
+            // Clear ALL storage for safety
+            localStorage.clear();
+            sessionStorage.clear();
+
+            // Notify and Redirect
+            const isDarkMode = document.body.classList.contains('dark-mode') || true; // assumed
+            alert("Logged out successfully");
+            window.location.reload(); // Since it's an SPA and reloads into the login overlay
+        } catch (err) {
+            console.error('Logout failed:', err);
+            // Fallback: still clear client side
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.reload();
+        }
     }
 
     loadUser() {
@@ -340,19 +378,14 @@ class BlinkApp {
                     <i class="bi bi-wifi-off"></i>
                     <h2>Connection Error</h2>
                     <p>${err.message || 'Failed to load feed'}</p>
-                    <button id="retryFeedBtn" style="
-                        margin-top:1.5rem;
-                        padding:.75rem 2rem;
-                        background:linear-gradient(135deg,#6366f1,#8b5cf6);
-                        border:none; border-radius:999px;
-                        color:#fff; font-size:.95rem;
-                        font-weight:600; cursor:pointer;
-                        box-shadow:0 4px 20px rgba(99,102,241,.4);
-                    ">
+                    <button id="retryFeedBtn" class="btn-primary" style="margin-top: 1.5rem; padding: 12px 32px;">
                         <i class="bi bi-arrow-clockwise"></i> Retry
                     </button>
                 </div>`;
-            document.getElementById('retryFeedBtn')?.addEventListener('click', () => this.loadFeed());
+            document.getElementById('retryFeedBtn')?.addEventListener('click', () => {
+                container.innerHTML = '<div class="reels-loading"><div class="pulse-loader"></div><p>Retrying...</p></div>';
+                this.loadFeed();
+            });
         }
     }
 

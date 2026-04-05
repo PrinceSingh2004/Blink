@@ -127,16 +127,24 @@
             </nav>
 
             <div class="sidebar-footer">
-                <div class="sidebar-user" id="sidebarUser">
-                    <div class="sidebar-avatar" id="sidebarAvatar">U</div>
-                    <div class="sidebar-user-info">
-                        <span class="sidebar-username" id="sidebarUsername">User</span>
+                <div class="sidebar-user-menu" id="sidebarUserMenu">
+                    <div class="sidebar-user" id="sidebarUser">
+                        <div class="sidebar-avatar" id="sidebarAvatar">U</div>
+                        <div class="sidebar-user-info">
+                            <span class="sidebar-username" id="sidebarUsername">User</span>
+                        </div>
+                        <i class="bi bi-three-dots"></i>
+                    </div>
+                    <div class="sidebar-user-dropdown" id="userDropdown">
+                        <button class="dropdown-item" data-page="profile">
+                            <i class="bi bi-person-fill"></i> Profile
+                        </button>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item logout-item" id="logoutBtnDropdown">
+                            <i class="bi bi-box-arrow-left"></i> Logout
+                        </button>
                     </div>
                 </div>
-                <button class="nav-link logout-btn" id="logoutBtn">
-                    <i class="bi bi-box-arrow-left"></i>
-                    <span>Logout</span>
-                </button>
             </div>
         </aside>
 
@@ -238,7 +246,7 @@
                         <div class="upload-dropzone" id="uploadDropzone">
                             <div class="upload-icon"><i class="bi bi-cloud-arrow-up-fill"></i></div>
                             <h2>Upload Video</h2>
-                            <p>Drag and drop or click to select</p>
+                            <p>Tap to select or drag video</p>
                             <p class="upload-hint">MP4, WebM, MOV • Max 500MB</p>
                             <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime" hidden>
                         </div>
@@ -295,6 +303,11 @@
                         <div class="profile-info">
                             <h1 id="profileUsername">@user</h1>
                             <p class="profile-bio" id="profileBio">Blink member</p>
+                            <div class="profile-actions-main">
+                                <button class="profile-logout-btn" id="profilePageLogoutBtn">
+                                    <i class="bi bi-box-arrow-left"></i> Logout
+                                </button>
+                            </div>
                             <div class="profile-stats">
                                 <div class="stat"><span class="stat-num" id="statPosts">0</span><span class="stat-label">Posts</span></div>
                                 <div class="stat"><span class="stat-num" id="statFollowers">0</span><span class="stat-label">Followers</span></div>
