@@ -81,8 +81,18 @@ const initDB = async () => {
             )
         `);
 
-        // Safe schema migrations (add columns if they don't exist)
-        await pool.query(`ALTER TABLE videos ADD COLUMN IF NOT EXISTS comments_count INT DEFAULT 0`).catch(() => {});
+        // Safe schema migrations — compatible with MySQL 5.7 and 8.0
+        // Check if comments_count column exists before adding
+        const [cols] = await pool.query(`
+            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'videos'
+              AND COLUMN_NAME = 'comments_count'
+        `);
+        if (cols.length === 0) {
+            await pool.query(`ALTER TABLE videos ADD COLUMN comments_count INT DEFAULT 0`);
+            console.log('✅ Added missing comments_count column.');
+        }
 
         console.log('✅ Database schema synchronized.');
     } catch (err) {
