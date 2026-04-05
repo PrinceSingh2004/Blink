@@ -6,14 +6,16 @@
 const { pool } = require('../config/db');
 
 /**
- * GET /api/users/me — Get current user profile
+ * GET /api/users/me — Current user profile with stats
  */
 exports.getProfile = async (req, res) => {
     try {
         const [rows] = await pool.query(`
             SELECT 
                 u.id, u.username, u.email, u.profile_photo, u.bio, u.created_at,
-                (SELECT COUNT(*) FROM videos WHERE user_id = u.id AND is_active = 1) AS posts_count
+                (SELECT COUNT(*) FROM videos WHERE user_id = u.id AND is_active = 1) AS posts_count,
+                (SELECT COALESCE(SUM(likes_count), 0) FROM videos WHERE user_id = u.id AND is_active = 1) AS total_likes,
+                (SELECT COALESCE(SUM(views_count), 0) FROM videos WHERE user_id = u.id AND is_active = 1) AS total_views
             FROM users u
             WHERE u.id = ?
         `, [req.user.id]);
@@ -30,7 +32,7 @@ exports.getProfile = async (req, res) => {
 };
 
 /**
- * GET /api/users/:id — Get any user's public profile
+ * GET /api/users/:id — Any user's public profile with stats
  */
 exports.getUser = async (req, res) => {
     try {
@@ -39,7 +41,9 @@ exports.getUser = async (req, res) => {
         const [rows] = await pool.query(`
             SELECT 
                 u.id, u.username, u.profile_photo, u.bio, u.created_at,
-                (SELECT COUNT(*) FROM videos WHERE user_id = u.id AND is_active = 1) AS posts_count
+                (SELECT COUNT(*) FROM videos WHERE user_id = u.id AND is_active = 1) AS posts_count,
+                (SELECT COALESCE(SUM(likes_count), 0) FROM videos WHERE user_id = u.id AND is_active = 1) AS total_likes,
+                (SELECT COALESCE(SUM(views_count), 0) FROM videos WHERE user_id = u.id AND is_active = 1) AS total_views
             FROM users u
             WHERE u.id = ?
         `, [userId]);
