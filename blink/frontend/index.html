@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -9,12 +10,15 @@
     <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
     <link rel="icon" href="favicon.ico">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <!-- ═══════════════════════════════════════════════════
          AUTH OVERLAY
@@ -41,11 +45,13 @@
                 <form id="loginForm" class="auth-form active">
                     <div class="input-group">
                         <i class="bi bi-person-fill input-icon"></i>
-                        <input type="text" id="loginIdentifier" placeholder="Email or username" required autocomplete="username">
+                        <input type="text" id="loginIdentifier" placeholder="Email or username" required
+                            autocomplete="username">
                     </div>
                     <div class="input-group">
                         <i class="bi bi-lock-fill input-icon"></i>
-                        <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password">
+                        <input type="password" id="loginPassword" placeholder="Password" required
+                            autocomplete="current-password">
                         <button type="button" class="pw-toggle" tabindex="-1"><i class="bi bi-eye-fill"></i></button>
                     </div>
                     <div class="auth-alert" id="loginAlert"></div>
@@ -58,7 +64,8 @@
                 <form id="signupForm" class="auth-form">
                     <div class="input-group">
                         <i class="bi bi-at input-icon"></i>
-                        <input type="text" id="signupUsername" placeholder="Username" required minlength="3" maxlength="30" autocomplete="username">
+                        <input type="text" id="signupUsername" placeholder="Username" required minlength="3"
+                            maxlength="30" autocomplete="username">
                     </div>
                     <div class="input-group">
                         <i class="bi bi-envelope-fill input-icon"></i>
@@ -66,7 +73,8 @@
                     </div>
                     <div class="input-group">
                         <i class="bi bi-lock-fill input-icon"></i>
-                        <input type="password" id="signupPassword" placeholder="Password (min 6 chars)" required minlength="6" autocomplete="new-password">
+                        <input type="password" id="signupPassword" placeholder="Password (min 6 chars)" required
+                            minlength="6" autocomplete="new-password">
                         <button type="button" class="pw-toggle" tabindex="-1"><i class="bi bi-eye-fill"></i></button>
                     </div>
                     <div class="auth-alert" id="signupAlert"></div>
@@ -83,7 +91,7 @@
          MAIN APP SHELL
          ═══════════════════════════════════════════════════ -->
     <div class="app-shell" id="appShell" style="display:none;">
-        
+
         <!-- SIDEBAR (Desktop) -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-logo">
@@ -145,7 +153,8 @@
                         <div class="search-box" id="searchBox">
                             <i class="bi bi-search"></i>
                             <input type="text" placeholder="Search creators & videos..." id="searchInput">
-                            <button class="search-clear" id="searchClear" style="display:none;"><i class="bi bi-x-lg"></i></button>
+                            <button class="search-clear" id="searchClear" style="display:none;"><i
+                                    class="bi bi-x-lg"></i></button>
                         </div>
                     </div>
                     <div class="explore-grid" id="exploreGrid">
@@ -165,18 +174,20 @@
                             <div class="upload-icon"><i class="bi bi-cloud-arrow-up-fill"></i></div>
                             <h2>Upload Video</h2>
                             <p>Drag and drop or click to select</p>
-                            <p class="upload-hint">MP4, WebM, MOV • Max 100MB</p>
+                            <p class="upload-hint">MP4, WebM, MOV • Max 500MB</p>
                             <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime" hidden>
                         </div>
 
                         <div class="upload-form" id="uploadForm" style="display:none;">
                             <div class="upload-preview">
                                 <video id="uploadPreview" muted playsinline></video>
-                                <button class="upload-change-btn" id="changeVideoBtn"><i class="bi bi-arrow-repeat"></i> Change</button>
+                                <button class="upload-change-btn" id="changeVideoBtn"><i class="bi bi-arrow-repeat"></i>
+                                    Change</button>
                             </div>
                             <div class="upload-fields">
                                 <div class="input-group">
-                                    <textarea id="uploadCaption" placeholder="Write a caption..." rows="3" maxlength="500"></textarea>
+                                    <textarea id="uploadCaption" placeholder="Write a caption..." rows="3"
+                                        maxlength="500"></textarea>
                                     <span class="char-count" id="captionCount">0/500</span>
                                 </div>
                                 <div class="input-group">
@@ -184,7 +195,8 @@
                                 </div>
                                 <button class="btn-submit upload-btn" id="uploadBtn">
                                     <span class="btn-text"><i class="bi bi-cloud-upload"></i> Publish</span>
-                                    <span class="btn-loader"><i class="bi bi-arrow-clockwise spin"></i> Uploading...</span>
+                                    <span class="btn-loader"><i class="bi bi-arrow-clockwise spin"></i>
+                                        Uploading...</span>
                                 </button>
                             </div>
                         </div>
@@ -192,8 +204,8 @@
                         <div class="upload-progress" id="uploadProgress" style="display:none;">
                             <div class="progress-ring">
                                 <svg viewBox="0 0 100 100">
-                                    <circle cx="50" cy="50" r="45" class="progress-bg"/>
-                                    <circle cx="50" cy="50" r="45" class="progress-fill" id="progressCircle"/>
+                                    <circle cx="50" cy="50" r="45" class="progress-bg" />
+                                    <circle cx="50" cy="50" r="45" class="progress-fill" id="progressCircle" />
                                 </svg>
                                 <span class="progress-text" id="progressText">0%</span>
                             </div>
@@ -208,7 +220,8 @@
                 <div class="profile-container">
                     <div class="profile-header">
                         <div class="profile-avatar-wrap">
-                            <img src="https://ui-avatars.com/api/?name=U&background=6366f1&color=fff&size=150" id="profileAvatar" alt="avatar" class="profile-avatar">
+                            <img src="https://ui-avatars.com/api/?name=U&background=6366f1&color=fff&size=150"
+                                id="profileAvatar" alt="avatar" class="profile-avatar">
                             <label class="profile-avatar-edit" for="avatarInput">
                                 <i class="bi bi-camera-fill"></i>
                             </label>
@@ -218,9 +231,12 @@
                             <h1 id="profileUsername">@user</h1>
                             <p class="profile-bio" id="profileBio">Blink member</p>
                             <div class="profile-stats">
-                                <div class="stat"><span class="stat-num" id="statPosts">0</span><span class="stat-label">Posts</span></div>
-                                <div class="stat"><span class="stat-num" id="statLikes">0</span><span class="stat-label">Likes</span></div>
-                                <div class="stat"><span class="stat-num" id="statViews">0</span><span class="stat-label">Views</span></div>
+                                <div class="stat"><span class="stat-num" id="statPosts">0</span><span
+                                        class="stat-label">Posts</span></div>
+                                <div class="stat"><span class="stat-num" id="statLikes">0</span><span
+                                        class="stat-label">Likes</span></div>
+                                <div class="stat"><span class="stat-num" id="statViews">0</span><span
+                                        class="stat-label">Views</span></div>
                             </div>
                         </div>
                     </div>
@@ -244,9 +260,12 @@
                             <h1 id="userProfileUsername">@user</h1>
                             <p class="profile-bio" id="userProfileBio">Blink member</p>
                             <div class="profile-stats">
-                                <div class="stat"><span class="stat-num" id="userStatPosts">0</span><span class="stat-label">Posts</span></div>
-                                <div class="stat"><span class="stat-num" id="userStatLikes">0</span><span class="stat-label">Likes</span></div>
-                                <div class="stat"><span class="stat-num" id="userStatViews">0</span><span class="stat-label">Views</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatPosts">0</span><span
+                                        class="stat-label">Posts</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatLikes">0</span><span
+                                        class="stat-label">Likes</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatViews">0</span><span
+                                        class="stat-label">Views</span></div>
                             </div>
                         </div>
                     </div>
@@ -297,4 +316,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>
