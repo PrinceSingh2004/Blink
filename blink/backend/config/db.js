@@ -50,6 +50,7 @@ const initDB = async () => {
                 duration INT DEFAULT 0,
                 likes_count INT DEFAULT 0,
                 views_count INT DEFAULT 0,
+                comments_count INT DEFAULT 0,
                 is_active TINYINT(1) DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -67,6 +68,21 @@ const initDB = async () => {
                 FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
             )
         `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS comments (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                video_id INT NOT NULL,
+                text VARCHAR(1000) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+            )
+        `);
+
+        // Safe schema migrations (add columns if they don't exist)
+        await pool.query(`ALTER TABLE videos ADD COLUMN IF NOT EXISTS comments_count INT DEFAULT 0`).catch(() => {});
 
         console.log('✅ Database schema synchronized.');
     } catch (err) {
