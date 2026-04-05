@@ -66,6 +66,11 @@ app.use('/api/videos', require('./routes/videoRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 
+// Comment delete (separate from video-scoped routes)
+const { deleteComment } = require('./controllers/videoController');
+const { protect: authProtect } = require('./middleware/auth');
+app.delete('/api/comments/:id', authProtect, deleteComment);
+
 // ── Static Frontend ────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend')));
 
