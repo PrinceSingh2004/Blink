@@ -53,20 +53,22 @@ exports.uploadVideo = async (req, res) => {
             .replace(/\.[^/.]+$/, '.jpg');
         const duration = Math.round(result.duration || 0);
 
-        // Save to database
+        // Save to database using detected/standardized columns
         const [dbResult] = await pool.query(
-            `INSERT INTO videos (user_id, video_url, thumbnail_url, caption, hashtags, duration)
+            `INSERT INTO videos (userId, videoUrl, thumbnailUrl, caption, hashtags, duration)
              VALUES (?, ?, ?, ?, ?, ?)`,
             [userId, videoUrl, thumbnailUrl, caption.trim(), hashtags.trim(), duration]
         );
+
+        console.log('✅ Video saved to DB:', dbResult.insertId);
 
         res.status(201).json({
             success: true,
             message: 'Video uploaded successfully',
             video: {
                 id: dbResult.insertId,
-                video_url: videoUrl,
-                thumbnail_url: thumbnailUrl,
+                videoUrl: videoUrl,
+                thumbnailUrl: thumbnailUrl,
                 caption: caption.trim(),
                 duration
             }
