@@ -750,6 +750,8 @@ class BlinkApp {
                 document.getElementById('profileUsername').textContent = `@${u.username}`;
                 document.getElementById('profileBio').textContent = u.bio || 'Blink member';
                 document.getElementById('statPosts').textContent = u.posts_count || 0;
+                document.getElementById('statFollowers').textContent = this.formatCount(u.followers_count || 0);
+                document.getElementById('statFollowing').textContent = this.formatCount(u.following_count || 0);
                 document.getElementById('statLikes').textContent = this.formatCount(u.total_likes || 0);
                 document.getElementById('statViews').textContent = this.formatCount(u.total_views || 0);
 
@@ -786,21 +788,27 @@ class BlinkApp {
                 document.getElementById('userProfileUsername').textContent = `@${u.username}`;
                 document.getElementById('userProfileBio').textContent = u.bio || 'Blink member';
                 document.getElementById('userStatPosts').textContent = u.posts_count || 0;
+                document.getElementById('userStatFollowers').textContent = this.formatCount(u.followers_count || 0);
+                document.getElementById('userStatFollowing').textContent = this.formatCount(u.following_count || 0);
                 document.getElementById('userStatLikes').textContent = this.formatCount(u.total_likes || 0);
                 document.getElementById('userStatViews').textContent = this.formatCount(u.total_views || 0);
 
                 const avatarUrl = u.profile_photo || `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
                 document.getElementById('userProfileAvatar').src = avatarUrl;
                 
-                // Phase 4: Follow Button
+                // Profile Actions
                 const btnWrap = document.getElementById('userProfileActions');
                 if (btnWrap) {
                     btnWrap.innerHTML = `
-                        <button class="profile-follow-btn ${u.is_following ? 'following' : ''}" id="followBtn" data-id="${u.id}">
+                        <button class="profile-follow-btn ${u.is_following ? 'following' : ''}" id="followBtn">
                             ${u.is_following ? 'Following' : 'Follow'}
+                        </button>
+                        <button class="profile-msg-btn" id="profileMsgBtn">
+                            <i class="bi bi-chat-text"></i> Message
                         </button>
                     `;
                     document.getElementById('followBtn').onclick = () => this.toggleFollow(u.id);
+                    document.getElementById('profileMsgBtn').onclick = () => this.openChatWithUser(u.id, u.username, avatarUrl);
                 }
 
                 this.loadUserVideos(userId, 'userProfileVideos');
@@ -1348,6 +1356,32 @@ class BlinkApp {
         document.querySelectorAll(`.status-dot[data-user-id="${data.userId}"]`).forEach(dot => {
             dot.className = `status-dot ${data.status}`;
         });
+    }
+
+    async openChatWithUser(userId, username, avatar) {
+        if (!this.user) { this.showToast('Please sign in to message', 'error'); return; }
+        
+        try {
+            // First we ensure the conversation exists by calling the sendMessage endpoint with empty/init
+            // or we just find the conversation ID.
+            const data = await this.api('/chat/messages', {
+                method: 'POST',
+                body: JSON.stringify({
+                    receiverId: userId,
+                    text: '' // Initialize conversation
+                })
+            });
+
+            if (data?.conversationId) {
+                this.navigateTo('chat');
+                // Wait for page transition then open
+                setTimeout(() => {
+                    this.openChat(data.conversationId, username, avatar);
+                }, 100);
+            }
+        } catch (err) {
+            this.showToast('Failed to start chat', 'error');
+        }
     }
 
     escapeHtml(str) {

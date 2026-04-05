@@ -19,7 +19,9 @@ exports.getProfile = async (req, res) => {
                 u.*,
                 (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'userId'} = u.id AND ${videoActiveCol || 'is_active'} = 1) AS posts_count,
                 (SELECT COALESCE(SUM(${likesCountCol || 'likes_count'}), 0) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS total_likes,
-                (SELECT COALESCE(SUM(${viewsCountCol || 'views_count'}), 0) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS total_views
+                (SELECT COALESCE(SUM(${viewsCountCol || 'views_count'}), 0) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS total_views,
+                (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS followers_count,
+                (SELECT COUNT(*) FROM follows WHERE follower_id = u.id) AS following_count
             FROM users u
             WHERE u.id = ?
         `, [userId]);
@@ -41,13 +43,18 @@ exports.getUser = async (req, res) => {
         const userId = parseInt(req.params.id);
         const videoUserCol = await getColumn('videos', ['userId', 'user_id']);
 
+        const currentUserId = req.user ? req.user.id : null;
+
         const [rows] = await pool.query(`
             SELECT 
                 u.id, u.username, u.profile_photo, u.bio,
-                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS posts_count
+                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS posts_count,
+                (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS followers_count,
+                (SELECT COUNT(*) FROM follows WHERE follower_id = u.id) AS following_count,
+                EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = u.id) AS is_following
             FROM users u
             WHERE u.id = ?
-        `, [userId]);
+        `, [currentUserId, userId]);
 
         if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
         res.json({ success: true, user: rows[0] });
