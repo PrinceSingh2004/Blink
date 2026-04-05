@@ -22,7 +22,6 @@
     <div class="auth-overlay" id="authOverlay">
         <div class="auth-backdrop"></div>
         <div class="auth-card" id="authCard">
-            <!-- Animated gradient orbs -->
             <div class="auth-orb auth-orb-1"></div>
             <div class="auth-orb auth-orb-2"></div>
 
@@ -33,14 +32,12 @@
                     <p class="auth-tagline">Share moments that matter</p>
                 </div>
 
-                <!-- Tabs -->
                 <div class="auth-tabs" id="authTabs">
                     <button class="auth-tab active" data-tab="login" id="tabLogin">Sign In</button>
                     <button class="auth-tab" data-tab="signup" id="tabSignup">Create Account</button>
                     <div class="auth-tab-indicator" id="tabIndicator"></div>
                 </div>
 
-                <!-- Login Form -->
                 <form id="loginForm" class="auth-form active">
                     <div class="input-group">
                         <i class="bi bi-person-fill input-icon"></i>
@@ -58,7 +55,6 @@
                     </button>
                 </form>
 
-                <!-- Signup Form -->
                 <form id="signupForm" class="auth-form">
                     <div class="input-group">
                         <i class="bi bi-at input-icon"></i>
@@ -173,7 +169,6 @@
                             <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime" hidden>
                         </div>
 
-                        <!-- Upload Form (hidden until file selected) -->
                         <div class="upload-form" id="uploadForm" style="display:none;">
                             <div class="upload-preview">
                                 <video id="uploadPreview" muted playsinline></video>
@@ -194,7 +189,6 @@
                             </div>
                         </div>
 
-                        <!-- Upload Progress -->
                         <div class="upload-progress" id="uploadProgress" style="display:none;">
                             <div class="progress-ring">
                                 <svg viewBox="0 0 100 100">
@@ -209,7 +203,7 @@
                 </div>
             </section>
 
-            <!-- ═══ PAGE: PROFILE ═══ -->
+            <!-- ═══ PAGE: PROFILE (Self) ═══ -->
             <section class="page" id="page-profile">
                 <div class="profile-container">
                     <div class="profile-header">
@@ -225,7 +219,8 @@
                             <p class="profile-bio" id="profileBio">Blink member</p>
                             <div class="profile-stats">
                                 <div class="stat"><span class="stat-num" id="statPosts">0</span><span class="stat-label">Posts</span></div>
-                                <div class="stat"><span class="stat-num" id="statJoined">—</span><span class="stat-label">Member since</span></div>
+                                <div class="stat"><span class="stat-num" id="statLikes">0</span><span class="stat-label">Likes</span></div>
+                                <div class="stat"><span class="stat-num" id="statViews">0</span><span class="stat-label">Views</span></div>
                             </div>
                         </div>
                     </div>
@@ -233,6 +228,32 @@
                         <div class="profile-empty">
                             <i class="bi bi-camera-video"></i>
                             <p>No videos yet. Upload your first Blink!</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ PAGE: OTHER USER PROFILE ═══ -->
+            <section class="page" id="page-user-profile">
+                <div class="profile-container">
+                    <div class="profile-header">
+                        <div class="profile-avatar-wrap">
+                            <img src="" id="userProfileAvatar" alt="avatar" class="profile-avatar">
+                        </div>
+                        <div class="profile-info">
+                            <h1 id="userProfileUsername">@user</h1>
+                            <p class="profile-bio" id="userProfileBio">Blink member</p>
+                            <div class="profile-stats">
+                                <div class="stat"><span class="stat-num" id="userStatPosts">0</span><span class="stat-label">Posts</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatLikes">0</span><span class="stat-label">Likes</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatViews">0</span><span class="stat-label">Views</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="profile-videos" id="userProfileVideos">
+                        <div class="profile-empty">
+                            <i class="bi bi-camera-video"></i>
+                            <p>No videos yet</p>
                         </div>
                     </div>
                 </div>
@@ -246,6 +267,29 @@
             <a href="#" class="bottom-link upload-circle" data-page="upload"><i class="bi bi-plus-lg"></i></a>
             <a href="#" class="bottom-link" data-page="profile"><i class="bi bi-person-circle"></i></a>
         </nav>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
+         COMMENTS DRAWER
+         ═══════════════════════════════════════════════════ -->
+    <div class="comments-drawer" id="commentsDrawer">
+        <div class="comments-backdrop" id="commentsBackdrop"></div>
+        <div class="comments-panel">
+            <div class="comments-header">
+                <h2>Comments <span class="comments-count-badge" id="commentsCountBadge">0</span></h2>
+                <button class="comments-close" id="commentsClose"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="comments-list" id="commentsList">
+                <div class="comments-empty">
+                    <i class="bi bi-chat-dots"></i>
+                    <p>No comments yet. Be the first!</p>
+                </div>
+            </div>
+            <form class="comments-input" id="commentForm">
+                <input type="text" id="commentInput" placeholder="Add a comment..." maxlength="1000" autocomplete="off">
+                <button type="submit" class="comment-send" id="commentSendBtn"><i class="bi bi-send-fill"></i></button>
+            </form>
+        </div>
     </div>
 
     <!-- Toast Container -->
