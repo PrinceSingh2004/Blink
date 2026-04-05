@@ -143,7 +143,6 @@ class BlinkApp {
                 }
             } catch (err) {
                 this.setButtonLoading(btn, false);
-                // Handle field-specific errors from backend
                 const fieldMap = { 'identifier': identifierInput, 'password': passwordInput };
                 if (err.field && fieldMap[err.field]) {
                     this.highlightFieldError(fieldMap[err.field], alert, err.message);
@@ -1071,13 +1070,28 @@ class BlinkApp {
     highlightFieldError(input, alertEl, message) {
         if (!input) return;
         input.classList.add('field-error');
-        this.showAlert(alertEl, message, 'error');
+        // Show message in specific span if exists
+        const errorSpan = document.getElementById(`${input.id}Error`);
+        if (errorSpan) {
+            errorSpan.textContent = message;
+            errorSpan.classList.add('visible');
+        } else {
+            // Fallback to global alert if span missing
+            this.showAlert(alertEl, message, 'error');
+        }
         input.focus();
     }
 
     clearFieldErrors(form) {
         if (!form) return;
-        form.querySelectorAll('input').forEach(i => i.classList.remove('field-error'));
+        form.querySelectorAll('input').forEach(i => {
+            i.classList.remove('field-error');
+            const span = document.getElementById(`${i.id}Error`);
+            if (span) {
+                span.textContent = '';
+                span.classList.remove('visible');
+            }
+        });
         const alert = form.querySelector('.auth-alert');
         if (alert) this.hideAlert(alert);
     }

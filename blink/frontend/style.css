@@ -189,6 +189,20 @@ img { display: block; max-width: 100%; }
     75% { transform: translateX(-3px); }
 }
 
+/* Specific Error Message Spans */
+.field-error-msg {
+    display: none;
+    color: #fb7185;
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 5px;
+    margin-left: 4px;
+    animation: fadeIn 0.3s var(--ease);
+}
+.field-error-msg.visible {
+    display: block;
+}
+
 .pw-toggle {
     position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
     background: none; color: var(--text-muted); font-size: 18px; transition: color 0.2s;

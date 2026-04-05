@@ -45,14 +45,14 @@
                 <form id="loginForm" class="auth-form active">
                     <div class="input-group">
                         <i class="bi bi-person-fill input-icon"></i>
-                        <input type="text" id="loginIdentifier" placeholder="Email or username" required
-                            autocomplete="username">
+                        <input type="text" id="loginIdentifier" placeholder="Email or username" autocomplete="username">
+                        <span class="field-error-msg" id="loginIdentifierError"></span>
                     </div>
                     <div class="input-group">
                         <i class="bi bi-lock-fill input-icon"></i>
-                        <input type="password" id="loginPassword" placeholder="Password" required
-                            autocomplete="current-password">
+                        <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
                         <button type="button" class="pw-toggle" tabindex="-1"><i class="bi bi-eye-fill"></i></button>
+                        <span class="field-error-msg" id="loginPasswordError"></span>
                     </div>
                     <div class="auth-alert" id="loginAlert"></div>
                     <button type="submit" class="btn-submit" id="loginBtn">
@@ -64,18 +64,21 @@
                 <form id="signupForm" class="auth-form">
                     <div class="input-group">
                         <i class="bi bi-at input-icon"></i>
-                        <input type="text" id="signupUsername" placeholder="Username" required minlength="3"
+                        <input type="text" id="signupUsername" placeholder="Username" minlength="3"
                             maxlength="30" autocomplete="username">
+                        <span class="field-error-msg" id="signupUsernameError"></span>
                     </div>
                     <div class="input-group">
                         <i class="bi bi-envelope-fill input-icon"></i>
-                        <input type="email" id="signupEmail" placeholder="Email address" required autocomplete="email">
+                        <input type="email" id="signupEmail" placeholder="Email address" autocomplete="email">
+                        <span class="field-error-msg" id="signupEmailError"></span>
                     </div>
                     <div class="input-group">
                         <i class="bi bi-lock-fill input-icon"></i>
-                        <input type="password" id="signupPassword" placeholder="Password (min 6 chars)" required
+                        <input type="password" id="signupPassword" placeholder="Password (min 6 chars)"
                             minlength="6" autocomplete="new-password">
                         <button type="button" class="pw-toggle" tabindex="-1"><i class="bi bi-eye-fill"></i></button>
+                        <span class="field-error-msg" id="signupPasswordError"></span>
                     </div>
                     <div class="auth-alert" id="signupAlert"></div>
                     <button type="submit" class="btn-submit" id="signupBtn">
