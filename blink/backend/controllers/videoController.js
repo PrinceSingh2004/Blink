@@ -10,29 +10,32 @@ const { pool } = require('../config/db');
  */
 exports.getFeed = async (req, res) => {
     try {
-        const userId = req.user?.id || null;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
 
         const [videos] = await pool.query(`
-            SELECT 
-                v.id, v.videoUrl, v.caption, v.createdAt,
-                u.username, u.profile_photo AS profilePic,
+            SELECT
+                v.id,
+                v.caption AS title,
+                v.video_url AS videoUrl,
+                v.created_at AS createdAt,
+                u.id AS userId,
+                u.username,
+                u.profile_photo AS profilePic,
                 COUNT(DISTINCT l.id) AS likeCount,
                 COUNT(DISTINCT c.id) AS commentCount,
-                COUNT(DISTINCT vw.id) AS viewCount,
-                IF(MAX(CASE WHEN l.userId = ? THEN 1 ELSE 0 END) = 1, 1, 0) AS isLiked
+                COUNT(DISTINCT vw.id) AS viewCount
             FROM videos v
-            JOIN users u ON v.userId = u.id
-            LEFT JOIN likes l ON l.videoId = v.id
-            LEFT JOIN comments c ON c.videoId = v.id
-            LEFT JOIN views vw ON vw.videoId = v.id
+            LEFT JOIN users u ON v.user_id = u.id
+            LEFT JOIN likes l ON l.video_id = v.id
+            LEFT JOIN comments c ON c.video_id = v.id
+            LEFT JOIN views vw ON vw.video_id = v.id
             WHERE v.is_active = 1
-            GROUP BY v.id
-            ORDER BY v.createdAt DESC
+            GROUP BY v.id, u.id
+            ORDER BY v.created_at DESC
             LIMIT ? OFFSET ?
-        `, [userId, limit, offset]);
+        `, [limit, offset]);
 
         res.json({ success: true, videos });
 
