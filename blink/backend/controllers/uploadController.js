@@ -34,7 +34,7 @@ exports.uploadVideo = async (req, res) => {
             return res.status(400).json({ error: 'No video file provided' });
         }
 
-        // Upload to Cloudinary
+        // Upload to Cloudinary with async support for large files
         const result = await uploadToCloudinary(req.file.buffer, {
             resource_type: 'video',
             folder: 'blink/videos',
@@ -42,18 +42,23 @@ exports.uploadVideo = async (req, res) => {
             quality: 'auto',
             format: 'mp4',
             eager: [
-                { width: 400, height: 711, crop: 'fill', format: 'jpg', quality: 'auto' }
+                { quality: "auto", fetch_format: "mp4" }
             ],
             eager_async: true
         });
 
-        const videoUrl = result.secure_url;
-        const thumbnailUrl = result.secure_url
-            .replace('/video/upload/', '/video/upload/so_1,w_500,c_fill/')
-            .replace(/\.[^/.]+$/, '.jpg');
+        console.log('☁️ Cloudinary result:', result.secure_url);
+
+        // Verify URL: Use secure_url or fallback to eager[0]
+        const videoUrl = result.secure_url || (result.eager && result.eager[0]?.secure_url);
+        
+        if (!videoUrl) {
+            throw new Error('Could not generate a valid video URL from Cloudinary');
+        }
+
         const duration = Math.round(result.duration || 0);
 
-        // Save to database
+        // Save to database - Fix: user_id INT, video_url TEXT
         const [dbResult] = await pool.query(
             `INSERT INTO videos (user_id, video_url, caption, hashtags, duration)
              VALUES (?, ?, ?, ?, ?)`,
@@ -68,15 +73,19 @@ exports.uploadVideo = async (req, res) => {
             video: {
                 id: dbResult.insertId,
                 videoUrl: videoUrl,
-                thumbnailUrl: thumbnailUrl,
                 caption: caption.trim(),
                 duration
             }
         });
 
     } catch (err) {
-        console.error('Video upload error:', err.message);
-        res.status(500).json({ error: 'Video upload failed: ' + err.message });
+        console.error('🔥 UPLOAD FAILED:', err.message);
+        // Failsafe: Do not crash server, return 500
+        res.status(500).json({ 
+            success: false, 
+            error: 'Video upload failed', 
+            details: err.message 
+        });
     }
 };
 
