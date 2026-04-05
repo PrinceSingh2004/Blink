@@ -17,19 +17,17 @@ exports.getFeed = async (req, res) => {
 
         let query, params;
 
-        // Optimized Query: Standardized snake_case, 
-        // Efficient Join for liked_by_me, Cached counts for Performance
         if (userId) {
             query = `
                 SELECT 
-                    v.id, v.user_id, v.video_url, v.thumbnail_url,
+                    v.id, v.userId, v.videoUrl, v.thumbnailUrl,
                     v.caption, v.hashtags, v.duration,
                     v.likes_count, v.views_count, v.comments_count, v.created_at,
                     u.username, u.profile_photo,
                     IF(l.id IS NOT NULL, 1, 0) AS liked_by_me
                 FROM videos v
-                JOIN users u ON v.user_id = u.id
-                LEFT JOIN likes l ON l.video_id = v.id AND l.user_id = ?
+                JOIN users u ON v.userId = u.id
+                LEFT JOIN likes l ON l.videoId = v.id AND l.userId = ?
                 WHERE v.is_active = 1
                 ORDER BY v.created_at DESC
                 LIMIT ${Number(limit)} OFFSET ${Number(offset)}
@@ -38,13 +36,13 @@ exports.getFeed = async (req, res) => {
         } else {
             query = `
                 SELECT 
-                    v.id, v.user_id, v.video_url, v.thumbnail_url,
+                    v.id, v.userId, v.videoUrl, v.thumbnailUrl,
                     v.caption, v.hashtags, v.duration,
                     v.likes_count, v.views_count, v.comments_count, v.created_at,
                     u.username, u.profile_photo,
                     0 AS liked_by_me
                 FROM videos v
-                JOIN users u ON v.user_id = u.id
+                JOIN users u ON v.userId = u.id
                 WHERE v.is_active = 1
                 ORDER BY v.created_at DESC
                 LIMIT ${Number(limit)} OFFSET ${Number(offset)}
@@ -95,32 +93,41 @@ exports.searchVideos = async (req, res) => {
  * POST /api/videos/:id/like — Toggle like (optimistic-friendly)
  */
 exports.likeVideo = async (req, res) => {
+    let connection;
     try {
         const videoId = parseInt(req.params.id);
         const userId = req.user.id;
 
-        const [existing] = await pool.query(
-            'SELECT id FROM likes WHERE user_id = ? AND video_id = ?',
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        const [existing] = await connection.query(
+            'SELECT id FROM likes WHERE userId = ? AND videoId = ?',
             [userId, videoId]
         );
 
         if (existing.length > 0) {
-            await pool.query('DELETE FROM likes WHERE user_id = ? AND video_id = ?', [userId, videoId]);
-            await pool.query('UPDATE videos SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [videoId]);
-
+            await connection.query('DELETE FROM likes WHERE userId = ? AND videoId = ?', [userId, videoId]);
+            await connection.query('UPDATE videos SET likes_count = GREATEST(0, likes_count - 1) WHERE id = ?', [videoId]);
+            
+            await connection.commit();
             const [[{ likes_count }]] = await pool.query('SELECT likes_count FROM videos WHERE id = ?', [videoId]);
             return res.json({ success: true, liked: false, likes_count });
         }
 
-        await pool.query('INSERT INTO likes (user_id, video_id) VALUES (?, ?)', [userId, videoId]);
-        await pool.query('UPDATE videos SET likes_count = likes_count + 1 WHERE id = ?', [videoId]);
+        await connection.query('INSERT INTO likes (userId, videoId) VALUES (?, ?)', [userId, videoId]);
+        await connection.query('UPDATE videos SET likes_count = likes_count + 1 WHERE id = ?', [videoId]);
 
+        await connection.commit();
         const [[{ likes_count }]] = await pool.query('SELECT likes_count FROM videos WHERE id = ?', [videoId]);
         res.json({ success: true, liked: true, likes_count });
 
     } catch (err) {
+        if (connection) await connection.rollback();
         console.error('Like error:', err.message);
         res.status(500).json({ error: 'Like operation failed' });
+    } finally {
+        if (connection) connection.release();
     }
 };
 
@@ -131,18 +138,16 @@ exports.viewVideo = async (req, res) => {
     let connection;
     try {
         const videoId = parseInt(req.params.id);
-        const userId = req.user?.id || null; // optionalAuth middleware should be present
+        const userId = req.user?.id || null;
 
         connection = await pool.getConnection();
         await connection.beginTransaction();
 
-        // 1. Insert into views table for auditing/session tracking
         await connection.query(
-            'INSERT INTO views (user_id, video_id) VALUES (?, ?)',
+            'INSERT INTO views (userId, videoId) VALUES (?, ?)',
             [userId, videoId]
         );
 
-        // 2. Atomic increment
         await connection.query(
             'UPDATE videos SET views_count = views_count + 1 WHERE id = ?',
             [videoId]
@@ -192,11 +197,11 @@ exports.getComments = async (req, res) => {
     try {
         const videoId = parseInt(req.params.id);
         const [comments] = await pool.query(`
-            SELECT c.id, c.text, c.created_at, c.user_id,
+            SELECT c.id, c.text, c.created_at, c.userId,
                    u.username, u.profile_photo
             FROM comments c
-            JOIN users u ON c.user_id = u.id
-            WHERE c.video_id = ?
+            JOIN users u ON c.userId = u.id
+            WHERE c.videoId = ?
             ORDER BY c.created_at DESC
             LIMIT 100
         `, [videoId]);
@@ -225,7 +230,7 @@ exports.addComment = async (req, res) => {
         }
 
         const [result] = await pool.query(
-            'INSERT INTO comments (user_id, video_id, text) VALUES (?, ?, ?)',
+            'INSERT INTO comments (userId, videoId, text) VALUES (?, ?, ?)',
             [userId, videoId, text.trim()]
         );
 
@@ -233,10 +238,10 @@ exports.addComment = async (req, res) => {
 
         // Fetch the created comment with user info
         const [[comment]] = await pool.query(`
-            SELECT c.id, c.text, c.created_at, c.user_id,
+            SELECT c.id, c.text, c.created_at, c.userId,
                    u.username, u.profile_photo
             FROM comments c
-            JOIN users u ON c.user_id = u.id
+            JOIN users u ON c.userId = u.id
             WHERE c.id = ?
         `, [result.insertId]);
 
@@ -258,7 +263,7 @@ exports.deleteComment = async (req, res) => {
         const userId = req.user.id;
 
         const [[comment]] = await pool.query(
-            'SELECT id, video_id FROM comments WHERE id = ? AND user_id = ?',
+            'SELECT id, videoId FROM comments WHERE id = ? AND userId = ?',
             [commentId, userId]
         );
 
@@ -269,10 +274,10 @@ exports.deleteComment = async (req, res) => {
         await pool.query('DELETE FROM comments WHERE id = ?', [commentId]);
         await pool.query(
             'UPDATE videos SET comments_count = GREATEST(0, comments_count - 1) WHERE id = ?',
-            [comment.video_id]
+            [comment.videoId]
         );
 
-        const [[{ comments_count }]] = await pool.query('SELECT comments_count FROM videos WHERE id = ?', [comment.video_id]);
+        const [[{ comments_count }]] = await pool.query('SELECT comments_count FROM videos WHERE id = ?', [comment.videoId]);
 
         res.json({ success: true, comments_count });
     } catch (err) {

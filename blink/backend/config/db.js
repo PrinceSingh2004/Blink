@@ -42,9 +42,9 @@ const initDB = async () => {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS videos (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                video_url TEXT NOT NULL,
-                thumbnail_url TEXT DEFAULT NULL,
+                userId INT NOT NULL,
+                videoUrl TEXT NOT NULL,
+                thumbnailUrl TEXT DEFAULT NULL,
                 caption TEXT DEFAULT NULL,
                 hashtags TEXT DEFAULT NULL,
                 duration INT DEFAULT 0,
@@ -53,42 +53,42 @@ const initDB = async () => {
                 comments_count INT DEFAULT 0,
                 is_active TINYINT(1) DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
             )
         `);
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS likes (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                video_id INT NOT NULL,
+                userId INT NOT NULL,
+                videoId INT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_like (user_id, video_id),
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+                UNIQUE KEY unique_like (userId, videoId),
+                FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (videoId) REFERENCES videos(id) ON DELETE CASCADE
             )
         `);
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS comments (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                video_id INT NOT NULL,
+                userId INT NOT NULL,
+                videoId INT NOT NULL,
                 text VARCHAR(1000) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+                FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (videoId) REFERENCES videos(id) ON DELETE CASCADE
             )
         `);
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS views (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT DEFAULT NULL,
-                video_id INT NOT NULL,
+                userId INT DEFAULT NULL,
+                videoId INT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+                FOREIGN KEY (userId) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (videoId) REFERENCES videos(id) ON DELETE CASCADE
             )
         `);
 
