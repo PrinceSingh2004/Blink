@@ -30,9 +30,9 @@ exports.getFeed = async (req, res) => {
                 LEFT JOIN likes l ON l.video_id = v.id AND l.user_id = ?
                 WHERE v.is_active = 1
                 ORDER BY v.created_at DESC
-                LIMIT ? OFFSET ?
+                LIMIT ${Number(limit)} OFFSET ${Number(offset)}
             `;
-            params = [userId, limit, offset];
+            params = [userId];
         } else {
             query = `
                 SELECT 
@@ -45,9 +45,9 @@ exports.getFeed = async (req, res) => {
                 JOIN users u ON v.user_id = u.id
                 WHERE v.is_active = 1
                 ORDER BY v.created_at DESC
-                LIMIT ? OFFSET ?
+                LIMIT ${Number(limit)} OFFSET ${Number(offset)}
             `;
-            params = [limit, offset];
+            params = [];
         }
 
         const [videos] = await pool.query(query, params);

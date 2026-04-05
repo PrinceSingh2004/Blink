@@ -35,9 +35,12 @@ class BlinkApp {
     detectApiBase() {
         const host = window.location.hostname;
         if (host === 'localhost' || host === '127.0.0.1') {
-            return `http://${host}:${window.location.port || 5000}`;
+            return `http://${host}:5000`; // Always point to node backend
         }
-        return window.location.origin;
+        if (window.location.protocol === 'file:') {
+            return 'http://localhost:5000';
+        }
+        return 'https://blink-yzoo.onrender.com';
     }
 
     /* ─────────────────────────────────────────────────────────
