@@ -23,7 +23,17 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
     storage,
     fileFilter,
-    limits: { fileSize: 500 * 1024 * 1024 } // 500MB
+    limits: { 
+        fileSize: 500 * 1024 * 1024 // 500MB
+    }
 });
 
-module.exports = { upload };
+// Middleware for debugging file receipt
+const logFileSize = (req, res, next) => {
+    if (req.file) {
+        console.log(`📤 Incoming upload: ${req.file.originalname} | Size: ${req.file.size} bytes | Type: ${req.file.mimetype}`);
+    }
+    next();
+};
+
+module.exports = { upload, logFileSize };

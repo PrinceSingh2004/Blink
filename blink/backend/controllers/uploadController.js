@@ -30,15 +30,23 @@ exports.uploadVideo = async (req, res) => {
         const userId = req.user.id;
         const { caption = '', hashtags = '' } = req.body;
 
-        if (!req.file) {
-            return res.status(400).json({ success: false, error: "No video file provided" });
+        if (!req.file || req.file.size === 0) {
+            return res.status(400).json({ 
+                success: false, 
+                error: "Invalid file (empty or not uploaded correctly)" 
+            });
         }
 
-        // ✅ UPLOAD VALIDATION: Max 100MB
-        const maxSize = 100 * 1024 * 1024;
+        // ✅ UPLOAD VALIDATION: Max 500MB
+        const maxSize = 500 * 1024 * 1024;
         if (req.file.size > maxSize) {
-            return res.status(400).json({ success: false, error: "Video exceeds 100MB limit" });
+            return res.status(400).json({ 
+                success: false, 
+                error: "Video exceeds 500MB limit" 
+            });
         }
+
+        console.log(`🚀 Processing video: ${req.file.originalname} | Size: ${req.file.size} bytes`);
 
         // ✅ CLOUDINARY ASYNC UPLOAD (Fixes "too large to process synchronously" error)
         // OLD: const result = await uploadToCloudinary(req.file.buffer, { resource_type: 'video' });
