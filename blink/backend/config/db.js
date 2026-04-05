@@ -81,6 +81,17 @@ const initDB = async () => {
             )
         `);
 
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS views (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT DEFAULT NULL,
+                video_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+            )
+        `);
+
         // Safe schema migrations — compatible with MySQL 5.7 and 8.0
         // Check if comments_count column exists before adding
         const [cols] = await pool.query(`

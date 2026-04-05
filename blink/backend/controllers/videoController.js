@@ -17,6 +17,8 @@ exports.getFeed = async (req, res) => {
 
         let query, params;
 
+        // Optimized Query: Standardized snake_case, 
+        // Efficient Join for liked_by_me, Cached counts for Performance
         if (userId) {
             query = `
                 SELECT 
@@ -51,10 +53,10 @@ exports.getFeed = async (req, res) => {
         }
 
         const [videos] = await pool.query(query, params);
-
         res.json({ success: true, data: videos, page, limit });
+
     } catch (err) {
-        console.error('Feed error:', err.code, err.sqlMessage || err.message);
+        console.error('Feed Error:', err.sqlMessage || err.message);
         res.status(500).json({ error: 'Failed to load feed', detail: err.sqlMessage || err.message });
     }
 };
@@ -126,12 +128,35 @@ exports.likeVideo = async (req, res) => {
  * POST /api/videos/:id/view — Session-aware view tracking
  */
 exports.viewVideo = async (req, res) => {
+    let connection;
     try {
         const videoId = parseInt(req.params.id);
-        await pool.query('UPDATE videos SET views_count = views_count + 1 WHERE id = ?', [videoId]);
+        const userId = req.user?.id || null; // optionalAuth middleware should be present
+
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+
+        // 1. Insert into views table for auditing/session tracking
+        await connection.query(
+            'INSERT INTO views (user_id, video_id) VALUES (?, ?)',
+            [userId, videoId]
+        );
+
+        // 2. Atomic increment
+        await connection.query(
+            'UPDATE videos SET views_count = views_count + 1 WHERE id = ?',
+            [videoId]
+        );
+
+        await connection.commit();
         res.json({ success: true });
+
     } catch (err) {
+        if (connection) await connection.rollback();
+        console.error('View tracking error:', err.message);
         res.status(500).json({ error: 'View tracking failed' });
+    } finally {
+        if (connection) connection.release();
     }
 };
 

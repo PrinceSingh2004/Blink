@@ -16,7 +16,7 @@ router.get('/user/:userId', getUserVideos);
 
 // Interactions
 router.post('/:id/like', protect, likeVideo);
-router.post('/:id/view', viewVideo);
+router.post('/:id/view', optionalAuth, viewVideo);
 
 // Comments
 router.get('/:id/comments', getComments);
