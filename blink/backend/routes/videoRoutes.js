@@ -18,6 +18,7 @@ router.get('/user/:userId', videoController.getUserVideos);
 // Interactions
 router.post('/:id/like', protect, videoController.likeVideo);
 router.post('/:id/view', optionalAuth, videoController.viewVideo);
+router.delete('/:id', protect, videoController.deleteVideo);
 
 // Comments
 router.get('/:id/comments', videoController.getComments);

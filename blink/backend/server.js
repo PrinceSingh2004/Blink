@@ -13,6 +13,8 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 const { initDB, testConnection } = require('./config/db');
+const { initSocket } = require('./utils/socket');
+const http = require('http');
 
 // ── Express App ────────────────────────────────────────
 const app = express();
@@ -66,6 +68,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/videos', require('./routes/videoRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
 
 // Comment delete (separate from video-scoped routes)
 const { deleteComment } = require('./controllers/videoController');
@@ -97,14 +100,17 @@ app.use((err, req, res, next) => {
 
 // ── Startup ────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
+const io = initSocket(server);
 
 const start = async () => {
     await testConnection();
     await initDB();
 
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
         console.log(`🚀 Blink server running on port ${PORT}`);
         console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`   Socket.IO: Ready`);
     });
 };
 

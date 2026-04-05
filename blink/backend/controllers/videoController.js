@@ -219,3 +219,48 @@ exports.getUserVideos = async (req, res) => {
         res.status(500).json({ error: 'Failed to load videos' });
     }
 };
+/**
+ * DELETE /api/videos/:id — Delete own video
+ */
+exports.deleteVideo = async (req, res) => {
+    try {
+        const videoId = parseInt(req.params.id);
+        const userId = req.user.id;
+
+        // 1. Verify Ownership
+        const [[video]] = await pool.query(
+            'SELECT id, video_url, user_id FROM videos WHERE id = ?',
+            [videoId]
+        );
+
+        if (!video) return res.status(404).json({ error: 'Video not found' });
+        if (video.user_id !== userId) return res.status(403).json({ error: 'Unauthorized to delete this video' });
+
+        console.log(`🗑️ User ${userId} deleting video ${videoId}`);
+
+        // 2. Clear Database (Atomic)
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            await connection.query('DELETE FROM likes WHERE video_id = ?', [videoId]);
+            await connection.query('DELETE FROM comments WHERE video_id = ?', [videoId]);
+            await connection.query('DELETE FROM views WHERE video_id = ?', [videoId]);
+            await connection.query('DELETE FROM videos WHERE id = ?', [videoId]);
+            await connection.commit();
+        } catch (dbErr) {
+            await connection.rollback();
+            throw dbErr;
+        } finally {
+            connection.release();
+        }
+
+        // 3. Cloudinary cleanup would normally go here using public_id
+        // Since we only store URL, we'd need to extract public_id or use a library
+        // skipping for now to prioritize stability.
+
+        res.json({ success: true, message: 'Video deleted successfully' });
+    } catch (err) {
+        console.error('Delete video error:', err.message);
+        res.status(500).json({ error: 'Failed to delete video' });
+    }
+};

@@ -37,6 +37,9 @@ exports.register = async (req, res) => {
 
         const token = jwt.sign({ id: result.insertId }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
+        // Phase 2: Register session in DB
+        await pool.query('INSERT INTO sessions (user_id, token) VALUES (?, ?)', [result.insertId, token]);
+
         res.status(201).json({
             success: true,
             token,
@@ -89,6 +92,9 @@ exports.login = async (req, res) => {
 
         const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
+        // Phase 2: Register session in DB
+        await pool.query('INSERT INTO sessions (user_id, token) VALUES (?, ?)', [user.id, token]);
+
         res.json({
             success: true,
             token,
@@ -124,5 +130,33 @@ exports.getMe = async (req, res) => {
     } catch (err) {
         console.error('GetMe error:', err.message);
         res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+};
+/**
+ * POST /api/auth/logout — Delete current session
+ */
+exports.logout = async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        const token = authHeader.split(' ')[1];
+
+        await pool.query('DELETE FROM sessions WHERE token = ?', [token]);
+        res.json({ success: true, message: 'Logged out successfully' });
+    } catch (err) {
+        console.error('Logout error:', err.message);
+        res.status(500).json({ error: 'Logout failed' });
+    }
+};
+
+/**
+ * POST /api/auth/logout-all — Delete all user sessions
+ */
+exports.logoutAll = async (req, res) => {
+    try {
+        await pool.query('DELETE FROM sessions WHERE user_id = ?', [req.user.id]);
+        res.json({ success: true, message: 'Logged out from all devices' });
+    } catch (err) {
+        console.error('Logout-all error:', err.message);
+        res.status(500).json({ error: 'Logout-all failed' });
     }
 };
