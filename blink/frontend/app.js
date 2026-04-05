@@ -238,8 +238,17 @@ class BlinkApp {
         localStorage.setItem('blink_user', JSON.stringify(user));
     }
 
-    logout() {
-        this.token = null; this.user = null;
+    async logout() {
+        try {
+            // Server-side logout (clears session in DB)
+            await this.api('/auth/logout', { method: 'POST' });
+        } catch (err) {
+            console.error('Logout API failed:', err);
+        }
+
+        // Client-side cleanup
+        this.token = null; 
+        this.user = null;
         localStorage.removeItem('blink_token');
         localStorage.removeItem('blink_user');
         window.location.reload();
