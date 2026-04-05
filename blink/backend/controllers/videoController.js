@@ -10,52 +10,35 @@ const { pool } = require('../config/db');
  */
 exports.getFeed = async (req, res) => {
     try {
-        const page = Math.max(1, parseInt(req.query.page) || 1);
-        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-        const offset = (page - 1) * limit;
         const userId = req.user?.id || null;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = (page - 1) * limit;
 
-        let query, params;
+        const [videos] = await pool.query(`
+            SELECT 
+                v.id, v.videoUrl, v.caption, v.createdAt,
+                u.username, u.profile_photo AS profilePic,
+                COUNT(DISTINCT l.id) AS likeCount,
+                COUNT(DISTINCT c.id) AS commentCount,
+                COUNT(DISTINCT vw.id) AS viewCount,
+                IF(MAX(CASE WHEN l.userId = ? THEN 1 ELSE 0 END) = 1, 1, 0) AS isLiked
+            FROM videos v
+            JOIN users u ON v.userId = u.id
+            LEFT JOIN likes l ON l.videoId = v.id
+            LEFT JOIN comments c ON c.videoId = v.id
+            LEFT JOIN views vw ON vw.videoId = v.id
+            WHERE v.is_active = 1
+            GROUP BY v.id
+            ORDER BY v.createdAt DESC
+            LIMIT ? OFFSET ?
+        `, [userId, limit, offset]);
 
-        if (userId) {
-            query = `
-                SELECT 
-                    v.id, v.userId, v.videoUrl, v.thumbnailUrl,
-                    v.caption, v.hashtags, v.duration,
-                    v.likes_count, v.views_count, v.comments_count, v.created_at,
-                    u.username, u.profile_photo,
-                    IF(l.id IS NOT NULL, 1, 0) AS liked_by_me
-                FROM videos v
-                JOIN users u ON v.userId = u.id
-                LEFT JOIN likes l ON l.videoId = v.id AND l.userId = ?
-                WHERE v.is_active = 1
-                ORDER BY v.created_at DESC
-                LIMIT ${Number(limit)} OFFSET ${Number(offset)}
-            `;
-            params = [userId];
-        } else {
-            query = `
-                SELECT 
-                    v.id, v.userId, v.videoUrl, v.thumbnailUrl,
-                    v.caption, v.hashtags, v.duration,
-                    v.likes_count, v.views_count, v.comments_count, v.created_at,
-                    u.username, u.profile_photo,
-                    0 AS liked_by_me
-                FROM videos v
-                JOIN users u ON v.userId = u.id
-                WHERE v.is_active = 1
-                ORDER BY v.created_at DESC
-                LIMIT ${Number(limit)} OFFSET ${Number(offset)}
-            `;
-            params = [];
-        }
-
-        const [videos] = await pool.query(query, params);
-        res.json({ success: true, data: videos, page, limit });
+        res.json({ success: true, videos });
 
     } catch (err) {
-        console.error('Feed Error:', err.sqlMessage || err.message);
-        res.status(500).json({ error: 'Failed to load feed', detail: err.sqlMessage || err.message });
+        console.error('Feed Error:', err.message);
+        res.status(500).json({ error: err.message });
     }
 };
 
