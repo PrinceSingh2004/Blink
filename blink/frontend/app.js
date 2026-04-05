@@ -251,12 +251,25 @@ class BlinkApp {
             this.setupReelInteractions();
             this.setupAutoplay();
         } catch (err) {
+            this.feedLoaded = false; // allow retry
             container.innerHTML = `
                 <div class="feed-empty">
                     <i class="bi bi-wifi-off"></i>
                     <h2>Connection Error</h2>
-                    <p>${err.message}</p>
+                    <p>${err.message || 'Failed to load feed'}</p>
+                    <button id="retryFeedBtn" style="
+                        margin-top:1.5rem;
+                        padding:.75rem 2rem;
+                        background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                        border:none; border-radius:999px;
+                        color:#fff; font-size:.95rem;
+                        font-weight:600; cursor:pointer;
+                        box-shadow:0 4px 20px rgba(99,102,241,.4);
+                    ">
+                        <i class="bi bi-arrow-clockwise"></i> Retry
+                    </button>
                 </div>`;
+            document.getElementById('retryFeedBtn')?.addEventListener('click', () => this.loadFeed());
         }
     }
 
