@@ -282,8 +282,8 @@ class BlinkApp {
         const avatar = video.profile_photo || `https://ui-avatars.com/api/?name=${video.username}&background=6366f1&color=fff&size=80`;
         const likedClass = video.liked_by_me ? 'liked' : '';
         return `
-        <div class="reel-card" data-id="${video.id}" data-user-id="${video.user_id}">
-            <video src="${video.video_url}" loop playsinline preload="metadata" muted></video>
+        <div class="reel-card" data-id="${video.id}" data-userId="${video.userId}">
+            <video src="${video.videoUrl}" loop playsinline preload="metadata" muted></video>
             <div class="reel-overlay"></div>
             <div class="reel-play-indicator"><i class="bi bi-play-fill"></i></div>
             <div class="double-tap-heart"><i class="bi bi-heart-fill"></i></div>
