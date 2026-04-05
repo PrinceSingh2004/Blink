@@ -199,3 +199,46 @@ exports.deleteComment = async (req, res) => {
         res.status(500).json({ error: 'Failed to delete comment' });
     }
 };
+
+/**
+ * GET /api/videos/search?q=keyword
+ */
+exports.searchVideos = async (req, res) => {
+    try {
+        const q = (req.query.q || '').trim();
+        const videoUserCol = await getColumn('videos', ['userId', 'user_id']);
+        const videoUrlCol = await getColumn('videos', ['videoUrl', 'video_url']);
+
+        const [videos] = await pool.query(`
+            SELECT v.id, v.${videoUrlCol || 'videoUrl'} AS videoUrl, v.caption, u.username
+            FROM videos v
+            JOIN users u ON v.${videoUserCol || 'userId'} = u.id
+            WHERE v.is_active = 1 AND (v.caption LIKE ? OR u.username LIKE ?)
+            LIMIT 20
+        `, [`%${q}%`, `%${q}%`]);
+        res.json({ success: true, data: videos });
+    } catch (err) {
+        res.status(500).json({ error: 'Search failed' });
+    }
+};
+
+/**
+ * GET /api/videos/user/:userId — Get user's videos
+ */
+exports.getUserVideos = async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId);
+        const videoUserCol = await getColumn('videos', ['userId', 'user_id']);
+        const videoUrlCol = await getColumn('videos', ['videoUrl', 'video_url']);
+
+        const [videos] = await pool.query(`
+            SELECT id, ${videoUrlCol || 'videoUrl'} AS videoUrl, caption, created_at
+            FROM videos
+            WHERE ${videoUserCol || 'userId'} = ? AND is_active = 1
+            ORDER BY created_at DESC
+        `, [userId]);
+        res.json({ success: true, data: videos });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to load videos' });
+    }
+};
