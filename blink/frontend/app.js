@@ -1006,20 +1006,12 @@ class BlinkApp {
         let selectedFile = null;
 
         dropzone?.addEventListener('click', () => fileInput?.click());
-        dropzone?.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
-        dropzone?.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-        dropzone?.addEventListener('drop', (e) => {
-            e.preventDefault(); dropzone.classList.remove('dragover');
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('video/')) selectFile(file);
-        });
-
         fileInput?.addEventListener('change', () => {
             if (fileInput.files[0]) selectFile(fileInput.files[0]);
         });
 
         const selectFile = (file) => {
-            if (file.size > 100 * 1024 * 1024) { this.showToast('File too large. Max 100MB.', 'error'); return; }
+            if (file.size > 500 * 1024 * 1024) { this.showToast('File too large. Max 500MB.', 'error'); return; }
             selectedFile = file;
             preview.src = URL.createObjectURL(file);
             preview.play();
@@ -1027,76 +1019,66 @@ class BlinkApp {
             form.style.display = 'block';
         };
 
-        changeBtn?.addEventListener('click', () => {
-            selectedFile = null; form.style.display = 'none';
-            dropzone.style.display = 'block'; fileInput.value = '';
-        });
-
-        captionInput?.addEventListener('input', () => {
-            captionCount.textContent = `${captionInput.value.length}/500`;
-        });
-
         uploadBtn?.addEventListener('click', async () => {
-            if (!selectedFile) { this.showToast('Select a video first', 'error'); return; }
-
-            const caption = document.getElementById('uploadCaption')?.value || '';
-            const hashtags = document.getElementById('uploadHashtags')?.value || '';
-
-            const formData = new FormData();
-            formData.append('video', selectedFile);
-            formData.append('caption', caption);
-            formData.append('hashtags', hashtags);
-
-            this.setButtonLoading(uploadBtn, true);
-            const progressDiv = document.getElementById('uploadProgress');
-
-            form.style.display = 'none';
-            progressDiv.style.display = 'block';
+            if (!selectedFile) return;
             
-            // Phase 6: Upload Progress via XHR
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', `${this.API_BASE}/api/upload/video`);
-            if (this.token) xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+            const performUpload = async (retryCount = 0) => {
+                const formData = new FormData();
+                formData.append('video', selectedFile);
+                formData.append('caption', document.getElementById('uploadCaption')?.value || '');
 
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const percent = Math.round((e.loaded / e.total) * 100);
-                    document.getElementById('progressText').textContent = `${percent}%`;
-                    const offset = 283 - (283 * percent) / 100;
-                    document.getElementById('progressCircle').style.strokeDashoffset = offset;
-                }
+                this.setButtonLoading(uploadBtn, true);
+                const progressDiv = document.getElementById('uploadProgress');
+                form.style.display = 'none';
+                progressDiv.style.display = 'block';
+
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `${this.API_BASE}/api/upload/video`);
+                if (this.token) xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        document.getElementById('progressText').textContent = `${percent}%`;
+                        const offset = 283 - (283 * percent) / 100;
+                        document.getElementById('progressCircle').style.strokeDashoffset = offset;
+                    }
+                };
+
+                xhr.onload = () => {
+                    let data;
+                    try { data = JSON.parse(xhr.responseText); } catch(e) { data = {}; }
+
+                    if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+                        this.showToast('Video published! 🎬', 'success');
+                        this.feedLoaded = false;
+                        location.reload(); // Hard reload for stability
+                    } else if (retryCount < 2) {
+                        console.log(`Retrying upload... attempt ${retryCount + 1}`);
+                        performUpload(retryCount + 1);
+                    } else {
+                        this.setButtonLoading(uploadBtn, false);
+                        this.showToast(`Upload failed: ${data.error || 'Server error'}`, 'error');
+                        progressDiv.style.display = 'none';
+                        form.style.display = 'block';
+                    }
+                };
+
+                xhr.onerror = () => {
+                    if (retryCount < 2) {
+                        performUpload(retryCount + 1);
+                    } else {
+                        this.setButtonLoading(uploadBtn, false);
+                        this.showToast('Upload failed: Connection error. Check your network.', 'error');
+                        progressDiv.style.display = 'none';
+                        form.style.display = 'block';
+                    }
+                };
+
+                xhr.send(formData);
             };
 
-            xhr.onload = () => {
-                this.setButtonLoading(uploadBtn, false);
-                const data = JSON.parse(xhr.responseText);
-                if (xhr.status >= 200 && xhr.status < 300 && data.success) {
-                    this.showToast('Video published! 🎬', 'success');
-                    this.feedLoaded = false;
-                    selectedFile = null; 
-                    if(fileInput) fileInput.value = '';
-                    if(form) form.style.display = 'none';
-                    if(dropzone) dropzone.style.display = 'block';
-                    if(document.getElementById('uploadCaption')) document.getElementById('uploadCaption').value = '';
-                    if(document.getElementById('uploadHashtags')) document.getElementById('uploadHashtags').value = '';
-                    if(captionCount) captionCount.textContent = '0/500';
-                    progressDiv.style.display = 'none';
-                    this.navigateTo('feed');
-                } else {
-                    this.showToast(`Upload failed: ${data.error || 'Server error'}`, 'error');
-                    progressDiv.style.display = 'none';
-                    if(form) form.style.display = 'block';
-                }
-            };
-
-            xhr.onerror = () => {
-                this.setButtonLoading(uploadBtn, false);
-                this.showToast('Upload failed: Connection error', 'error');
-                progressDiv.style.display = 'none';
-                if(form) form.style.display = 'block';
-            };
-
-            xhr.send(formData);
+            performUpload();
         });
     }
 

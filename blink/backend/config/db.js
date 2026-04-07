@@ -40,11 +40,21 @@ const initDB = async () => {
         `);
 
         await pool.query(`
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                token TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS videos (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                userId INT NOT NULL,
-                videoUrl TEXT NOT NULL,
-                thumbnailUrl TEXT DEFAULT NULL,
+                user_id INT NOT NULL,
+                video_url TEXT NOT NULL,
+                thumbnail_url TEXT DEFAULT NULL,
                 caption TEXT DEFAULT NULL,
                 hashtags TEXT DEFAULT NULL,
                 duration INT DEFAULT 0,
@@ -53,106 +63,68 @@ const initDB = async () => {
                 comments_count INT DEFAULT 0,
                 is_active TINYINT(1) DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         `);
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS likes (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                userId INT NOT NULL,
-                videoId INT NOT NULL,
+                user_id INT NOT NULL,
+                video_id INT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_like (userId, videoId),
-                FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (videoId) REFERENCES videos(id) ON DELETE CASCADE
+                UNIQUE KEY unique_like (user_id, video_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
             )
         `);
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS comments (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                userId INT NOT NULL,
-                videoId INT NOT NULL,
+                user_id INT NOT NULL,
+                video_id INT NOT NULL,
                 text VARCHAR(1000) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (videoId) REFERENCES videos(id) ON DELETE CASCADE
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
             )
         `);
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS views (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                userId INT DEFAULT NULL,
-                videoId INT NOT NULL,
+                user_id INT DEFAULT NULL,
+                video_id INT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (userId) REFERENCES users(id) ON DELETE SET NULL,
-                FOREIGN KEY (videoId) REFERENCES videos(id) ON DELETE CASCADE
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
             )
         `);
 
-        // Safe schema migrations — compatible with MySQL 5.7 and 8.0
-        // Check if comments_count column exists before adding
-        const [cols] = await pool.query(`
-            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'videos'
-              AND COLUMN_NAME = 'comments_count'
-        `);
-        if (cols.length === 0) {
-            await pool.query(`ALTER TABLE videos ADD COLUMN comments_count INT DEFAULT 0`);
-            console.log('✅ Added missing comments_count column.');
+        // Safe migrations: check and add user_id column to videos if userId exists or if both missing
+        const [vCols] = await pool.query(`SHOW COLUMNS FROM videos`);
+        const colNames = vCols.map(c => c.Field);
+        
+        if (colNames.includes('userId') && !colNames.includes('user_id')) {
+            await pool.query(`ALTER TABLE videos CHANGE userId user_id INT NOT NULL`);
+            console.log('✅ Migrated videos.userId to user_id');
+        } else if (!colNames.includes('user_id')) {
+            await pool.query(`ALTER TABLE videos ADD COLUMN user_id INT NOT NULL AFTER id`);
+            console.log('✅ Added missing user_id column to videos.');
         }
 
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user1_id INT NOT NULL,
-                user2_id INT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_conv (user1_id, user2_id),
-                FOREIGN KEY (user1_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (user2_id) REFERENCES users(id) ON DELETE CASCADE
-            )
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS messages (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                conversation_id INT NOT NULL,
-                sender_id INT NOT NULL,
-                text TEXT DEFAULT NULL,
-                media_url TEXT DEFAULT NULL,
-                seen TINYINT(1) DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
-                FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
-            )
-        `);
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS follows (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                follower_id INT NOT NULL,
-                following_id INT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_follow (follower_id, following_id),
-                FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (following_id) REFERENCES users(id) ON DELETE CASCADE
-            )
-        `);
-
-        // Safe schema migrations
-        const [mCols] = await pool.query(`
-            SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'messages'
-              AND COLUMN_NAME = 'conversation_id'
-        `);
-        if (mCols.length === 0) {
-            await pool.query(`ALTER TABLE messages ADD COLUMN conversation_id INT NOT NULL`);
-            console.log('✅ Added missing conversation_id column to messages.');
+        // Fix remaining tables
+        const tables = ['likes', 'comments', 'views'];
+        for (const table of tables) {
+            const [tCols] = await pool.query(`SHOW COLUMNS FROM ${table}`);
+            const tColNames = tCols.map(c => c.Field);
+            if (tColNames.includes('userId') && !tColNames.includes('user_id')) {
+                await pool.query(`ALTER TABLE ${table} CHANGE userId user_id INT NOT NULL`);
+            }
+            if (tColNames.includes('videoId') && !tColNames.includes('video_id')) {
+                await pool.query(`ALTER TABLE ${table} CHANGE videoId video_id INT NOT NULL`);
+            }
         }
 
         console.log('✅ Database schema synchronized.');

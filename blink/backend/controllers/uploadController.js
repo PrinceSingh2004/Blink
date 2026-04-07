@@ -23,82 +23,55 @@ const uploadToCloudinary = (buffer, options) => {
 };
 
 /**
- * POST /api/upload/video — Upload video to Cloudinary
+ * POST /api/upload/video — Upload video with stability fixes
  */
 exports.uploadVideo = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { caption = '', hashtags = '' } = req.body;
+        const { caption = '' } = req.body;
 
-        if (!req.file || req.file.size === 0) {
-            return res.status(400).json({ 
-                success: false, 
-                error: "Invalid file (empty or not uploaded correctly)" 
-            });
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: "No video file provided" });
         }
 
-        // ✅ UPLOAD VALIDATION: Max 500MB
-        const maxSize = 500 * 1024 * 1024;
-        if (req.file.size > maxSize) {
-            return res.status(400).json({ 
-                success: false, 
-                error: "Video exceeds 500MB limit" 
-            });
+        if (!userId) {
+            return res.status(401).json({ success: false, error: "Unauthorized" });
         }
 
-        console.log(`🚀 Processing video: ${req.file.originalname} | Size: ${req.file.size} bytes`);
+        console.log(`🚀 Uploading: ${req.file.originalname} | Size: ${req.file.size}`);
 
-        // ✅ CLOUDINARY ASYNC UPLOAD (Fixes "too large to process synchronously" error)
-        // OLD: const result = await uploadToCloudinary(req.file.buffer, { resource_type: 'video' });
+        // 1. Upload to Cloudinary (using streamifier for memory storage)
         const result = await uploadToCloudinary(req.file.buffer, {
             resource_type: 'video',
             folder: 'blink/videos',
-            public_id: `vid_${userId}_${Date.now()}`,
-            eager: [{ quality: "auto", fetch_format: "mp4" }],
-            eager_async: true,  // ✅ Fixed timeout via async processing
-            timeout: 120000,    // 2 min timeout
-            quality: 'auto',
-            format: 'mp4'
+            timeout: 300000 // 5 min timeout for slow networks
         });
 
-        console.log('☁️ Cloudinary result:', result.secure_url);
-
-        // Verify URL: Use secure_url or fallback to eager[0]
-        const videoUrl = result.secure_url || (result.eager && result.eager[0]?.secure_url);
-        
-        if (!videoUrl) {
-            throw new Error('Could not generate a valid video URL from Cloudinary');
+        if (!result || !result.secure_url) {
+            throw new Error('Cloudinary upload returned no URL');
         }
 
-        const duration = Math.round(result.duration || 0);
-
-        // Save to database - Fix: user_id INT, video_url TEXT
+        // 2. Insert into DB (Fix column names)
         const [dbResult] = await pool.query(
-            `INSERT INTO videos (user_id, video_url, caption, hashtags, duration)
-             VALUES (?, ?, ?, ?, ?)`,
-            [userId, videoUrl, caption.trim(), hashtags.trim(), duration]
+            'INSERT INTO videos (user_id, video_url, caption, duration) VALUES (?, ?, ?, ?)',
+            [userId, result.secure_url, caption.trim(), Math.round(result.duration || 0)]
         );
-
-        console.log('✅ Video saved to DB:', dbResult.insertId);
 
         res.status(201).json({
             success: true,
             message: 'Video uploaded successfully',
             video: {
                 id: dbResult.insertId,
-                videoUrl: videoUrl,
-                caption: caption.trim(),
-                duration
+                video_url: result.secure_url,
+                caption: caption.trim()
             }
         });
 
     } catch (err) {
-        console.error('🔥 UPLOAD FAILED:', err.message);
-        // Failsafe: Do not crash server, return 500
+        console.error('🔥 Upload Error:', err.message);
         res.status(500).json({ 
             success: false, 
-            error: 'Video upload failed', 
-            details: err.message 
+            error: err.message || 'Server upload failed'
         });
     }
 };

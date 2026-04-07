@@ -27,25 +27,23 @@ app.use(helmet({
 }));
 
 // ── CORS ───────────────────────────────────────────────
-app.set('trust proxy', 1); // Fix for Render proxy
 app.use(cors({
-    origin: ['https://blink-yzoo.onrender.com', 'http://localhost:3000'],
+    origin: '*',
     credentials: true
 }));
 
 // ── Body Parsing ───────────────────────────────────────
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// ── Rate Limiting ──────────────────────────────────────
-const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 min
-    max: 200,
-    message: { error: 'Too many requests. Try again later.' },
-    standardHeaders: true,
-    legacyHeaders: false
-});
-app.use('/api/', apiLimiter);
+// ── Ensure Uploads Folder exists ─────────────────────
+const fs = require('fs');
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
+app.use('/uploads', express.static(uploadDir));
+
 
 // ── Health Check ───────────────────────────────────────
 app.get('/health', (req, res) => {
