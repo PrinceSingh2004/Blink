@@ -8,6 +8,7 @@
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
 const { pool } = require('../config/db');
+const { getColumn } = require('../utils/columnMapper');
 
 /**
  * Helper: Upload buffer to Cloudinary via stream
@@ -51,9 +52,12 @@ exports.uploadVideo = async (req, res) => {
             throw new Error('Cloudinary upload returned no URL');
         }
 
-        // 2. Insert into DB (Fix column names)
+        // 2. Insert into DB (Dynamic column detection)
+        const userCol = await getColumn('videos', ['user_id', 'userId', 'creator_id']) || 'user_id';
+        const urlCol = await getColumn('videos', ['video_url', 'videoUrl', 'url']) || 'video_url';
+
         const [dbResult] = await pool.query(
-            'INSERT INTO videos (user_id, video_url, caption, duration) VALUES (?, ?, ?, ?)',
+            `INSERT INTO videos (${userCol}, ${urlCol}, caption, duration) VALUES (?, ?, ?, ?)`,
             [userId, result.secure_url, caption.trim(), Math.round(result.duration || 0)]
         );
 

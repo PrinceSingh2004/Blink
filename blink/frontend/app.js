@@ -220,7 +220,6 @@ class BlinkApp {
 
         document.getElementById('logoutBtn')?.addEventListener('click', () => this.logout());
         document.getElementById('mobileLogoutBtn')?.addEventListener('click', (e) => { e.preventDefault(); this.logout(); });
-        document.getElementById('profilePageLogoutBtn')?.addEventListener('click', (e) => { e.preventDefault(); this.logout(); });
         document.getElementById('logoutBtnDropdown')?.addEventListener('click', (e) => { e.preventDefault(); this.logout(); });
 
         // Toggle User Dropdown
@@ -853,10 +852,14 @@ class BlinkApp {
                 const avatarUrl = u.profile_photo || `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
                 document.getElementById('profileAvatar').src = avatarUrl;
 
+                // Update sidebar too
+                this.user = { ...this.user, ...u };
+                localStorage.setItem('blink_user', JSON.stringify(this.user));
+                this.updateSidebar();
+
                 this.loadUserVideos(u.id, 'profileVideos');
                 
-                // Bind Profile Actions
-                document.getElementById('logoutBtnProfile').onclick = () => this.logout();
+                // Bind delete action
                 document.getElementById('deleteModeBtn').onclick = () => this.deleteSelected();
             }
         } catch (err) {
@@ -997,8 +1000,9 @@ class BlinkApp {
     enterSelectionMode() {
         if (!this.user || this.currentPage !== 'profile') return;
         this.isSelectionMode = true;
+        const actionsMain = document.getElementById('profileActionsMain');
+        if (actionsMain) actionsMain.style.display = 'block';
         document.getElementById('deleteModeBtn').style.display = 'block';
-        document.getElementById('logoutBtnProfile').style.display = 'none';
         document.querySelectorAll('.profile-video-card').forEach(c => c.classList.add('selecting'));
     }
 
@@ -1006,7 +1010,8 @@ class BlinkApp {
         this.isSelectionMode = false;
         this.selectedVideos.clear();
         document.getElementById('deleteModeBtn').style.display = 'none';
-        document.getElementById('logoutBtnProfile').style.display = 'block';
+        const actionsMain = document.getElementById('profileActionsMain');
+        if (actionsMain) actionsMain.style.display = 'none';
         document.getElementById('deleteCount').textContent = '0';
         document.querySelectorAll('.profile-video-card').forEach(c => {
             c.classList.remove('selecting', 'selected');
@@ -1062,14 +1067,21 @@ class BlinkApp {
             clearTimeout(debounce);
             const q = input.value.trim();
             clearBtn.style.display = q ? 'block' : 'none';
-            if (q.length < 2) { this.renderSearchResults([]); return; }
+            if (q.length < 2) {
+                // Restore explore grid when search is cleared
+                this.exploreLoaded = false;
+                this.loadExplore();
+                return;
+            }
             debounce = setTimeout(() => this.searchUsers(q), 400);
         });
 
         clearBtn?.addEventListener('click', () => {
             input.value = '';
             clearBtn.style.display = 'none';
-            this.renderSearchResults([]);
+            // Restore explore grid
+            this.exploreLoaded = false;
+            this.loadExplore();
         });
     }
 
