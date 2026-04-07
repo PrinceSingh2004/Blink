@@ -361,29 +361,42 @@ class BlinkApp {
             const videos = data?.data || [];
             this.exploreLoaded = true;
 
+            grid.innerHTML = ""; // Clear before rendering
+
             if (videos.length === 0) {
-                // Keep default search empty text
+                grid.innerHTML = '<div class="explore-empty"><p>No videos available right now</p></div>';
                 return;
             }
 
-            grid.innerHTML = videos.map(v => `
-                <div class="explore-grid-item" data-id="${v.id}">
-                    <img src="${v.videoUrl}" onerror="this.src='https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=300&h=500&auto=format&fit=crop'">
-                    <div class="explore-info">
-                        <div class="explore-username">@${v.username}</div>
-                    </div>
-                </div>
-            `).join('');
+            videos.forEach(video => {
+                if (!video.videoUrl) return;
 
-            grid.querySelectorAll('.explore-grid-item').forEach(item => {
-                item.onclick = () => {
-                    // In a real app we'd open a full screen player. 
-                    // For now, let's just go to feed (simplification)
-                    this.navigateTo('feed');
-                }
+                const card = document.createElement("div");
+                card.className = "explore-video-card";
+                card.dataset.id = video.id;
+                
+                card.innerHTML = `
+                    <video src="${video.videoUrl}" muted playsinline preload="none" loop></video>
+                    <div class="explore-info">@${video.username}</div>
+                `;
+
+                // Toggle play/pause on click
+                card.onclick = () => {
+                    const vid = card.querySelector('video');
+                    if (vid.paused) {
+                        // Pause others for performance
+                        grid.querySelectorAll('video').forEach(v => v.pause());
+                        vid.play();
+                    } else {
+                        vid.pause();
+                    }
+                };
+
+                grid.appendChild(card);
             });
         } catch(err) {
             console.error('Explore load error:', err);
+            grid.innerHTML = '<div class="explore-empty"><p>Failed to load explore feed</p></div>';
         }
     }
 
