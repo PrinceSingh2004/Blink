@@ -69,16 +69,18 @@ exports.getMessages = async (req, res) => {
 };
 
 /**
- * POST /api/messages — Send a message (also starts conv if needed)
+ * POST /api/chat/messages — Send a message or Initialize chat
  */
 exports.sendMessage = async (req, res) => {
     try {
         const senderId = req.user.id;
-        const { receiverId, text, mediaUrl } = req.body;
+        const { receiverId, text = '' } = req.body;
 
-        if (!receiverId) return res.status(400).json({ error: 'Receiver required' });
+        if (!receiverId) {
+            return res.status(400).json({ error: 'Receiver ID is required' });
+        }
 
-        // Find or create conversation
+        // 1. Find or Create Conversation (Order user IDs to keep unique pair)
         const u1 = Math.min(senderId, receiverId);
         const u2 = Math.max(senderId, receiverId);
 
@@ -95,17 +97,21 @@ exports.sendMessage = async (req, res) => {
             conv = { id: result.insertId };
         }
 
-        const [msgResult] = await pool.query(
-            'INSERT INTO messages (conversation_id, sender_id, text, media_url) VALUES (?, ?, ?, ?)',
-            [conv.id, senderId, text || null, mediaUrl || null]
-        );
+        // 2. If text is provided, save message
+        if (text && text.trim().length > 0) {
+            await pool.query(
+                'INSERT INTO messages (conversation_id, sender_id, text) VALUES (?, ?, ?)',
+                [conv.id, senderId, text.trim()]
+            );
+        }
 
         res.status(201).json({ 
             success: true, 
-            messageId: msgResult.insertId,
             conversationId: conv.id 
         });
+
     } catch (err) {
-        res.status(500).json({ error: 'Failed to send message' });
+        console.error('🔥 Send message error:', err.message);
+        res.status(500).json({ error: 'Failed to start or send message' });
     }
 };

@@ -8,8 +8,10 @@ class BlinkApp {
         this.API_BASE = this.detectApiBase();
         this.token = localStorage.getItem('blink_token');
         this.user = this.loadUser();
-        this.currentPage = 'feed';
         this.feedLoaded = false;
+        this.exploreLoaded = false;
+        this.selectedVideos = new Set();
+        this.isSelectionMode = false;
         this.feedObserver = null;
         this.isMuted = true;           // Feature 6: mute state
         this.viewedVideos = new Set();  // Feature 5: session-based view tracking
@@ -338,6 +340,7 @@ class BlinkApp {
         this.currentPage = page;
 
         if (page === 'feed' && !this.feedLoaded) this.loadFeed();
+        if (page === 'explore' && !this.exploreLoaded) this.loadExplore();
         if (page === 'profile') this.loadProfile();
         if (page === 'chat') {
             this.loadConversations();
@@ -346,6 +349,41 @@ class BlinkApp {
             if (panel) panel.classList.remove('hidden');
             const window = document.getElementById('chatWindowPanel');
             if (window) window.classList.remove('active');
+        }
+    }
+
+    async loadExplore() {
+        const grid = document.getElementById('exploreGrid');
+        if (!grid) return;
+        
+        try {
+            const data = await this.api('/videos/explore');
+            const videos = data?.data || [];
+            this.exploreLoaded = true;
+
+            if (videos.length === 0) {
+                // Keep default search empty text
+                return;
+            }
+
+            grid.innerHTML = videos.map(v => `
+                <div class="explore-grid-item" data-id="${v.id}">
+                    <img src="${v.videoUrl}" onerror="this.src='https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=300&h=500&auto=format&fit=crop'">
+                    <div class="explore-info">
+                        <div class="explore-username">@${v.username}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            grid.querySelectorAll('.explore-grid-item').forEach(item => {
+                item.onclick = () => {
+                    // In a real app we'd open a full screen player. 
+                    // For now, let's just go to feed (simplification)
+                    this.navigateTo('feed');
+                }
+            });
+        } catch(err) {
+            console.error('Explore load error:', err);
         }
     }
 
@@ -803,6 +841,10 @@ class BlinkApp {
                 document.getElementById('profileAvatar').src = avatarUrl;
 
                 this.loadUserVideos(u.id, 'profileVideos');
+                
+                // Bind Profile Actions
+                document.getElementById('logoutBtnProfile').onclick = () => this.logout();
+                document.getElementById('deleteModeBtn').onclick = () => this.deleteSelected();
             }
         } catch (err) {
             console.error('Profile load error:', err);
@@ -908,22 +950,90 @@ class BlinkApp {
                 </div>`;
             }).join('');
 
-            // Bind delete
+            // Bind selection/click
+            container.querySelectorAll('.profile-video-card').forEach(card => {
+                card.onclick = () => {
+                    if (this.isSelectionMode) {
+                        this.toggleVideoSelection(card);
+                    } else {
+                        // Open full video view would go here
+                    }
+                };
+                
+                // Long press to enter selection mode
+                let pressTimer;
+                card.onmousedown = card.ontouchstart = () => {
+                    pressTimer = setTimeout(() => this.enterSelectionMode(), 600);
+                };
+                card.onmouseup = card.ontouchend = () => clearTimeout(pressTimer);
+            });
+
+            // Legacy individual delete if needed (but we moved to bulk)
             container.querySelectorAll('.video-delete-btn').forEach(btn => {
-                btn.onclick = async (e) => {
+                btn.onclick = (e) => {
                     e.stopPropagation();
-                    if (!confirm('Delete this video forever?')) return;
-                    try {
-                        const res = await this.api(`/videos/${btn.dataset.id}`, { method: 'DELETE' });
-                        if (res?.success) {
-                            btn.closest('.profile-video-card').remove();
-                            this.showToast('Video deleted');
-                        }
-                    } catch (err) { this.showToast('Delete failed', 'error'); }
+                    this.enterSelectionMode();
+                    this.toggleVideoSelection(btn.closest('.profile-video-card'));
                 };
             });
         } catch {
             container.innerHTML = '<div class="profile-empty"><p>Failed to load videos</p></div>';
+        }
+    }
+
+    enterSelectionMode() {
+        if (!this.user || this.currentPage !== 'profile') return;
+        this.isSelectionMode = true;
+        document.getElementById('deleteModeBtn').style.display = 'block';
+        document.getElementById('logoutBtnProfile').style.display = 'none';
+        document.querySelectorAll('.profile-video-card').forEach(c => c.classList.add('selecting'));
+    }
+
+    exitSelectionMode() {
+        this.isSelectionMode = false;
+        this.selectedVideos.clear();
+        document.getElementById('deleteModeBtn').style.display = 'none';
+        document.getElementById('logoutBtnProfile').style.display = 'block';
+        document.getElementById('deleteCount').textContent = '0';
+        document.querySelectorAll('.profile-video-card').forEach(c => {
+            c.classList.remove('selecting', 'selected');
+        });
+    }
+
+    toggleVideoSelection(card) {
+        const id = card.dataset.id;
+        if (this.selectedVideos.has(id)) {
+            this.selectedVideos.delete(id);
+            card.classList.remove('selected');
+        } else {
+            this.selectedVideos.add(id);
+            card.classList.add('selected');
+        }
+        document.getElementById('deleteCount').textContent = this.selectedVideos.size;
+        
+        if (this.selectedVideos.size === 0) {
+            this.exitSelectionMode();
+        }
+    }
+
+    async deleteSelected() {
+        if (this.selectedVideos.size === 0) return;
+        if (!confirm(`Delete ${this.selectedVideos.size} videos permanently?`)) return;
+
+        const ids = Array.from(this.selectedVideos);
+        try {
+            const res = await this.api('/videos/delete-selected', {
+                method: 'POST',
+                body: JSON.stringify({ ids })
+            });
+
+            if (res?.success) {
+                this.showToast(`${res.count} videos deleted`);
+                this.exitSelectionMode();
+                this.loadProfile(); // Refresh
+            }
+        } catch (err) {
+            this.showToast('Failed to delete videos', 'error');
         }
     }
 

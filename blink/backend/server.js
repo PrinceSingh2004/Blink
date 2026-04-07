@@ -116,6 +116,9 @@ const start = async () => {
         console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`   Socket.IO: Ready`);
     });
+    
+    // Increased timeout for large video uploads over slow mobile networks
+    server.timeout = 300000; // 5 minutes
 };
 
 start().catch(err => {

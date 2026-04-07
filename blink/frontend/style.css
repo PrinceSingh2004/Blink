@@ -609,6 +609,18 @@ img { display: block; max-width: 100%; }
     -webkit-box-orient: vertical; overflow: hidden;
 }
 
+.explore-grid-item {
+    aspect-ratio: 9/16; border-radius: var(--radius-md);
+    overflow: hidden; position: relative; cursor: pointer;
+}
+.explore-grid-item img { width: 100%; height: 100%; object-fit: cover; }
+.explore-grid-item .explore-info {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 12px; background: linear-gradient(transparent, rgba(0,0,0,0.8));
+}
+.explore-username { font-size: 12px; font-weight: 700; color: white; }
+
+
 /* ══════════════════════════════════════════════════════════
    UPLOAD PAGE
    ══════════════════════════════════════════════════════════ */
@@ -729,6 +741,33 @@ img { display: block; max-width: 100%; }
 }
 .profile-empty { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-muted); }
 .profile-empty i { font-size: 48px; margin-bottom: 12px; display: block; opacity: 0.4; }
+
+/* ── Selection Overlay for Delete ── */
+.profile-video-card.selectable {
+    position: relative;
+}
+.profile-video-selection {
+    position: absolute; top: 10px; right: 10px;
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 2px solid white; background: rgba(0,0,0,0.3);
+    z-index: 10; display: none;
+}
+.profile-video-card.selecting .profile-video-selection { display: block; }
+.profile-video-card.selected .profile-video-selection {
+    background: var(--accent); border-color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+}
+.profile-video-card.selected .profile-video-selection::after {
+    content: '\F633'; font-family: "bootstrap-icons"; color: white; font-size: 14px;
+}
+.profile-video-card.selected { border: 3px solid var(--accent); }
+
+.profile-delete-mode-btn {
+    width: 100%; margin-top: 10px;
+    padding: 10px; border-radius: var(--radius-md);
+    background: #f43f5e; color: white; font-weight: 700;
+}
+
 
 /* ── Back button for user profiles ──────────────────────── */
 .profile-back-btn {

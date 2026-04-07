@@ -274,9 +274,70 @@ exports.followUser = async (req, res) => {
         }
 
         const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM follows WHERE following_id = ?', [followingId]);
-        console.log("Follow toggled:", followingId, "New count:", count);
         res.json({ success: true, follower_count: count });
     } catch (err) {
         res.status(500).json({ error: 'Follow failed' });
+    }
+};
+
+/**
+ * GET /api/videos/explore — Get latest videos for discovery
+ */
+exports.getExplore = async (req, res) => {
+    try {
+        const [videos] = await pool.query(`
+            SELECT v.id, v.video_url AS videoUrl, v.caption, u.username, v.likes_count, v.views_count
+            FROM videos v
+            JOIN users u ON v.user_id = u.id
+            WHERE v.is_active = 1
+            ORDER BY v.created_at DESC
+            LIMIT 50
+        `);
+        res.json({ success: true, data: videos });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to load explore feed' });
+    }
+};
+
+/**
+ * POST /api/videos/delete-selected — Bulk delete
+ */
+exports.deleteSelectedVideos = async (req, res) => {
+    try {
+        const { ids } = req.body;
+        const userId = req.user.id;
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: 'No video IDs provided' });
+        }
+
+        // Verify all videos belong to user
+        const [videos] = await pool.query(
+            'SELECT id FROM videos WHERE id IN (?) AND user_id = ?',
+            [ids, userId]
+        );
+
+        const verifiedIds = videos.map(v => v.id);
+        if (verifiedIds.length === 0) return res.status(403).json({ error: 'Unauthorized or no videos found' });
+
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            await connection.query('DELETE FROM likes WHERE video_id IN (?)', [verifiedIds]);
+            await connection.query('DELETE FROM comments WHERE video_id IN (?)', [verifiedIds]);
+            await connection.query('DELETE FROM views WHERE video_id IN (?)', [verifiedIds]);
+            await connection.query('DELETE FROM videos WHERE id IN (?)', [verifiedIds]);
+            await connection.commit();
+        } catch (dbErr) {
+            await connection.rollback();
+            throw dbErr;
+        } finally {
+            connection.release();
+        }
+
+        res.json({ success: true, count: verifiedIds.length });
+    } catch (err) {
+        console.error('🔥 Batch delete error:', err.message);
+        res.status(500).json({ error: 'Failed to delete videos' });
     }
 };

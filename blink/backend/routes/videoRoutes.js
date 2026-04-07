@@ -12,12 +12,14 @@ console.log('searchVideos:', typeof videoController.searchVideos);
 
 // Feed & Search
 router.get('/feed', optionalAuth, videoController.getFeed);
+router.get('/explore', optionalAuth, videoController.getExplore);
 router.get('/search', videoController.searchVideos);
 router.get('/user/:userId', videoController.getUserVideos);
 
 // Interactions
 router.post('/:id/like', protect, videoController.likeVideo);
 router.post('/:id/view', optionalAuth, videoController.viewVideo);
+router.post('/delete-selected', protect, videoController.deleteSelectedVideos);
 router.delete('/:id', protect, videoController.deleteVideo);
 
 // Comments
