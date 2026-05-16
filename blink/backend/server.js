@@ -76,7 +76,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/videos', require('./routes/videoRoutes'));
 app.use('/api/upload', require('./routes/uploadRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
-app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/chats', require('./routes/chatRoutes'));
 
 // Comment delete (separate from video-scoped routes)
 const { deleteComment } = require('./controllers/videoController');
@@ -144,6 +144,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 const io = initSocket(server);
+app.set('io', io);
 
 const start = async () => {
     await testConnection();

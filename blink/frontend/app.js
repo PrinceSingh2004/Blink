@@ -64,7 +64,10 @@ class BlinkApp {
         });
 
         // Phase 7: Chat Sockets
-        this.socket.on('receive_message', (msg) => this.handleReceiveMessage(msg));
+        this.socket.on('receive_message', (msg) => {
+            console.log("socket received:", msg);
+            this.handleReceiveMessage(msg);
+        });
         this.socket.on('user_typing', (data) => this.handleUserTyping(data));
         this.socket.on('new_message_notification', (data) => this.handleChatNotification(data));
         this.socket.on('online_status', (data) => this.handleOnlineStatus(data));
@@ -275,6 +278,10 @@ class BlinkApp {
             overlay.style.display = 'none';
             this.updateSidebar();
             this.loadConversations();
+            if (this.socket) {
+                this.socket.emit('join_user', this.user.id);
+                console.log("Joined socket user room:", this.user.id);
+            }
         } else {
             // Default to landing state if not logged in
             // But let them see the feed
@@ -1745,7 +1752,8 @@ class BlinkApp {
         if (!list) return;
 
         try {
-            const data = await this.api('/chat/conversations');
+            const data = await this.api('/chats');
+            console.log("conversations response:", data);
             this.conversations = data?.conversations || [];
             this.renderConversations();
             this.updateBadges();
@@ -1783,11 +1791,11 @@ class BlinkApp {
                 profile_photo: c.other_profile_photo,
                 username: c.other_username
             });
-            const activeClass = this.activeConversationId === c.id ? 'active' : '';
+            const activeClass = this.activeReceiverId === c.other_user_id ? 'active' : '';
             const unread = c.unread_count > 0 ? `<span class="conv-unread">${c.unread_count}</span>` : '';
             
             return `
-            <div class="conv-item ${activeClass}" data-id="${c.id}" onclick="app.openChat(${c.id}, '${c.other_username}', '${avatar}')">
+            <div class="conv-item ${activeClass}" data-id="${c.other_user_id}" onclick="app.openChatWithUser(${c.other_user_id}, '${c.other_username}', '${avatar}')">
                 <div class="conv-avatar-wrap">
                     <img src="${avatar}" class="conv-avatar">
                     <div class="status-dot offline" data-user-id="${c.other_user_id}"></div>
@@ -1795,7 +1803,7 @@ class BlinkApp {
                 <div class="conv-info">
                     <div class="conv-name-row">
                         <span class="conv-name">${c.other_username}</span>
-                        <span class="conv-time">${this.timeAgo(c.last_message_at || c.created_at)}</span>
+                        <span class="conv-time">${this.timeAgo(c.last_message_at || Date.now())}</span>
                     </div>
                     <div class="conv-msg-row">
                         <span class="conv-last-msg">${this.escapeHtml(c.last_message || 'No messages yet')}</span>
@@ -1849,7 +1857,7 @@ class BlinkApp {
         const container = document.getElementById('chatMessages');
         if (!container) return;
 
-        if (messages.length === 0) {
+        if (!messages || messages.length === 0) {
             container.innerHTML = `
                 <div class="chat-empty-history">
                     <div class="empty-history-icon"><i class="bi bi-chat-dots"></i></div>
@@ -1859,14 +1867,12 @@ class BlinkApp {
         }
 
         container.innerHTML = messages.map(m => {
-            const isSent = m.sender_id === this.user.id;
-            const seenIcon = isSent ? (m.is_read ? '<i class="bi bi-check2-all msg-seen"></i>' : '<i class="bi bi-check2"></i>') : '';
+            const isMine = Number(m.sender_id) === Number(this.user.id);
             return `
-            <div class="message ${isSent ? 'sent' : 'received'}">
-                <div class="msg-bubble">${this.escapeHtml(m.message || m.text || '')}</div>
+            <div class="message-row ${isMine ? 'mine' : 'theirs'}">
+                <div class="message-bubble">${this.escapeHtml(m.message)}</div>
                 <div class="msg-meta">
-                    ${new Date(m.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    ${seenIcon}
+                    ${new Date(m.createdAt || m.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
             </div>`;
         }).join('');
@@ -1877,43 +1883,32 @@ class BlinkApp {
     async sendMessage() {
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
-        if (!text) return;
+        if (!text || !this.activeReceiverId) return;
 
-        // Try to get receiverId from active conversation or header
-        let receiverId = this.activeReceiverId;
-        if (!receiverId) {
-            const conv = this.conversations.find(c => c.id === this.activeConversationId);
-            receiverId = conv ? conv.other_user_id : null;
-        }
-
-        if (!receiverId) return;
-
+        const receiverId = this.activeReceiverId;
         input.value = '';
         document.getElementById('sendMsgBtn').disabled = true;
 
-        // Optimistic UI Data
-        const msgData = {
-            conversationId: this.activeConversationId,
-            senderId: this.user.id,
-            receiverId: receiverId,
-            message: text,
-            created_at: new Date()
-        };
-
-        // Append locally for instant feedback
-        this.appendMessageLocally(msgData);
-
-        // Socket emit
-        this.socket.emit('send_message', msgData);
-        
-        // Save to DB
         try {
-            await this.api(`/chat/${receiverId}`, {
+            const res = await this.api(`/chats/${receiverId}`, {
                 method: 'POST',
                 body: JSON.stringify({ message: text })
             });
+
+            if (res?.success) {
+                const savedMessage = res.message;
+                this.appendMessageLocally(savedMessage);
+                
+                // Socket emit
+                this.socket.emit('send_message', {
+                    sender_id: this.user.id,
+                    receiver_id: receiverId,
+                    message: text,
+                    conversation_id: savedMessage.conversation_id
+                });
+            }
         } catch (err) {
-            this.showToast('Message failed to sync', 'error');
+            this.showToast('Failed to send message', 'error');
         }
     }
 
@@ -1921,16 +1916,20 @@ class BlinkApp {
         const container = document.getElementById('chatMessages');
         if (!container) return;
         
+        // Check for duplicates
+        const existing = container.querySelector(`[data-id="${msg.id}"]`);
+        if (existing) return;
+
         // Remove empty history message if present
         const empty = container.querySelector('.chat-empty-history');
         if (empty) empty.remove();
 
-        const isSent = msg.senderId === this.user.id || msg.sender_id === this.user.id;
+        const isMine = Number(msg.sender_id) === Number(this.user.id);
         const msgHtml = `
-        <div class="message ${isSent ? 'sent' : 'received'}">
-            <div class="msg-bubble">${this.escapeHtml(msg.message || msg.text || '')}</div>
+        <div class="message-row ${isMine ? 'mine' : 'theirs'}" data-id="${msg.id}">
+            <div class="message-bubble">${this.escapeHtml(msg.message)}</div>
             <div class="msg-meta">
-                ${new Date(msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                ${new Date(msg.createdAt || msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
         </div>`;
         container.insertAdjacentHTML('beforeend', msgHtml);
@@ -1938,17 +1937,14 @@ class BlinkApp {
     }
 
     handleReceiveMessage(msg) {
-        const isCurrentConv = (this.activeConversationId === msg.conversationId) || 
-                             (this.activeReceiverId && (msg.sender_id === this.activeReceiverId || msg.receiver_id === this.activeReceiverId));
+        const belongsToOpenChat =
+            (Number(msg.sender_id) === Number(this.user.id) && Number(msg.receiver_id) === Number(this.activeReceiverId)) ||
+            (Number(msg.sender_id) === Number(this.activeReceiverId) && Number(msg.receiver_id) === Number(this.user.id));
 
-        if (isCurrentConv) {
+        if (belongsToOpenChat) {
             this.appendMessageLocally(msg);
-            
-            // Emit seen if received
-            const isSent = msg.sender_id === this.user.id;
-            if (!isSent) this.socket.emit('seen', { conversationId: msg.conversationId, userId: this.user.id });
         }
-        this.loadConversations(); // Refresh last message in list
+        this.loadConversations();
     }
 
     handleUserTyping(data) {
@@ -1979,6 +1975,9 @@ class BlinkApp {
     async openChatWithUser(userId, username, avatar) {
         if (!this.user) { this.showToast('Please sign in to message', 'error'); return; }
         
+        console.log("selectedUser:", { id: userId, username });
+        console.log("currentUser:", this.user);
+        
         this.activeReceiverId = userId;
         this.activeConversationId = null;
 
@@ -2001,10 +2000,10 @@ class BlinkApp {
             msgContainer.innerHTML = '<div class="chat-loading"><i class="bi bi-arrow-clockwise spin"></i></div>';
 
             try {
-                const data = await this.api(`/chat/${userId}`);
+                const data = await this.api(`/chats/${userId}`);
+                console.log("messages response:", data);
                 this.renderMessages(data.messages || []);
                 
-                // If messages exist, we might have a conversationId now
                 if (data.messages && data.messages.length > 0) {
                     this.activeConversationId = data.messages[0].conversation_id;
                     if (this.activeConversationId) {

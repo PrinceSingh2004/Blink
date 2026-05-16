@@ -20,14 +20,14 @@ const initSocket = (server) => {
     io.on('connection', (socket) => {
         console.log('🔌 Socket connected:', socket.id);
 
-        socket.on('join', (userId) => {
+        socket.on('join_user', (userId) => {
             if (!userId) return;
             socket.userId = userId;
             socket.join(`user_${userId}`);
             
             // Broadcast online status
             io.emit('online_status', { userId, status: 'online' });
-            console.log(`👤 User ${userId} joined room user_${userId}`);
+            console.log(`👤 User joined room user_${userId}`);
         });
 
         socket.on('join_room', (convId) => {
@@ -36,23 +36,21 @@ const initSocket = (server) => {
         });
 
         socket.on('send_message', (data) => {
-            // Data should have: conversationId, senderId, message, receiverId
-            const { conversationId, senderId, message, receiverId } = data;
+            // Data should have: sender_id, receiver_id, message, conversation_id
+            const { sender_id, receiver_id, message, conversation_id } = data;
             
             const msgToEmit = { 
-                conversationId, 
-                sender_id: senderId, 
-                receiver_id: receiverId,
-                message, 
+                ...data,
                 created_at: new Date() 
             };
 
-            // Emit to conversation room (for users currently in the chat)
-            io.to(`conv_${conversationId}`).emit('receive_message', msgToEmit);
-
-            // Emit notification/message to receiver's user room
-            io.to(`user_${receiverId}`).emit('receive_message', msgToEmit);
-            io.to(`user_${receiverId}`).emit('new_message_notification', msgToEmit);
+            // Emit to both sender and receiver rooms
+            io.to(`user_${receiver_id}`).emit('receive_message', msgToEmit);
+            io.to(`user_${sender_id}`).emit('receive_message', msgToEmit);
+            
+            if (conversation_id) {
+                io.to(`conv_${conversation_id}`).emit('receive_message', msgToEmit);
+            }
         });
 
         socket.on('typing', (data) => {
