@@ -1346,7 +1346,20 @@ class BlinkApp {
         const captionCount = document.getElementById('captionCount');
         const changeBtn = document.getElementById('changeVideoBtn');
         const uploadBtn = document.getElementById('uploadBtn');
+        const cancelUploadBtn = document.getElementById('cancelUploadBtn');
         let selectedFile = null;
+
+        cancelUploadBtn?.addEventListener('click', () => {
+            if (this.currentUploadXhr) {
+                this.currentUploadXhr.abort();
+                this.currentUploadXhr = null;
+                this.showToast('Upload cancelled', 'info');
+                const progressDiv = document.getElementById('uploadProgress');
+                progressDiv.style.display = 'none';
+                form.style.display = 'block';
+                this.setButtonLoading(uploadBtn, false);
+            }
+        });
 
         dropzone?.addEventListener('click', () => fileInput?.click());
         fileInput?.addEventListener('change', () => {
@@ -1376,6 +1389,7 @@ class BlinkApp {
                 progressDiv.style.display = 'block';
 
                 const xhr = new XMLHttpRequest();
+                this.currentUploadXhr = xhr;
                 xhr.open('POST', `${this.API_BASE}/api/upload/video`);
                 if (this.token) xhr.setRequestHeader('Authorization', `Bearer ${this.token}`);
 
@@ -1389,6 +1403,7 @@ class BlinkApp {
                 };
 
                 xhr.onload = () => {
+                    this.currentUploadXhr = null;
                     let data;
                     try { data = JSON.parse(xhr.responseText); } catch(e) { data = {}; }
 
@@ -1396,10 +1411,10 @@ class BlinkApp {
                         this.showToast('Video published! 🎬', 'success');
                         this.feedLoaded = false;
                         location.reload(); // Hard reload for stability
-                    } else if (retryCount < 2) {
+                    } else if (retryCount < 2 && xhr.status !== 0) {
                         console.log(`Retrying upload... attempt ${retryCount + 1}`);
                         performUpload(retryCount + 1);
-                    } else {
+                    } else if (xhr.status !== 0) {
                         this.setButtonLoading(uploadBtn, false);
                         this.showToast(`Upload failed: ${data.error || 'Server error'}`, 'error');
                         progressDiv.style.display = 'none';
@@ -1407,7 +1422,14 @@ class BlinkApp {
                     }
                 };
 
+                xhr.onabort = () => {
+                    this.currentUploadXhr = null;
+                    console.log('Upload explicitly aborted by user.');
+                };
+
                 xhr.onerror = () => {
+                    if (xhr.status === 0) return; // Likely aborted or network failure handled by onabort
+                    this.currentUploadXhr = null;
                     if (retryCount < 2) {
                         performUpload(retryCount + 1);
                     } else {

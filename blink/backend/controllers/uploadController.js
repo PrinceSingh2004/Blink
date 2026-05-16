@@ -72,7 +72,16 @@ exports.uploadVideo = async (req, res) => {
             throw new Error('Cloudinary upload returned no URL');
         }
 
-        // 2. Insert into DB (Dynamic column detection)
+        // 2. Check if client disconnected during upload
+        if (req.closed || req.socket.destroyed) {
+            console.log('🛑 Client disconnected. Cleaning up Cloudinary asset.');
+            if (result.public_id) {
+                await cloudinary.uploader.destroy(result.public_id, { resource_type: 'video' });
+            }
+            return;
+        }
+
+        // 3. Insert into DB (Dynamic column detection)
         const userCol = await getColumn('videos', ['user_id', 'userId', 'creator_id']) || 'user_id';
         const urlCol = await getColumn('videos', ['video_url', 'videoUrl', 'url']) || 'video_url';
 
