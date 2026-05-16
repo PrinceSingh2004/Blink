@@ -446,35 +446,41 @@ class BlinkApp {
         const isOwn = this.user && this.user.id === user.id;
 
         return `
-        <div class="reel-card" data-id="${video.id}" data-userId="${user.id}">
-            <video src="${video.video_url || video.videoUrl}" loop playsinline preload="metadata" muted controls onerror="console.error('Video playback error', event)"></video>
-            <div class="reel-overlay"></div>
-            <div class="reel-play-indicator"><i class="bi bi-play-fill"></i></div>
-            <div class="double-tap-heart"><i class="bi bi-heart-fill"></i></div>
-            <div class="reel-actions">
-                <button class="reel-action-btn like-btn ${likedClass}" data-id="${video.id}">
-                    <i class="bi bi-heart-fill"></i>
-                    <span>${this.formatCount(video.likes_count || 0)}</span>
-                </button>
-                <button class="reel-action-btn comment-btn" data-id="${video.id}">
-                    <i class="bi bi-chat-dots-fill"></i>
-                    <span>${this.formatCount(video.comments_count || 0)}</span>
-                </button>
-                <button class="reel-action-btn view-count-btn">
-                    <i class="bi bi-eye-fill"></i>
-                    <span>${this.formatCount(video.views_count || 0)}</span>
-                </button>
-                <button class="reel-action-btn mute-btn" title="Toggle sound">
-                    <i class="bi bi-volume-mute-fill"></i>
-                </button>
+        <div class="reel-card video-card" data-id="${video.id}" data-userId="${user.id}">
+            <div class="video-wrapper">
+                <video class="video-player" src="${video.video_url || video.videoUrl}" poster="${video.thumbnail_url || ''}" loop playsinline preload="metadata" muted controls onerror="console.error('Video playback error', event)"></video>
+                <div class="reel-overlay"></div>
+                <div class="reel-play-indicator"><i class="bi bi-play-fill"></i></div>
+                <div class="double-tap-heart"><i class="bi bi-heart-fill"></i></div>
             </div>
-            <div class="reel-info">
-                <div class="reel-author" data-user-id="${user.id}">
-                    <img src="${avatar}" class="reel-author-avatar" alt="${user.username}" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=${user.username || 'U'}&background=6366f1&color=fff&size=80'">
-                    <span class="reel-author-name">${user.name || user.username} <small>@${user.username}</small></span>
-                    ${!isOwn ? followBtn : ''}
+            
+            <div class="video-info">
+                <div class="creator-row reel-author" data-user-id="${user.id}">
+                    <img src="${avatar}" class="creator-avatar reel-author-avatar" alt="${user.username}" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=${user.username || 'U'}&background=6366f1&color=fff&size=80'">
+                    <div style="display:flex; flex-direction:column; align-items:flex-start;">
+                        <span class="reel-author-name">${user.name || user.username} <small>@${user.username}</small></span>
+                        ${!isOwn ? followBtn : ''}
+                    </div>
                 </div>
-                ${video.caption ? `<p class="reel-caption">${this.escapeHtml(video.caption)}</p>` : ''}
+                ${video.caption ? `<p class="reel-caption" style="margin-top: 8px;">${this.escapeHtml(video.caption)}</p>` : ''}
+                
+                <div class="video-actions reel-actions">
+                    <button class="reel-action-btn like-btn ${likedClass}" data-id="${video.id}">
+                        <i class="bi bi-heart-fill"></i>
+                        <span>${this.formatCount(video.likes_count || 0)}</span>
+                    </button>
+                    <button class="reel-action-btn comment-btn" data-id="${video.id}">
+                        <i class="bi bi-chat-dots-fill"></i>
+                        <span>${this.formatCount(video.comments_count || 0)}</span>
+                    </button>
+                    <button class="reel-action-btn view-count-btn">
+                        <i class="bi bi-eye-fill"></i>
+                        <span>${this.formatCount(video.views_count || 0)}</span>
+                    </button>
+                    <button class="reel-action-btn mute-btn" title="Toggle sound">
+                        <i class="bi bi-volume-mute-fill"></i>
+                    </button>
+                </div>
             </div>
         </div>`;
     }
