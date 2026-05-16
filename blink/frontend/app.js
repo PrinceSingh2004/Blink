@@ -54,6 +54,11 @@ class BlinkApp {
 
     setupSocket() {
         if (!this.socket) return;
+        
+        if (this.user?.id) {
+            this.socket.emit('join_user', this.user.id);
+        }
+
         this.socket.on('update_likes', (data) => {
             const btn = document.querySelector(`.like-btn[data-id="${data.videoId}"]`);
             if (btn) btn.querySelector('span').textContent = this.formatCount(data.likes_count);
@@ -1741,12 +1746,26 @@ class BlinkApp {
 
         // Conversation Search
         if (searchInput) {
+            let searchTimeout;
             searchInput.oninput = (e) => {
-                const term = e.target.value.toLowerCase();
-                document.querySelectorAll('.conv-item').forEach(item => {
-                    const name = item.querySelector('.conv-name').textContent.toLowerCase();
-                    item.style.display = name.includes(term) ? 'flex' : 'none';
-                });
+                const term = e.target.value.trim();
+                clearTimeout(searchTimeout);
+                
+                if (!term) {
+                    this.renderConversations();
+                    return;
+                }
+
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const res = await this.api(`/chats/search?q=${encodeURIComponent(term)}`);
+                        if (res?.success) {
+                            this.renderSearchResults(res.users, res.messages);
+                        }
+                    } catch (err) {
+                        console.error("Search failed", err);
+                    }
+                }, 300);
             };
         }
 
@@ -1754,6 +1773,53 @@ class BlinkApp {
             this.closeChat();
         });
     }
+
+    renderSearchResults(users, messages) {
+        const list = document.getElementById('conversationList');
+        if (!list) return;
+
+        let html = '';
+        
+        if (users?.length > 0) {
+            html += `<div class="search-section-title" style="padding: 10px 16px; font-size: 12px; color: var(--text-muted); font-weight: 700;">USERS</div>`;
+            html += users.map(u => {
+                const avatar = this.getAvatarUrl({ profile_photo: u.profile_photo, username: u.username });
+                return `
+                <div class="conv-item conversation-row" onclick="app.openChatWithUser(${u.id}, '${u.username}', '${avatar}')">
+                    <img src="${avatar}" class="conv-avatar conversation-avatar">
+                    <div class="conv-info">
+                        <div class="conv-name">${u.name} (@${u.username})</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        if (messages?.length > 0) {
+            html += `<div class="search-section-title" style="padding: 10px 16px; font-size: 12px; color: var(--text-muted); font-weight: 700;">MESSAGES</div>`;
+            html += messages.map(m => {
+                const otherUserId = Number(m.sender_id) === Number(this.user.id) ? m.receiver_id : m.sender_id;
+                const existingConv = this.conversations?.find(c => Number(c.other_user_id) === Number(otherUserId));
+                const username = existingConv ? existingConv.other_username : `User ${otherUserId}`;
+                const avatar = existingConv ? this.getAvatarUrl({profile_photo: existingConv.other_profile_photo, username}) : this.getAvatarUrl({username});
+
+                return `
+                <div class="conv-item conversation-row" onclick="app.openChatWithUser(${otherUserId}, '${username}', '${avatar}')">
+                    <img src="${avatar}" class="conv-avatar conversation-avatar">
+                    <div class="conv-info">
+                        <div class="conv-name">${username}</div>
+                        <div class="conv-last-msg">${this.escapeHtml(m.message)}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        if (!users?.length && !messages?.length) {
+            html = `<div class="chat-empty-list" style="padding: 20px; text-align: center; color: var(--text-muted);">No results found</div>`;
+        }
+
+        list.innerHTML = html;
+    }
+
 
     async loadConversations() {
         const list = document.getElementById('conversationList');

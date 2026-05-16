@@ -179,3 +179,50 @@ exports.markAsRead = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to mark as read' });
     }
 };
+
+/**
+ * GET /api/chats/search — Search users and messages
+ */
+exports.searchChats = async (req, res) => {
+  try {
+    const q = req.query.q;
+    const currentUserId = req.user.id;
+
+    if (!q || !q.trim()) {
+      return res.json({ success: true, users: [], messages: [] });
+    }
+
+    const users = await User.findAll({
+      where: {
+        [Op.or]: [
+          { name: { [Op.iLike]: `%${q}%` } },
+          { username: { [Op.iLike]: `%${q}%` } },
+          { email: { [Op.iLike]: `%${q}%` } },
+        ],
+      },
+      attributes: ['id', 'name', 'username', 'profile_photo'],
+      limit: 10,
+    });
+
+    const messages = await Message.findAll({
+      where: {
+        message: { [Op.iLike]: `%${q}%` },
+        [Op.or]: [
+          { sender_id: currentUserId },
+          { receiver_id: currentUserId },
+        ],
+      },
+      order: [["createdAt", "DESC"]],
+      limit: 20,
+    });
+
+    res.json({
+      success: true,
+      users,
+      messages,
+    });
+  } catch (error) {
+    console.error("Search chats error:", error);
+    res.status(500).json({ success: false, message: "Search failed" });
+  }
+};
