@@ -163,3 +163,29 @@ exports.sendMessage = async (req, res) => {
         res.status(500).json({ success: false, message: 'Failed to send message' });
     }
 };
+
+/**
+ * PUT /api/chats/:userId/read — Mark messages as read
+ */
+exports.markAsRead = async (req, res) => {
+    try {
+        const receiverId = req.user.id;
+        const senderId = Number(req.params.userId);
+
+        await Message.update(
+            { is_read: 1 },
+            { 
+                where: { 
+                    receiver_id: receiverId, 
+                    sender_id: senderId,
+                    is_read: 0 
+                } 
+            }
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('🔥 Mark as read error:', err.message);
+        res.status(500).json({ success: false, message: 'Failed to mark as read' });
+    }
+};

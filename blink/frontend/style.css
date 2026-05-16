@@ -1408,6 +1408,10 @@ img { display: block; max-width: 100%; }
 }
 
 .msg-meta { font-size: 10px; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+.msg-seen-status {
+    font-size: 11px; color: var(--text-muted); margin-top: 2px;
+    font-weight: 500; align-self: flex-end; padding-right: 4px;
+}
 .msg-seen { color: var(--accent); font-size: 14px; }
 
 .chat-typing-indicator {

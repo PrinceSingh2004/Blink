@@ -1719,31 +1719,24 @@ class BlinkApp {
         const input = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendMsgBtn');
         const backBtn = document.getElementById('chatBack');
+        const searchInput = document.getElementById('chatSearchInput');
 
-        input?.addEventListener('input', () => {
-            const hasText = input.value.trim().length > 0;
-            sendBtn.disabled = !hasText;
-            sendBtn.classList.toggle('active', hasText);
-            
-            // Typing Indicator
-            this.socket.emit('typing', { 
-                conversationId: this.activeConversationId, 
-                userId: this.user.id, 
-                isTyping: hasText 
-            });
-        });
-
-        sendBtn?.addEventListener('click', () => this.sendMessage());
-        input?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
-            }
-        });
+        // Conversation Search
+        if (searchInput) {
+            searchInput.oninput = (e) => {
+                const term = e.target.value.toLowerCase();
+                document.querySelectorAll('.conv-item').forEach(item => {
+                    const name = item.querySelector('.conv-name').textContent.toLowerCase();
+                    item.style.display = name.includes(term) ? 'flex' : 'none';
+                });
+            };
+        }
 
         backBtn?.addEventListener('click', () => {
             document.getElementById('chatListPanel')?.classList.remove('hidden');
             document.getElementById('chatWindowPanel')?.classList.remove('active');
+            this.activeReceiverId = null;
+            this.renderConversations();
         });
     }
 
@@ -1837,14 +1830,19 @@ class BlinkApp {
             return;
         }
 
-        container.innerHTML = messages.map(m => {
-            const isMine = Number(m.sender_id) === Number(this.user.id);
+        const currentUserId = Number(this.user.id);
+        container.innerHTML = messages.map((m, idx) => {
+            const isMine = Number(m.sender_id) === currentUserId;
+            const isLastMessage = idx === messages.length - 1;
+            const seenText = (isMine && isLastMessage && m.is_read === 1) ? '<div class="msg-seen-status">Seen</div>' : '';
+            
             return `
-            <div class="message-row ${isMine ? 'mine' : 'theirs'}">
+            <div class="message-row ${isMine ? 'mine' : 'theirs'}" data-id="${m.id}">
                 <div class="message-bubble">${this.escapeHtml(m.message)}</div>
                 <div class="msg-meta">
                     ${new Date(m.createdAt || m.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
+                ${seenText}
             </div>`;
         }).join('');
         
@@ -1982,6 +1980,10 @@ class BlinkApp {
                 console.log("messages response:", data);
                 this.renderMessages(data.messages || []);
                 
+                // Mark as read
+                this.api(`/chats/${userId}/read`, { method: 'PUT' });
+                this.loadConversations(); // Refresh list to clear badges
+
                 if (data.messages && data.messages.length > 0) {
                     this.activeConversationId = data.messages[0].conversation_id;
                     if (this.activeConversationId) {
@@ -2009,6 +2011,23 @@ class BlinkApp {
         
         el.style.height = "44px";
         el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+
+        // Typing logic
+        if (this.activeConversationId) {
+            clearTimeout(this.typingTimeout);
+            this.socket.emit('typing', { 
+                conversationId: this.activeConversationId, 
+                userId: this.user.id, 
+                isTyping: true 
+            });
+            this.typingTimeout = setTimeout(() => {
+                this.socket.emit('typing', { 
+                    conversationId: this.activeConversationId, 
+                    userId: this.user.id, 
+                    isTyping: false 
+                });
+            }, 2000);
+        }
     }
 
     handleKeyDown(e) {
