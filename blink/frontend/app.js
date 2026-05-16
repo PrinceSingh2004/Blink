@@ -466,7 +466,7 @@ class BlinkApp {
 
         return `
         <div class="reel-card" data-id="${video.id}" data-userId="${user.id}">
-            <video class="reel-video" src="${video.video_url || video.videoUrl}" playsinline loop muted preload="metadata" poster="${video.thumbnail_url || ''}"></video>
+            <video class="reel-video" src="${video.video_url || video.videoUrl}" playsinline loop muted autoplay preload="metadata" poster="${video.thumbnail_url || ''}"></video>
             
             <div class="reel-overlay">
                 <div class="reel-user" data-user-id="${user.id}">
@@ -751,7 +751,14 @@ class BlinkApp {
                 if (!video) return;
                 if (entry.isIntersecting) {
                     video.muted = this.isMuted;
-                    video.play().catch(() => {});
+                    video.currentTime = 0; // Always start from beginning when scrolling in
+                    const playPromise = video.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(() => {
+                            // Autoplay was prevented
+                            console.log("Autoplay prevented, waiting for interaction");
+                        });
+                    }
                 } else {
                     video.pause();
                 }
@@ -759,6 +766,13 @@ class BlinkApp {
         }, { threshold: 0.7 });
 
         document.querySelectorAll('.reel-card').forEach(card => {
+            const video = card.querySelector('video');
+            if (video) {
+                video.onended = () => {
+                    video.currentTime = 0;
+                    video.play().catch(() => {});
+                };
+            }
             this.feedObserver.observe(card);
         });
     }
@@ -1367,7 +1381,14 @@ class BlinkApp {
         });
 
         const selectFile = (file) => {
-            if (file.size > 500 * 1024 * 1024) { this.showToast('File too large. Max 500MB.', 'error'); return; }
+            if (!file.type.startsWith('video/')) {
+                this.showToast('Please select a valid video file (mp4, webm, etc.)', 'error');
+                return;
+            }
+            if (file.size > 100 * 1024 * 1024) {
+                this.showToast('Video is too large. Max size 100MB.', 'error');
+                return;
+            }
             selectedFile = file;
             preview.src = URL.createObjectURL(file);
             preview.play();

@@ -59,13 +59,20 @@ exports.uploadVideo = async (req, res) => {
             return res.status(401).json({ success: false, error: "Unauthorized" });
         }
 
+        if (req.file.size > 100 * 1024 * 1024) {
+            return res.status(400).json({ success: false, error: "Video is too large. Max size 100MB." });
+        }
+
         console.log(`🚀 Uploading: ${req.file.originalname} | Size: ${req.file.size}`);
 
         // 1. Upload to Cloudinary (using streamifier for memory storage)
         const result = await uploadToCloudinary(req.file.buffer, {
             resource_type: 'video',
             folder: 'blink/videos',
-            timeout: 300000 // 5 min timeout for slow networks
+            timeout: 600000, // 10 min timeout for larger videos
+            chunk_size: 6000000, // 6MB chunks for stability
+            quality: 'auto',
+            fetch_format: 'auto'
         });
 
         if (!result || !result.secure_url) {

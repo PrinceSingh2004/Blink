@@ -50,7 +50,8 @@
                     </div>
                     <div class="input-group">
                         <i class="bi bi-lock-fill input-icon"></i>
-                        <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+                        <input type="password" id="loginPassword" placeholder="Password"
+                            autocomplete="current-password">
                         <button type="button" class="pw-toggle" tabindex="-1"><i class="bi bi-eye-fill"></i></button>
                         <span class="field-error-msg" id="loginPasswordError"></span>
                     </div>
@@ -64,8 +65,8 @@
                 <form id="signupForm" class="auth-form">
                     <div class="input-group">
                         <i class="bi bi-at input-icon"></i>
-                        <input type="text" id="signupUsername" placeholder="Username" minlength="3"
-                            maxlength="30" autocomplete="username">
+                        <input type="text" id="signupUsername" placeholder="Username" minlength="3" maxlength="30"
+                            autocomplete="username">
                         <span class="field-error-msg" id="signupUsernameError"></span>
                     </div>
                     <div class="input-group">
@@ -75,8 +76,8 @@
                     </div>
                     <div class="input-group">
                         <i class="bi bi-lock-fill input-icon"></i>
-                        <input type="password" id="signupPassword" placeholder="Password (min 6 chars)"
-                            minlength="6" autocomplete="new-password">
+                        <input type="password" id="signupPassword" placeholder="Password (min 6 chars)" minlength="6"
+                            autocomplete="new-password">
                         <button type="button" class="pw-toggle" tabindex="-1"><i class="bi bi-eye-fill"></i></button>
                         <span class="field-error-msg" id="signupPasswordError"></span>
                     </div>
@@ -282,11 +283,7 @@
                                 </svg>
                                 <span class="progress-text" id="progressText">0%</span>
                             </div>
-                            <p id="uploadStatus">Uploading to cloud...</p>
-                            <button type="button" class="cancel-upload-btn" id="cancelUploadBtn">
-                                <i class="bi bi-x-circle"></i> Cancel Upload
-                            </button>
-                        </div>
+                            <p id="uploadStatus">Sending to your feed...</p>
                         </div>
                     </div>
                 </div>
@@ -312,22 +309,30 @@
                                 <button class="profile-btn" id="editProfileBtn" style="background:var(--accent);">
                                     <i class="bi bi-pencil-square"></i> Edit
                                 </button>
-                                <button class="profile-btn" id="contactUsBtn" style="background:var(--bg-secondary); border:1px solid var(--border-color);">
+                                <button class="profile-btn" id="contactUsBtn"
+                                    style="background:var(--bg-secondary); border:1px solid var(--border-color);">
                                     <i class="bi bi-envelope"></i> Contact
                                 </button>
                             </div>
-                            <button class="logout-btn" id="logoutBtn" style="background:#ef4444; border:none; color:white; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:8px;">
+                            <button class="logout-btn" id="logoutBtn"
+                                style="background:#ef4444; border:none; color:white; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:8px;">
                                 <i class="bi bi-box-arrow-right"></i> Logout
                             </button>
-                            <button class="logout-btn" id="deleteModeBtn" style="display:none; background:var(--bg-secondary); border:1px solid var(--border-color); color:white; font-weight:bold; align-items:center; justify-content:center; gap:8px;">
+                            <button class="logout-btn" id="deleteModeBtn"
+                                style="display:none; background:var(--bg-secondary); border:1px solid var(--border-color); color:white; font-weight:bold; align-items:center; justify-content:center; gap:8px;">
                                 <i class="bi bi-trash"></i> Delete (<span id="deleteCount">0</span>)
                             </button>
                             <div class="profile-stats">
-                                <div class="stat"><span class="stat-num" id="statPosts">0</span><span class="stat-label">Posts</span></div>
-                                <div class="stat"><span class="stat-num" id="statFollowers">0</span><span class="stat-label">Followers</span></div>
-                                <div class="stat"><span class="stat-num" id="statFollowing">0</span><span class="stat-label">Following</span></div>
-                                <div class="stat"><span class="stat-num" id="statLikes">0</span><span class="stat-label">Likes</span></div>
-                                <div class="stat"><span class="stat-num" id="statViews">0</span><span class="stat-label">Views</span></div>
+                                <div class="stat"><span class="stat-num" id="statPosts">0</span><span
+                                        class="stat-label">Posts</span></div>
+                                <div class="stat"><span class="stat-num" id="statFollowers">0</span><span
+                                        class="stat-label">Followers</span></div>
+                                <div class="stat"><span class="stat-num" id="statFollowing">0</span><span
+                                        class="stat-label">Following</span></div>
+                                <div class="stat"><span class="stat-num" id="statLikes">0</span><span
+                                        class="stat-label">Likes</span></div>
+                                <div class="stat"><span class="stat-num" id="statViews">0</span><span
+                                        class="stat-label">Views</span></div>
                             </div>
                         </div>
                     </div>
@@ -352,11 +357,16 @@
                             <p class="profile-bio" id="userProfileUsername">@user</p>
                             <p class="profile-bio" id="userProfileBio">Blink member</p>
                             <div class="profile-stats">
-                                <div class="stat"><span class="stat-num" id="userStatPosts">0</span><span class="stat-label">Posts</span></div>
-                                <div class="stat"><span class="stat-num" id="userStatFollowers">0</span><span class="stat-label">Followers</span></div>
-                                <div class="stat"><span class="stat-num" id="userStatFollowing">0</span><span class="stat-label">Following</span></div>
-                                <div class="stat"><span class="stat-num" id="userStatLikes">0</span><span class="stat-label">Likes</span></div>
-                                <div class="stat"><span class="stat-num" id="userStatViews">0</span><span class="stat-label">Views</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatPosts">0</span><span
+                                        class="stat-label">Posts</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatFollowers">0</span><span
+                                        class="stat-label">Followers</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatFollowing">0</span><span
+                                        class="stat-label">Following</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatLikes">0</span><span
+                                        class="stat-label">Likes</span></div>
+                                <div class="stat"><span class="stat-num" id="userStatViews">0</span><span
+                                        class="stat-label">Views</span></div>
                             </div>
                             <div class="profile-actions" id="userProfileActions">
                                 <!-- Dynamic Follow & Message buttons -->
@@ -427,11 +437,15 @@
     <div id="toastContainer"></div>
 
     <!-- Edit Profile Modal -->
-    <div class="modal" id="editProfileModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
-        <div class="modal-content" style="background:var(--bg-secondary); width:90%; max-width:400px; padding:2rem; border-radius:1rem; border:1px solid var(--border-color);">
+    <div class="modal" id="editProfileModal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal-content"
+            style="background:var(--bg-secondary); width:90%; max-width:400px; padding:2rem; border-radius:1rem; border:1px solid var(--border-color);">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="font-size:1.5rem; margin:0;">Edit Profile</h2>
-                <button id="closeEditProfileModal" style="background:none; border:none; color:var(--text-secondary); font-size:1.5rem; cursor:pointer;"><i class="bi bi-x-lg"></i></button>
+                <button id="closeEditProfileModal"
+                    style="background:none; border:none; color:var(--text-secondary); font-size:1.5rem; cursor:pointer;"><i
+                        class="bi bi-x-lg"></i></button>
             </div>
             <form id="editProfileForm" style="display:flex; flex-direction:column; gap:1rem;">
                 <div class="input-group">
@@ -449,18 +463,23 @@
                 <div id="editProfileAlert" class="auth-alert error" style="display:none;"></div>
                 <button type="submit" class="btn-primary" id="saveProfileBtn">
                     <span class="btn-text">Save Changes</span>
-                    <span class="btn-loader" style="display:none;"><i class="bi bi-arrow-clockwise spin"></i> Saving...</span>
+                    <span class="btn-loader" style="display:none;"><i class="bi bi-arrow-clockwise spin"></i>
+                        Saving...</span>
                 </button>
             </form>
         </div>
     </div>
 
     <!-- Contact Us Modal -->
-    <div class="modal" id="contactUsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
-        <div class="modal-content" style="background:var(--bg-secondary); width:90%; max-width:400px; padding:2rem; border-radius:1rem; border:1px solid var(--border-color);">
+    <div class="modal" id="contactUsModal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal-content"
+            style="background:var(--bg-secondary); width:90%; max-width:400px; padding:2rem; border-radius:1rem; border:1px solid var(--border-color);">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="font-size:1.5rem; margin:0;">Contact Us</h2>
-                <button id="closeContactUsModal" style="background:none; border:none; color:var(--text-secondary); font-size:1.5rem; cursor:pointer;"><i class="bi bi-x-lg"></i></button>
+                <button id="closeContactUsModal"
+                    style="background:none; border:none; color:var(--text-secondary); font-size:1.5rem; cursor:pointer;"><i
+                        class="bi bi-x-lg"></i></button>
             </div>
             <form id="contactUsForm" style="display:flex; flex-direction:column; gap:1rem;">
                 <div class="input-group">
@@ -478,7 +497,8 @@
                 <div id="contactUsAlert" class="auth-alert" style="display:none;"></div>
                 <button type="submit" class="btn-primary" id="sendContactBtn">
                     <span class="btn-text">Send Message</span>
-                    <span class="btn-loader" style="display:none;"><i class="bi bi-arrow-clockwise spin"></i> Sending...</span>
+                    <span class="btn-loader" style="display:none;"><i class="bi bi-arrow-clockwise spin"></i>
+                        Sending...</span>
                 </button>
             </form>
         </div>
