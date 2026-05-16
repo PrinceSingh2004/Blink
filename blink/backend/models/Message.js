@@ -23,6 +23,10 @@ const Message = sequelize.define("Message", {
     type: DataTypes.SMALLINT,
     defaultValue: 0,
   },
+  conversation_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
 }, {
   tableName: "messages",
   timestamps: true,

@@ -171,7 +171,7 @@ const initDB = async () => {
             )
         `);
 
-        // Step 2: Fix database schema automatically on server start
+        // Step 1: Fix database schema automatically on server start
         await sequelize.query(`
           CREATE TABLE IF NOT EXISTS messages (
             id SERIAL PRIMARY KEY,
@@ -179,10 +179,19 @@ const initDB = async () => {
             receiver_id INTEGER NOT NULL,
             message TEXT NOT NULL,
             is_read SMALLINT DEFAULT 0,
+            conversation_id INTEGER,
             "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
           );
         `);
+
+        // Migration: Ensure conversation_id is optional and drop NOT NULL
+        try {
+            await sequelize.query('ALTER TABLE messages ALTER COLUMN conversation_id DROP NOT NULL');
+            await sequelize.query('ALTER TABLE messages ALTER COLUMN conversation_id DROP DEFAULT');
+        } catch (e) {
+            console.log('Info: conversation_id constraint adjustment:', e.message);
+        }
 
         const tables = ['messages'];
         for (const table of tables) {
@@ -190,6 +199,7 @@ const initDB = async () => {
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS receiver_id INTEGER`);
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS message TEXT`);
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS is_read SMALLINT DEFAULT 0`);
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS conversation_id INTEGER`);
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
         }
