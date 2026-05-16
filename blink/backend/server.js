@@ -18,6 +18,9 @@ const http = require('http');
 
 // ── Express App ────────────────────────────────────────
 const app = express();
+const server = http.createServer(app);
+const io = initSocket(server);
+app.set('io', io);
 app.set('trust proxy', 1); // For Render deployment
 
 // ── Security ───────────────────────────────────────────
@@ -142,9 +145,6 @@ app.use((err, req, res, next) => {
 
 // ── Startup ────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-const server = http.createServer(app);
-const io = initSocket(server);
-app.set('io', io);
 
 const start = async () => {
     await testConnection();

@@ -137,6 +137,8 @@ exports.sendMessage = async (req, res) => {
           sender_id: senderId,
           message: text.trim()
       });
+    } else {
+      console.warn("⚠️ Socket.IO not available on req.app, message saved without real-time emit");
     }
 
     return res.status(201).json({
