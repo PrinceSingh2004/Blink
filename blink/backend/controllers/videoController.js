@@ -4,7 +4,27 @@
  * Uses dynamic column detection to prevent "Unknown column" errors.
  */
 
-const { pool } = require('../config/db');
+const sequelize = require('../config/db');
+
+async function dbQuery(sql, params = []) {
+    let isInsert = sql.trim().toUpperCase().startsWith('INSERT');
+    if (isInsert && !sql.toUpperCase().includes('RETURNING')) {
+        sql += ' RETURNING id';
+    }
+    try {
+        const [results] = await sequelize.query(sql, { replacements: params });
+        if (isInsert) {
+            return [{ insertId: results && results.length > 0 ? results[0].id : null }];
+        }
+        return [results];
+    } catch (err) {
+        if (err.name === 'SequelizeUniqueConstraintError' || err.parent?.code === '23505') {
+            err.code = 'ER_DUP_ENTRY';
+        }
+        throw err;
+    }
+}
+
 const { getColumn } = require('../utils/columnMapper');
 
 /**
@@ -47,7 +67,7 @@ exports.getFeed = async (req, res) => {
             LIMIT 20
         `;
 
-        const [rows] = await pool.query(query);
+        const [rows] = await dbQuery(query);
         res.json({ success: true, data: rows || [] });
     } catch (err) {
         console.error('🔥 Feed error:', err.message);
@@ -63,7 +83,7 @@ exports.likeVideo = async (req, res) => {
         const videoId = req.params.id;
         const userId = req.user.id;
 
-        const [existing] = await pool.query(
+        const [existing] = await dbQuery(
             'SELECT id FROM likes WHERE user_id = ? AND video_id = ?',
             [userId, videoId]
         );
@@ -71,14 +91,14 @@ exports.likeVideo = async (req, res) => {
         const cols = await resolveVideoCols();
 
         if (existing.length > 0) {
-            await pool.query('DELETE FROM likes WHERE user_id = ? AND video_id = ?', [userId, videoId]);
-            await pool.query(`UPDATE videos SET ${cols.likesCol} = GREATEST(0, ${cols.likesCol} - 1) WHERE id = ?`, [videoId]);
+            await dbQuery('DELETE FROM likes WHERE user_id = ? AND video_id = ?', [userId, videoId]);
+            await dbQuery(`UPDATE videos SET ${cols.likesCol} = GREATEST(0, ${cols.likesCol} - 1) WHERE id = ?`, [videoId]);
         } else {
-            await pool.query('INSERT INTO likes (user_id, video_id) VALUES (?, ?)', [userId, videoId]);
-            await pool.query(`UPDATE videos SET ${cols.likesCol} = ${cols.likesCol} + 1 WHERE id = ?`, [videoId]);
+            await dbQuery('INSERT INTO likes (user_id, video_id) VALUES (?, ?)', [userId, videoId]);
+            await dbQuery(`UPDATE videos SET ${cols.likesCol} = ${cols.likesCol} + 1 WHERE id = ?`, [videoId]);
         }
         
-        const [[{ lc }]] = await pool.query(`SELECT ${cols.likesCol} AS lc FROM videos WHERE id = ?`, [videoId]);
+        const [[{ lc }]] = await dbQuery(`SELECT ${cols.likesCol} AS lc FROM videos WHERE id = ?`, [videoId]);
         
         const { getIO } = require('../utils/socket');
         const io = getIO();
@@ -96,10 +116,10 @@ exports.viewVideo = async (req, res) => {
         const userId = req.user ? req.user.id : null;
         const cols = await resolveVideoCols();
         
-        await pool.query('INSERT INTO views (user_id, video_id) VALUES (?, ?)', [userId, videoId]);
-        await pool.query(`UPDATE videos SET ${cols.viewsCol} = ${cols.viewsCol} + 1 WHERE id = ?`, [videoId]);
+        await dbQuery('INSERT INTO views (user_id, video_id) VALUES (?, ?)', [userId, videoId]);
+        await dbQuery(`UPDATE videos SET ${cols.viewsCol} = ${cols.viewsCol} + 1 WHERE id = ?`, [videoId]);
         
-        const [[{ vc }]] = await pool.query(`SELECT ${cols.viewsCol} AS vc FROM videos WHERE id = ?`, [videoId]);
+        const [[{ vc }]] = await dbQuery(`SELECT ${cols.viewsCol} AS vc FROM videos WHERE id = ?`, [videoId]);
         
         const { getIO } = require('../utils/socket');
         const io = getIO();
@@ -114,7 +134,7 @@ exports.viewVideo = async (req, res) => {
 exports.getComments = async (req, res) => {
     try {
         const videoId = req.params.id;
-        const [comments] = await pool.query(`
+        const [comments] = await dbQuery(`
             SELECT c.*, u.username, u.profile_photo
             FROM comments c 
             JOIN users u ON c.user_id = u.id
@@ -138,14 +158,14 @@ exports.addComment = async (req, res) => {
             return res.status(400).json({ error: 'Comment text is required' });
         }
 
-        const [result] = await pool.query(
+        const [result] = await dbQuery(
             'INSERT INTO comments (user_id, video_id, text) VALUES (?, ?, ?)',
             [userId, videoId, text.trim()]
         );
 
-        await pool.query(`UPDATE videos SET ${cols.commentsCol} = ${cols.commentsCol} + 1 WHERE id = ?`, [videoId]);
+        await dbQuery(`UPDATE videos SET ${cols.commentsCol} = ${cols.commentsCol} + 1 WHERE id = ?`, [videoId]);
 
-        const [[comment]] = await pool.query(`
+        const [[comment]] = await dbQuery(`
             SELECT c.id, c.text, c.created_at, c.user_id,
                    u.username, u.profile_photo
             FROM comments c
@@ -153,7 +173,7 @@ exports.addComment = async (req, res) => {
             WHERE c.id = ?
         `, [result.insertId]);
 
-        const [[{ cc }]] = await pool.query(`SELECT ${cols.commentsCol} AS cc FROM videos WHERE id = ?`, [videoId]);
+        const [[{ cc }]] = await dbQuery(`SELECT ${cols.commentsCol} AS cc FROM videos WHERE id = ?`, [videoId]);
 
         res.status(201).json({ success: true, comment, comments_count: cc });
     } catch (err) {
@@ -172,7 +192,7 @@ exports.deleteComment = async (req, res) => {
         const cols = await resolveVideoCols();
 
         // Use snake_case column names (matching initDB schema)
-        const [[comment]] = await pool.query(
+        const [[comment]] = await dbQuery(
             'SELECT id, video_id FROM comments WHERE id = ? AND user_id = ?',
             [commentId, userId]
         );
@@ -181,13 +201,13 @@ exports.deleteComment = async (req, res) => {
             return res.status(404).json({ error: 'Comment not found or unauthorized' });
         }
 
-        await pool.query('DELETE FROM comments WHERE id = ?', [commentId]);
-        await pool.query(
+        await dbQuery('DELETE FROM comments WHERE id = ?', [commentId]);
+        await dbQuery(
             `UPDATE videos SET ${cols.commentsCol} = GREATEST(0, ${cols.commentsCol} - 1) WHERE id = ?`,
             [comment.video_id]
         );
 
-        const [[{ cc }]] = await pool.query(`SELECT ${cols.commentsCol} AS cc FROM videos WHERE id = ?`, [comment.video_id]);
+        const [[{ cc }]] = await dbQuery(`SELECT ${cols.commentsCol} AS cc FROM videos WHERE id = ?`, [comment.video_id]);
 
         res.json({ success: true, comments_count: cc });
     } catch (err) {
@@ -204,7 +224,7 @@ exports.searchVideos = async (req, res) => {
         const q = (req.query.q || '').trim();
         const cols = await resolveVideoCols();
 
-        const [videos] = await pool.query(`
+        const [videos] = await dbQuery(`
             SELECT v.id, v.${cols.videoUrlCol} AS videoUrl, v.${cols.captionCol} AS caption, u.username
             FROM videos v
             JOIN users u ON v.${cols.userCol} = u.id
@@ -222,7 +242,7 @@ exports.getUserVideos = async (req, res) => {
         const userId = parseInt(req.params.userId);
         const cols = await resolveVideoCols();
 
-        const [videos] = await pool.query(`
+        const [videos] = await dbQuery(`
             SELECT id, ${cols.videoUrlCol} AS videoUrl, ${cols.captionCol} AS caption, created_at, ${cols.likesCol} AS likes_count, ${cols.viewsCol} AS views_count
             FROM videos
             WHERE ${cols.userCol} = ? AND ${cols.activeCol} = 1
@@ -245,7 +265,7 @@ exports.deleteVideo = async (req, res) => {
         const cols = await resolveVideoCols();
 
         // 1. Verify Ownership
-        const [[video]] = await pool.query(
+        const [[video]] = await dbQuery(
             `SELECT id, ${cols.videoUrlCol}, ${cols.userCol} AS owner_id FROM videos WHERE id = ?`,
             [videoId]
         );
@@ -256,19 +276,16 @@ exports.deleteVideo = async (req, res) => {
         console.log(`🗑️ User ${userId} deleting video ${videoId}`);
 
         // 2. Clear Database (Atomic)
-        const connection = await pool.getConnection();
+        const transaction = await sequelize.transaction();
         try {
-            await connection.beginTransaction();
-            await connection.query('DELETE FROM likes WHERE video_id = ?', [videoId]);
-            await connection.query('DELETE FROM comments WHERE video_id = ?', [videoId]);
-            await connection.query('DELETE FROM views WHERE video_id = ?', [videoId]);
-            await connection.query('DELETE FROM videos WHERE id = ?', [videoId]);
-            await connection.commit();
+            await sequelize.query('DELETE FROM likes WHERE video_id = ?', { replacements: [videoId], transaction });
+            await sequelize.query('DELETE FROM comments WHERE video_id = ?', { replacements: [videoId], transaction });
+            await sequelize.query('DELETE FROM views WHERE video_id = ?', { replacements: [videoId], transaction });
+            await sequelize.query('DELETE FROM videos WHERE id = ?', { replacements: [videoId], transaction });
+            await transaction.commit();
         } catch (dbErr) {
-            await connection.rollback();
+            await transaction.rollback();
             throw dbErr;
-        } finally {
-            connection.release();
         }
 
         res.json({ success: true, message: 'Video deleted successfully' });
@@ -288,18 +305,18 @@ exports.followUser = async (req, res) => {
 
         if (followerId === followingId) return res.status(400).json({ error: 'Cannot follow yourself' });
 
-        const [existing] = await pool.query(
+        const [existing] = await dbQuery(
             'SELECT id FROM follows WHERE follower_id = ? AND following_id = ?',
             [followerId, followingId]
         );
 
         if (existing.length > 0) {
-            await pool.query('DELETE FROM follows WHERE follower_id = ? AND following_id = ?', [followerId, followingId]);
+            await dbQuery('DELETE FROM follows WHERE follower_id = ? AND following_id = ?', [followerId, followingId]);
         } else {
-            await pool.query('INSERT INTO follows (follower_id, following_id) VALUES (?, ?)', [followerId, followingId]);
+            await dbQuery('INSERT INTO follows (follower_id, following_id) VALUES (?, ?)', [followerId, followingId]);
         }
 
-        const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM follows WHERE following_id = ?', [followingId]);
+        const [[{ count }]] = await dbQuery('SELECT COUNT(*) as count FROM follows WHERE following_id = ?', [followingId]);
         res.json({ success: true, follower_count: count });
     } catch (err) {
         res.status(500).json({ error: 'Follow failed' });
@@ -313,7 +330,7 @@ exports.getExplore = async (req, res) => {
     try {
         const cols = await resolveVideoCols();
 
-        const [videos] = await pool.query(`
+        const [videos] = await dbQuery(`
             SELECT v.id, v.${cols.videoUrlCol} AS videoUrl, v.${cols.captionCol} AS caption, u.username, v.${cols.likesCol} AS likes_count, v.${cols.viewsCol} AS views_count
             FROM videos v
             JOIN users u ON v.${cols.userCol} = u.id
@@ -341,7 +358,7 @@ exports.deleteSelectedVideos = async (req, res) => {
         }
 
         // Verify all videos belong to user
-        const [videos] = await pool.query(
+        const [videos] = await dbQuery(
             `SELECT id FROM videos WHERE id IN (?) AND ${cols.userCol} = ?`,
             [ids, userId]
         );
@@ -349,19 +366,16 @@ exports.deleteSelectedVideos = async (req, res) => {
         const verifiedIds = videos.map(v => v.id);
         if (verifiedIds.length === 0) return res.status(403).json({ error: 'Unauthorized or no videos found' });
 
-        const connection = await pool.getConnection();
+        const transaction = await sequelize.transaction();
         try {
-            await connection.beginTransaction();
-            await connection.query('DELETE FROM likes WHERE video_id IN (?)', [verifiedIds]);
-            await connection.query('DELETE FROM comments WHERE video_id IN (?)', [verifiedIds]);
-            await connection.query('DELETE FROM views WHERE video_id IN (?)', [verifiedIds]);
-            await connection.query('DELETE FROM videos WHERE id IN (?)', [verifiedIds]);
-            await connection.commit();
+            await sequelize.query('DELETE FROM likes WHERE video_id IN (?)', { replacements: [verifiedIds], transaction });
+            await sequelize.query('DELETE FROM comments WHERE video_id IN (?)', { replacements: [verifiedIds], transaction });
+            await sequelize.query('DELETE FROM views WHERE video_id IN (?)', { replacements: [verifiedIds], transaction });
+            await sequelize.query('DELETE FROM videos WHERE id IN (?)', { replacements: [verifiedIds], transaction });
+            await transaction.commit();
         } catch (dbErr) {
-            await connection.rollback();
+            await transaction.rollback();
             throw dbErr;
-        } finally {
-            connection.release();
         }
 
         res.json({ success: true, count: verifiedIds.length });

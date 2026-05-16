@@ -1,19 +1,16 @@
 /**
  * controllers/authController.js — Authentication
- * ═══════════════════════════════════════════════════
- * Register, Login, GetMe
  */
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { pool } = require('../config/db');
+const User = require('../models/User');
+const sequelize = require('../config/db'); // For raw queries on sessions if needed, though models are better
 
-/**
- * POST /api/auth/register
- */
 exports.register = async (req, res) => {
     try {
         const { username, email, password } = req.body;
+        
         if (!username) return res.status(400).json({ success: false, field: 'username', message: 'Username is required' });
         if (!email) return res.status(400).json({ success: false, field: 'email', message: 'Email is required' });
         if (!password) return res.status(400).json({ success: false, field: 'password', message: 'Password is required' });
@@ -28,42 +25,45 @@ exports.register = async (req, res) => {
             return res.status(400).json({ success: false, field: 'username', message: 'Username must be 3-30 characters' });
         }
 
+        const existingUser = await User.findOne({ 
+            where: sequelize.or({ email: email.trim().toLowerCase() }, { username: username.trim() }) 
+        });
+
+        if (existingUser) {
+            const field = existingUser.email === email.trim().toLowerCase() ? 'email' : 'username';
+            return res.status(409).json({ success: false, field, message: `${field.charAt(0).toUpperCase() + field.slice(1)} already taken` });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 12);
-        const [result] = await pool.query(
-            'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
-            [username.trim(), email.trim().toLowerCase(), hashedPassword]
-        );
+        
+        const user = await User.create({
+            username: username.trim(),
+            email: email.trim().toLowerCase(),
+            password: hashedPassword,
+        });
 
-        const token = jwt.sign({ id: result.insertId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        // Phase 2: Register session in DB
-        await pool.query('INSERT INTO sessions (user_id, token) VALUES (?, ?)', [result.insertId, token]);
+        // Phase 2: Register session in DB (using raw query for now unless Session model is made)
+        await sequelize.query('INSERT INTO sessions (user_id, token) VALUES (?, ?)', { replacements: [user.id, token] });
 
         res.status(201).json({
             success: true,
             token,
             user: {
-                id: result.insertId,
-                username: username.trim(),
-                email: email.trim().toLowerCase(),
-                profile_photo: null
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                profile_photo: user.profile_photo
             }
         });
 
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            const field = err.message.includes('email') ? 'email' : 'username';
-            return res.status(409).json({ success: false, field, message: `${field.charAt(0).toUpperCase() + field.slice(1)} already taken` });
-        }
         console.error('Register error:', err.message);
         res.status(500).json({ success: false, message: 'Registration failed' });
     }
 };
 
-/**
- * POST /api/auth/login
- * Accepts: { identifier, password } — identifier can be email OR username
- */
 exports.login = async (req, res) => {
     try {
         const { identifier, password } = req.body;
@@ -76,17 +76,14 @@ exports.login = async (req, res) => {
             return res.status(400).json({ success: false, field: 'password', message: 'Password is required' });
         }
 
-        // Search by email OR username
-        const [users] = await pool.query(
-            'SELECT * FROM users WHERE email = ? OR username = ?',
-            [loginId.toLowerCase(), loginId]
-        );
+        const user = await User.findOne({ 
+            where: sequelize.or({ email: loginId.toLowerCase() }, { username: loginId }) 
+        });
 
-        if (users.length === 0) {
+        if (!user) {
             return res.status(404).json({ success: false, field: 'identifier', message: 'User not found' });
         }
 
-        const user = users[0];
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
@@ -95,8 +92,7 @@ exports.login = async (req, res) => {
 
         const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-        // Phase 2: Register session in DB
-        await pool.query('INSERT INTO sessions (user_id, token) VALUES (?, ?)', [user.id, token]);
+        await sequelize.query('INSERT INTO sessions (user_id, token) VALUES (?, ?)', { replacements: [user.id, token] });
 
         res.json({
             success: true,
@@ -115,35 +111,29 @@ exports.login = async (req, res) => {
     }
 };
 
-/**
- * GET /api/auth/me
- */
 exports.getMe = async (req, res) => {
     try {
-        const [rows] = await pool.query(
-            'SELECT id, username, email, profile_photo, bio, created_at FROM users WHERE id = ?',
-            [req.user.id]
-        );
+        const user = await User.findByPk(req.user.id, {
+            attributes: ['id', 'username', 'email', 'profile_photo', 'bio', 'created_at']
+        });
 
-        if (rows.length === 0) {
+        if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({ success: true, user: rows[0] });
+        res.json({ success: true, user });
     } catch (err) {
         console.error('GetMe error:', err.message);
         res.status(500).json({ error: 'Failed to fetch profile' });
     }
 };
-/**
- * POST /api/auth/logout — Delete current session
- */
+
 exports.logout = async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
         const token = authHeader.split(' ')[1];
 
-        await pool.query('DELETE FROM sessions WHERE token = ?', [token]);
+        await sequelize.query('DELETE FROM sessions WHERE token = ?', { replacements: [token] });
         res.json({ success: true, message: 'Logged out successfully' });
     } catch (err) {
         console.error('Logout error:', err.message);
@@ -151,12 +141,9 @@ exports.logout = async (req, res) => {
     }
 };
 
-/**
- * POST /api/auth/logout-all — Delete all user sessions
- */
 exports.logoutAll = async (req, res) => {
     try {
-        await pool.query('DELETE FROM sessions WHERE user_id = ?', [req.user.id]);
+        await sequelize.query('DELETE FROM sessions WHERE user_id = ?', { replacements: [req.user.id] });
         res.json({ success: true, message: 'Logged out from all devices' });
     } catch (err) {
         console.error('Logout-all error:', err.message);

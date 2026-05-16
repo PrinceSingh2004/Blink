@@ -7,7 +7,27 @@
 
 const cloudinary = require('../config/cloudinary');
 const streamifier = require('streamifier');
-const { pool } = require('../config/db');
+const sequelize = require('../config/db');
+
+async function dbQuery(sql, params = []) {
+    let isInsert = sql.trim().toUpperCase().startsWith('INSERT');
+    if (isInsert && !sql.toUpperCase().includes('RETURNING')) {
+        sql += ' RETURNING id';
+    }
+    try {
+        const [results] = await sequelize.query(sql, { replacements: params });
+        if (isInsert) {
+            return [{ insertId: results && results.length > 0 ? results[0].id : null }];
+        }
+        return [results];
+    } catch (err) {
+        if (err.name === 'SequelizeUniqueConstraintError' || err.parent?.code === '23505') {
+            err.code = 'ER_DUP_ENTRY';
+        }
+        throw err;
+    }
+}
+
 const { getColumn } = require('../utils/columnMapper');
 
 /**
@@ -56,7 +76,7 @@ exports.uploadVideo = async (req, res) => {
         const userCol = await getColumn('videos', ['user_id', 'userId', 'creator_id']) || 'user_id';
         const urlCol = await getColumn('videos', ['video_url', 'videoUrl', 'url']) || 'video_url';
 
-        const [dbResult] = await pool.query(
+        const [dbResult] = await dbQuery(
             `INSERT INTO videos (${userCol}, ${urlCol}, caption, duration) VALUES (?, ?, ?, ?)`,
             [userId, result.secure_url, caption.trim(), Math.round(result.duration || 0)]
         );
@@ -106,7 +126,7 @@ exports.uploadProfilePhoto = async (req, res) => {
 
         const photoUrl = result.secure_url;
 
-        await pool.query(
+        await dbQuery(
             'UPDATE users SET profile_photo = ? WHERE id = ?',
             [photoUrl, userId]
         );

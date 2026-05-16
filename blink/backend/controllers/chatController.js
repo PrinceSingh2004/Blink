@@ -3,7 +3,27 @@
  * ═══════════════════════════════════════════════════
  */
 
-const { pool } = require('../config/db');
+const sequelize = require('../config/db');
+
+async function dbQuery(sql, params = []) {
+    let isInsert = sql.trim().toUpperCase().startsWith('INSERT');
+    if (isInsert && !sql.toUpperCase().includes('RETURNING')) {
+        sql += ' RETURNING id';
+    }
+    try {
+        const [results] = await sequelize.query(sql, { replacements: params });
+        if (isInsert) {
+            return [{ insertId: results && results.length > 0 ? results[0].id : null }];
+        }
+        return [results];
+    } catch (err) {
+        if (err.name === 'SequelizeUniqueConstraintError' || err.parent?.code === '23505') {
+            err.code = 'ER_DUP_ENTRY';
+        }
+        throw err;
+    }
+}
+
 
 /**
  * GET /api/conversations — Get user's chat list
@@ -12,7 +32,7 @@ exports.getConversations = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const [rows] = await pool.query(`
+        const [rows] = await dbQuery(`
             SELECT 
                 c.id, 
                 c.created_at,
@@ -44,20 +64,20 @@ exports.getMessages = async (req, res) => {
         const convId = req.params.convId;
 
         // Verify participance
-        const [[conv]] = await pool.query(
+        const [[conv]] = await dbQuery(
             'SELECT id FROM conversations WHERE id = ? AND (user1_id = ? OR user2_id = ?)',
             [convId, userId, userId]
         );
 
         if (!conv) return res.status(403).json({ error: 'Unauthorized' });
 
-        const [messages] = await pool.query(
+        const [messages] = await dbQuery(
             'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC',
             [convId]
         );
 
         // Mark as seen
-        await pool.query(
+        await dbQuery(
             'UPDATE messages SET seen = 1 WHERE conversation_id = ? AND sender_id != ?',
             [convId, userId]
         );
@@ -84,13 +104,13 @@ exports.sendMessage = async (req, res) => {
         const u1 = Math.min(senderId, receiverId);
         const u2 = Math.max(senderId, receiverId);
 
-        let [[conv]] = await pool.query(
+        let [[conv]] = await dbQuery(
             'SELECT id FROM conversations WHERE user1_id = ? AND user2_id = ?',
             [u1, u2]
         );
 
         if (!conv) {
-            const [result] = await pool.query(
+            const [result] = await dbQuery(
                 'INSERT INTO conversations (user1_id, user2_id) VALUES (?, ?)',
                 [u1, u2]
             );
@@ -99,7 +119,7 @@ exports.sendMessage = async (req, res) => {
 
         // 2. If text is provided, save message
         if (text && text.trim().length > 0) {
-            await pool.query(
+            await dbQuery(
                 'INSERT INTO messages (conversation_id, sender_id, text) VALUES (?, ?, ?)',
                 [conv.id, senderId, text.trim()]
             );

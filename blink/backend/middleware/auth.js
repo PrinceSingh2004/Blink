@@ -29,8 +29,8 @@ const protect = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         
         // Phase 2: Session Check
-        const { pool } = require('../config/db');
-        const [session] = await pool.query('SELECT id FROM sessions WHERE user_id = ? AND token = ?', [decoded.id, token]);
+        const sequelize = require('../config/db');
+        const [session] = await sequelize.query('SELECT id FROM sessions WHERE user_id = ? AND token = ?', { replacements: [decoded.id, token] });
         
         if (session.length === 0) {
             return res.status(401).json({ error: 'Session expired or logged out' });

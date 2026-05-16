@@ -1,5 +1,6 @@
-const { pool } = require('../config/db');
+const sequelize = require('../config/db');
 const { getColumn } = require('../utils/columnMapper');
+const User = require('../models/User');
 
 /**
  * GET /api/users/me — AUTO-HEALING Dynamic Profile
@@ -14,17 +15,17 @@ exports.getProfile = async (req, res) => {
         const viewsCountCol = await getColumn('videos', ['views_count', 'viewsCount', 'views']);
         const likesCountCol = await getColumn('videos', ['likes_count', 'likesCount', 'likes']);
 
-        const [rows] = await pool.query(`
+        const [rows] = await sequelize.query(`
             SELECT 
                 u.*,
-                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'userId'} = u.id AND ${videoActiveCol || 'is_active'} = 1) AS posts_count,
-                (SELECT COALESCE(SUM(${likesCountCol || 'likes_count'}), 0) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS total_likes,
-                (SELECT COALESCE(SUM(${viewsCountCol || 'views_count'}), 0) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS total_views,
+                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'user_id'} = u.id AND ${videoActiveCol || 'is_active'} = 1) AS posts_count,
+                (SELECT COALESCE(SUM(${likesCountCol || 'likes_count'}), 0) FROM videos WHERE ${videoUserCol || 'user_id'} = u.id) AS total_likes,
+                (SELECT COALESCE(SUM(${viewsCountCol || 'views_count'}), 0) FROM videos WHERE ${videoUserCol || 'user_id'} = u.id) AS total_views,
                 (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS followers_count,
                 (SELECT COUNT(*) FROM follows WHERE follower_id = u.id) AS following_count
             FROM users u
             WHERE u.id = ?
-        `, [userId]);
+        `, { replacements: [userId] });
 
         if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
         res.json({ success: true, user: rows[0] });
@@ -45,16 +46,16 @@ exports.getUser = async (req, res) => {
 
         const currentUserId = req.user ? req.user.id : null;
 
-        const [rows] = await pool.query(`
+        const [rows] = await sequelize.query(`
             SELECT 
                 u.id, u.username, u.profile_photo, u.bio,
-                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'userId'} = u.id) AS posts_count,
+                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'user_id'} = u.id) AS posts_count,
                 (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS followers_count,
                 (SELECT COUNT(*) FROM follows WHERE follower_id = u.id) AS following_count,
                 EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = u.id) AS is_following
             FROM users u
             WHERE u.id = ?
-        `, [currentUserId, userId]);
+        `, { replacements: [currentUserId, userId] });
 
         if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
         res.json({ success: true, user: rows[0] });
@@ -75,14 +76,14 @@ exports.updateProfile = async (req, res) => {
             return res.status(400).json({ error: 'Username must be at least 3 characters' });
         }
 
-        await pool.query(
+        await sequelize.query(
             'UPDATE users SET username = ?, bio = ? WHERE id = ?',
-            [username.trim(), bio || null, userId]
+            { replacements: [username.trim(), bio || null, userId] }
         );
 
         res.json({ success: true, message: 'Profile updated' });
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
+        if (err.name === 'SequelizeUniqueConstraintError' || err.parent?.code === '23505') {
             return res.status(409).json({ error: 'Username already taken' });
         }
         console.error('Update profile error:', err.message);
@@ -100,13 +101,13 @@ exports.searchUsers = async (req, res) => {
             return res.json({ success: true, users: [] });
         }
 
-        const [users] = await pool.query(`
+        const [users] = await sequelize.query(`
             SELECT id, username, profile_photo, bio
             FROM users
             WHERE username LIKE ?
             ORDER BY username ASC
             LIMIT 20
-        `, [`%${q}%`]);
+        `, { replacements: [`%${q}%`] });
 
         res.json({ success: true, users });
     } catch (err) {
@@ -124,18 +125,19 @@ exports.followUser = async (req, res) => {
 
         if (followerId === followingId) return res.status(400).json({ error: 'Cannot follow yourself' });
 
-        const [existing] = await pool.query(
+        const [existing] = await sequelize.query(
             'SELECT id FROM follows WHERE follower_id = ? AND following_id = ?',
-            [followerId, followingId]
+            { replacements: [followerId, followingId] }
         );
 
         if (existing.length > 0) {
-            await pool.query('DELETE FROM follows WHERE follower_id = ? AND following_id = ?', [followerId, followingId]);
+            await sequelize.query('DELETE FROM follows WHERE follower_id = ? AND following_id = ?', { replacements: [followerId, followingId] });
         } else {
-            await pool.query('INSERT INTO follows (follower_id, following_id) VALUES (?, ?)', [followerId, followingId]);
+            await sequelize.query('INSERT INTO follows (follower_id, following_id) VALUES (?, ?)', { replacements: [followerId, followingId] });
         }
 
-        const [[{ count }]] = await pool.query('SELECT COUNT(*) as count FROM follows WHERE following_id = ?', [followingId]);
+        const [counts] = await sequelize.query('SELECT COUNT(*) as count FROM follows WHERE following_id = ?', { replacements: [followingId] });
+        const count = counts[0].count;
         console.log("Follow toggled:", followingId, "New count:", count);
         res.json({ success: true, follower_count: count });
     } catch (err) {

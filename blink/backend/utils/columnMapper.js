@@ -5,7 +5,7 @@
  * Detects real DB column names to prevent "Unknown column" errors.
  */
 
-const { pool } = require('../config/db');
+const sequelize = require('../config/db');
 
 const columnCache = {};
 
@@ -20,7 +20,7 @@ async function getColumn(table, options) {
     if (columnCache[cacheKey]) return columnCache[cacheKey];
 
     try {
-        const [rows] = await pool.query(`DESCRIBE ??`, [table]);
+        const [rows] = await sequelize.query(`SELECT column_name as "Field" FROM information_schema.columns WHERE table_name = ?`, { replacements: [table] });
         const columns = rows.map(r => r.Field.toLowerCase());
 
         for (const opt of options) {
