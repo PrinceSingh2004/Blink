@@ -742,7 +742,7 @@ img {
     height: 100dvh;
     overflow-y: scroll;
     scroll-snap-type: y mandatory;
-    background: #000;
+    background: radial-gradient(ellipse at center, #0d0d1a 0%, #000 70%);
     scrollbar-width: none;
     display: flex;
     flex-direction: column;
@@ -1721,6 +1721,24 @@ img {
     text-align: center;
 }
 
+@media (max-width: 480px) {
+    .profile-stats {
+        grid-template-columns: repeat(3, 1fr);
+        justify-content: center;
+    }
+    .profile-stats > .stat:nth-child(n+4) {
+        grid-column: span 1;
+    }
+    .stat-num { font-size: 18px !important; }
+    .stat-label { font-size: 10px !important; }
+}
+
+@media (max-width: 360px) {
+    .profile-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 .stat {
     text-align: center;
 }
@@ -2098,8 +2116,48 @@ img {
 }
 
 /* ══════════════════════════════════════════════════════════
-   TOAST
+   MODALS
    ══════════════════════════════════════════════════════════ */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.modal-card {
+    background: var(--bg-surface);
+    width: 100%;
+    max-width: 440px;
+    padding: 32px;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    animation: slideUp 0.4s var(--spring);
+}
+
+@media (max-width: 480px) {
+    .modal-card {
+        padding: 24px 16px;
+        border-radius: var(--radius-lg);
+    }
+}
+
+@media (max-width: 375px) {
+    .modal-card {
+        padding: 20px 12px;
+    }
+}
 #toastContainer {
     position: fixed;
     top: 24px;
@@ -2768,6 +2826,14 @@ img {
     z-index: 999;
 }
 
+@media (min-width: 769px) {
+    .chat-input-bar {
+        position: sticky;
+        left: auto;
+        right: auto;
+    }
+}
+
 .chat-textarea {
     flex: 1;
     min-height: 42px;
@@ -2818,23 +2884,164 @@ img {
 
 /* ── MEDIA QUERIES ── */
 @media (max-width: 768px) {
-    .chat-active {
+    .sidebar,
+    .desktop-nav {
+        display: none !important;
+    }
+
+    .bottom-nav,
+    .mobile-bottom-nav {
+        display: flex !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        width: 100% !important;
+        padding-bottom: 72px;
+    }
+
+    .page {
+        padding-bottom: 0;
+    }
+
+    /* Fix 4: Auth Card Responsive */
+    .auth-card {
+        padding: 32px 24px;
+        width: 90%;
+    }
+    .auth-brand { font-size: 28px; }
+    .auth-logo-icon { width: 52px; height: 52px; font-size: 24px; }
+
+    @media (max-width: 375px) {
+        .auth-card { padding: 24px 16px; width: 95%; }
+    }
+
+    /* Fix 5 & 10: Chat Back & Touch Targets */
+    .chat-back {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
+    }
+    .new-chat-btn { width: 44px; height: 44px; }
+    .search-clear { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
+
+    /* Fix 6: Tablet Portrait Overrides */
+    @media (min-width: 481px) {
+        .reel-card { max-width: 100%; }
+        .reel-video-wrapper { width: 100%; height: 100dvh; border-radius: 0; }
+        .chat-list-panel { width: 280px; }
+    }
+
+    /* Fix 9: Comments Drawer & Keyboard */
+    .comments-panel {
+        max-height: 85vh;
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    }
+    .comments-list {
+        max-height: calc(85vh - 180px);
+    }
+    .comments-close { width: 44px; height: 44px; }
+    .comment-delete {
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 1 !important;
+        margin-left: auto;
+    }
+
+    /* Fix 12: Profile Header Narrow */
+    @media (max-width: 480px) {
+        .profile-header {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 16px;
+            padding: 24px 16px;
+        }
+        .profile-info { width: 100%; }
+        .profile-info h1 { font-size: 20px; text-align: center; }
+        .profile-bio { text-align: center; }
+        .profile-stats { margin-top: 16px; }
+        .profile-actions { justify-content: center; grid-template-columns: 1fr; }
+        .profile-avatar { width: 100px; height: 100px; }
+        .follow-actions { flex-direction: column; }
+        .follow-btn, .message-btn { width: 100%; min-width: unset; }
+    }
+
+    /* Fix 13: Upload Page */
+    .upload-container { padding: 16px 12px; align-items: flex-start; }
+    .upload-card { padding: 20px 16px; border-radius: var(--radius-lg); }
+    .upload-dropzone { padding: 40px 24px; }
+    .upload-icon { font-size: 40px; }
+    .upload-dropzone h2 { font-size: 18px; }
+    .upload-preview { max-height: 300px; }
+    #uploadCaption { min-height: 60px; }
+
+    /* Fix 14: Explore Page */
+    .explore-container { padding: 16px 12px; }
+    .explore-header { margin-bottom: 16px; }
+    .explore-header h1 { font-size: 22px; margin-bottom: 12px; }
+    .search-box { padding: 0 14px; }
+    .search-box input { padding: 12px 12px; font-size: 14px; }
+    .explore-grid { gap: 4px; padding: 4px; }
+
+    /* Fix 15: Toast Position */
+    #toastContainer {
+        top: auto;
+        bottom: calc(var(--bottom-nav-h) + 16px + env(safe-area-inset-bottom, 0));
+        right: 16px;
+        left: 16px;
+        align-items: center;
+    }
+    .toast {
+        width: 100%;
+        max-width: 100%;
+        transform: translateY(120%);
+    }
+    .toast.show { transform: translateY(0); }
+
+    /* Instagram-Style Mobile Layout Fixes */
+    .chat-active,
+    .chat-screen {
         height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        background: #020617;
+        overflow: hidden;
     }
-
-    .chat-input-bar {
-        padding-bottom: calc(12px + env(safe-area-inset-bottom));
-    }
-
-    .chat-messages {
-        padding-bottom: 110px;
-    }
-
     .chat-window-panel {
         position: fixed;
         inset: 0;
         z-index: 100;
         background: #020617;
+    }
+    .chat-header {
+        height: 60px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px;
+        background: rgba(2, 6, 23, 0.96);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        flex-shrink: 0;
+    }
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 14px;
+        padding-bottom: 110px;
+    }
+    .chat-input-bar {
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+    .chat-window-panel.active~.bottom-nav,
+    .chat-window-panel.active~.mobile-bottom-nav {
+        display: none !important;
     }
 }
 
@@ -2908,14 +3115,49 @@ img {
         display: none;
     }
 
+    .sidebar-user-dropdown {
+        left: 0;
+        width: 200px;
+        right: auto;
+    }
+
     .main-content {
         margin-left: var(--sidebar-collapsed);
         width: calc(100% - var(--sidebar-collapsed));
     }
 
+    /* Feed */
+    .reel-card {
+        max-width: 420px;
+    }
+
     .reel-video-wrapper {
-        width: min(400px, 100%);
-        height: 90vh;
+        width: min(380px, 100%);
+        height: 88vh;
+    }
+
+    /* Explore */
+    .explore-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    .explore-container {
+        max-width: 700px;
+        padding: 24px 20px;
+    }
+
+    /* Profile */
+    .profile-container {
+        max-width: 700px;
+    }
+
+    /* Chat */
+    .chat-list-panel {
+        width: 300px;
+    }
+
+    /* Upload */
+    .upload-container {
+        padding: 32px 20px;
     }
 }
 

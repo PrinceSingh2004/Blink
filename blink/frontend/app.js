@@ -37,20 +37,23 @@ class BlinkApp {
     async init() {
         try {
             await this.handleColdStart();
-            this.setupAuth();
-            this.setupNavigation();
-            this.setupUpload();
-            this.setupSearch();
-            this.setupProfile();
-            this.setupPasswordToggles();
-            this.setupComments();
-            this.setupFeed();
-            this.setupChat(); // Phase 7
-            this.runSafetyCheck();
-            this.checkAuth();
         } catch (err) {
-            console.error("Initialization halted:", err.message);
+            console.warn("Cold start timed out or failed, proceeding anyway:", err.message);
+            const overlay = document.getElementById('coldStartOverlay');
+            if (overlay) overlay.style.display = 'none';
         }
+
+        this.setupAuth();
+        this.setupNavigation();
+        this.setupUpload();
+        this.setupSearch();
+        this.setupProfile();
+        this.setupPasswordToggles();
+        this.setupComments();
+        this.setupFeed();
+        this.setupChat(); // Phase 7
+        this.runSafetyCheck();
+        this.checkAuth();
     }
 
     async handleColdStart() {
@@ -1051,6 +1054,14 @@ class BlinkApp {
         }
 
         document.getElementById('commentInput')?.focus();
+
+        // Fix 9: Keyboard Scroll
+        const input = document.getElementById('commentInput');
+        input?.addEventListener('focus', () => {
+            setTimeout(() => {
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }, { once: true });
     }
 
     closeComments() {

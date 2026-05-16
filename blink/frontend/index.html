@@ -32,15 +32,15 @@
     <!-- ═══════════════════════════════════════════════════
          COLD START SPLASH
          ═══════════════════════════════════════════════════ -->
-    <div id="coldStartOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-primary); z-index:100000; justify-content:center; align-items:center; flex-direction:column; text-align:center; padding:2rem;">
+    <div id="coldStartOverlay" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(6,10,19,0.97); justify-content:center; align-items:center; flex-direction:column; text-align:center; padding:2rem;">
         <div class="auth-logo" style="margin-bottom:2rem;">
             <div class="auth-logo-icon"><i class="bi bi-play-circle-fill"></i></div>
             <h1 class="auth-brand">Blink</h1>
         </div>
         <div class="pulse-loader" style="margin-bottom:1.5rem;"></div>
-        <h2 id="coldStartTitle" style="font-size:1.25rem; margin-bottom:0.5rem; color:var(--text-primary);">Starting Blink server…</h2>
-        <p id="coldStartDesc" style="color:var(--text-secondary); max-width:300px; line-height:1.5;">Please wait while we wake up the backend on Render.</p>
-        <button id="coldStartRetry" class="btn-primary" style="display:none; margin-top:2rem; padding:12px 32px;">
+        <h2 id="coldStartTitle" style="font-size:1.25rem; margin-bottom:0.5rem; color:var(--text-primary);">Connecting to Blink…</h2>
+        <p id="coldStartDesc" style="color:var(--text-secondary); max-width:300px; line-height:1.5;">Setting things up, please wait...</p>
+        <button id="coldStartRetry" class="btn-submit" style="display:none; margin-top:2rem; width:auto; padding:12px 32px;">
             <i class="bi bi-arrow-clockwise"></i> Retry Connection
         </button>
     </div>
@@ -477,17 +477,15 @@
     <div id="toastContainer"></div>
 
     <!-- Edit Profile Modal -->
-    <div class="modal" id="editProfileModal"
-        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
-        <div class="modal-content"
-            style="background:var(--bg-secondary); width:90%; max-width:400px; padding:2rem; border-radius:1rem; border:1px solid var(--border-color);">
+    <div class="modal modal-overlay" id="editProfileModal" style="display:none;">
+        <div class="modal-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="font-size:1.5rem; margin:0;">Edit Profile</h2>
                 <button id="closeEditProfileModal"
                     style="background:none; border:none; color:var(--text-secondary); font-size:1.5rem; cursor:pointer;"><i
                         class="bi bi-x-lg"></i></button>
             </div>
-            <form id="editProfileForm" style="display:flex; flex-direction:column; gap:1rem;">
+            <form id="editProfileForm">
                 <div class="input-group">
                     <label>Name</label>
                     <input type="text" id="editProfileName" placeholder="Your full name" required>
@@ -511,17 +509,15 @@
     </div>
 
     <!-- Contact Us Modal -->
-    <div class="modal" id="contactUsModal"
-        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
-        <div class="modal-content"
-            style="background:var(--bg-secondary); width:90%; max-width:400px; padding:2rem; border-radius:1rem; border:1px solid var(--border-color);">
+    <div class="modal modal-overlay" id="contactUsModal" style="display:none;">
+        <div class="modal-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="font-size:1.5rem; margin:0;">Contact Us</h2>
                 <button id="closeContactUsModal"
                     style="background:none; border:none; color:var(--text-secondary); font-size:1.5rem; cursor:pointer;"><i
                         class="bi bi-x-lg"></i></button>
             </div>
-            <form id="contactUsForm" style="display:flex; flex-direction:column; gap:1rem;">
+            <form id="contactUsForm">
                 <div class="input-group">
                     <label>Name</label>
                     <input type="text" id="contactName" placeholder="Your name" required>
