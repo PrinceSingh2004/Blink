@@ -101,13 +101,16 @@ exports.searchUsers = async (req, res) => {
             return res.json({ success: true, users: [] });
         }
 
+        const currentUserId = req.user ? req.user.id : 0;
+
         const [users] = await sequelize.query(`
-            SELECT id, username, profile_photo, bio
+            SELECT id, username, name, profile_photo, bio
             FROM users
-            WHERE username LIKE ?
+            WHERE (username ILIKE ? OR name ILIKE ?)
+            AND id != ?
             ORDER BY username ASC
             LIMIT 20
-        `, { replacements: [`%${q}%`] });
+        `, { replacements: [`%${q}%`, `%${q}%`, currentUserId] });
 
         res.json({ success: true, users });
     } catch (err) {

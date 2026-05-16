@@ -16,6 +16,7 @@ exports.getConversations = async (req, res) => {
             SELECT 
                 u.id AS other_user_id,
                 u.username AS other_username,
+                u.name AS other_name,
                 u.profile_photo AS other_profile_photo,
                 m.message AS last_message,
                 m."createdAt" AS last_message_at,

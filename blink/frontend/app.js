@@ -493,21 +493,38 @@ class BlinkApp {
                 card.className = "explore-video-card";
                 card.dataset.id = video.id;
 
+                let thumb = video.thumbnail_url;
+                if (!thumb && video.videoUrl && video.videoUrl.includes('cloudinary.com')) {
+                    thumb = video.videoUrl.replace('/upload/', '/upload/so_1/').replace(/\.(mp4|webm|mov)$/i, '.jpg');
+                }
+                if (!thumb) thumb = 'https://via.placeholder.com/400x700/111/fff?text=Video';
+
                 card.innerHTML = `
-                    <video src="${video.videoUrl}" muted playsinline preload="none" loop></video>
+                    <img src="${thumb}" class="explore-thumb" loading="lazy">
+                    <video src="${video.videoUrl}" muted playsinline preload="none" loop class="explore-video-element"></video>
                     <div class="explore-info">@${video.username}</div>
+                    <div class="explore-stats">
+                        <span><i class="bi bi-heart-fill"></i> ${this.formatCount(video.likes_count)}</span>
+                    </div>
                 `;
 
-                // Toggle play/pause on click
                 card.onclick = () => {
+                    // Navigate to feed and scroll to this video
+                    this.navigateTo('feed');
+                    // We could implement a direct scroll to videoId here
+                };
+
+                // Hover to play
+                card.onmouseenter = () => {
                     const vid = card.querySelector('video');
-                    if (vid.paused) {
-                        // Pause others for performance
-                        grid.querySelectorAll('video').forEach(v => v.pause());
-                        vid.play();
-                    } else {
-                        vid.pause();
-                    }
+                    vid.play().catch(() => {});
+                    card.querySelector('.explore-thumb').style.opacity = '0';
+                };
+                card.onmouseleave = () => {
+                    const vid = card.querySelector('video');
+                    vid.pause();
+                    vid.currentTime = 0;
+                    card.querySelector('.explore-thumb').style.opacity = '1';
                 };
 
                 grid.appendChild(card);
@@ -1542,26 +1559,36 @@ class BlinkApp {
         if (users.length === 0) {
             grid.innerHTML = `
                 <div class="explore-empty">
-                    <i class="bi bi-compass"></i>
-                    <p>Search for creators to discover new content</p>
+                    <i class="bi bi-search"></i>
+                    <p>No creators found matching your search</p>
                 </div>`;
             return;
         }
 
-        grid.innerHTML = users.map(u => {
-            const avatar = this.getAvatarUrl(u);
-            return `
-            <div class="user-card" data-user-id="${u.id}">
-                <div class="user-card-avatar-wrap">
-                    <img src="${avatar}" class="user-card-avatar" alt="${u.username}">
-                </div>
-                <div class="user-card-name">@${u.username}</div>
-                <div class="user-card-bio">${this.escapeHtml(u.bio || 'Blink Creator')}</div>
-            </div>`;
-        }).join('');
+        grid.innerHTML = `
+            <div class="search-results-header">
+                <h3>People</h3>
+            </div>
+            <div class="user-results-list">
+                ${users.map(u => {
+                    const avatar = this.getAvatarUrl(u);
+                    const nameDisplay = u.name || u.username;
+                    return `
+                    <div class="user-row-card" data-user-id="${u.id}">
+                        <img src="${avatar}" class="user-row-avatar" alt="${u.username}">
+                        <div class="user-row-info">
+                            <div class="user-row-name">${this.escapeHtml(nameDisplay)}</div>
+                            <div class="user-row-username">@${u.username}</div>
+                            ${u.bio ? `<div class="user-row-bio">${this.escapeHtml(u.bio)}</div>` : ''}
+                        </div>
+                        <button class="btn-view-profile">View</button>
+                    </div>`;
+                }).join('')}
+            </div>
+        `;
 
         // Click user cards → open profile
-        grid.querySelectorAll('.user-card').forEach(card => {
+        grid.querySelectorAll('.user-row-card').forEach(card => {
             card.addEventListener('click', () => {
                 const userId = parseInt(card.dataset.userId);
                 if (userId) this.openUserProfile(userId);
@@ -1931,32 +1958,38 @@ class BlinkApp {
         if (!list) return;
 
         if (this.conversations.length === 0) {
-            list.innerHTML = `<div class="chat-empty-list">No messages yet</div>`;
+            list.innerHTML = `<div class="chat-empty-list">No messages yet. Start a conversation!</div>`;
             return;
         }
 
         list.innerHTML = this.conversations.map(c => {
             const avatar = this.getAvatarUrl({
                 profile_photo: c.other_profile_photo,
-                username: c.other_username
+                username: c.other_username,
+                name: c.other_name
             });
             const activeClass = this.activeReceiverId === c.other_user_id ? 'active' : '';
-            const unread = c.unread_count > 0 ? `<span class="conv-unread">${c.unread_count}</span>` : '';
+            const unreadCount = parseInt(c.unread_count) || 0;
+            const unreadBadge = unreadCount > 0 ? `<div class="conv-unread-badge">${unreadCount}</div>` : '';
+            const displayName = c.other_name || c.other_username;
 
             return `
-            <div class="conv-item conversation-row ${activeClass}" data-id="${c.other_user_id}" onclick="app.openChatWithUser(${c.other_user_id}, '${c.other_username}', '${avatar}')">
+            <div class="conv-item conversation-row ${activeClass}" data-id="${c.other_user_id}" onclick="app.openChatWithUser(${c.other_user_id}, '${displayName}', '${avatar}', '${c.other_username}')">
                 <div class="conv-avatar-wrap">
                     <img src="${avatar}" class="conv-avatar conversation-avatar">
                     <div class="status-dot offline" data-user-id="${c.other_user_id}"></div>
                 </div>
                 <div class="conv-info">
                     <div class="conv-name-row">
-                        <span class="conv-name">${c.other_username}</span>
+                        <div class="conv-names">
+                            <span class="conv-display-name">${this.escapeHtml(displayName)}</span>
+                            <span class="conv-username">@${c.other_username}</span>
+                        </div>
                         <span class="conv-time">${this.timeAgo(c.last_message_at || Date.now())}</span>
                     </div>
                     <div class="conv-msg-row">
-                        <span class="conv-last-msg">${this.escapeHtml(c.last_message || 'No messages yet')}</span>
-                        ${unread}
+                        <span class="conv-last-msg ${unreadCount > 0 ? 'unread' : ''}">${this.escapeHtml(c.last_message || 'No messages yet')}</span>
+                        ${unreadBadge}
                     </div>
                 </div>
             </div>`;
@@ -2133,7 +2166,7 @@ class BlinkApp {
         });
     }
 
-    async openChatWithUser(userId, username, avatar) {
+    async openChatWithUser(userId, name, avatar, username) {
         if (!this.user) { this.showToast('Please sign in to message', 'error'); return; }
 
         this.activeReceiverId = userId;
@@ -2146,12 +2179,21 @@ class BlinkApp {
         if (!msgContainer) return;
 
         // Header Info
-        document.getElementById('chatHeaderName').textContent = username;
-        document.getElementById('chatHeaderAvatar').src = avatar;
+        const headerName = document.getElementById('chatHeaderName');
+        const headerAvatar = document.getElementById('chatHeaderAvatar');
+        const headerStatus = document.getElementById('chatHeaderStatus');
+
+        if (headerName) headerName.innerHTML = `<div class="chat-header-names"><span class="chat-header-display-name">${this.escapeHtml(name)}</span><span class="chat-header-username">@${this.escapeHtml(username || name)}</span></div>`;
+        if (headerAvatar) headerAvatar.src = avatar;
+        if (headerStatus) headerStatus.textContent = "Online"; // Default for now
+
         document.getElementById('chatEmptyState').style.display = 'none';
         document.getElementById('chatActive').style.display = 'flex';
 
+        // Hide bottom nav on mobile when chatting
         if (window.innerWidth <= 768) {
+            const bottomNav = document.getElementById('bottomNav');
+            if (bottomNav) bottomNav.style.display = 'none';
             document.getElementById('chatListPanel').classList.add('hidden');
             document.getElementById('chatWindowPanel').classList.add('active');
         }
@@ -2229,8 +2271,14 @@ class BlinkApp {
     closeChat() {
         const listPanel = document.getElementById('chatListPanel');
         const windowPanel = document.getElementById('chatWindowPanel');
+        const bottomNav = document.getElementById('bottomNav');
+        
         if (listPanel) listPanel.classList.remove('hidden');
         if (windowPanel) windowPanel.classList.remove('active');
+        if (window.innerWidth <= 768 && bottomNav) {
+            bottomNav.style.display = 'flex';
+        }
+        
         this.activeReceiverId = null;
         this.activeConversationId = null;
     }

@@ -3139,10 +3139,11 @@ img {
     /* Explore */
     .explore-grid {
         grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
     }
     .explore-container {
-        max-width: 700px;
-        padding: 24px 20px;
+        max-width: 100%;
+        padding: 16px;
     }
 
     /* Profile */
@@ -3274,15 +3275,184 @@ img {
     }
 }
 
-/* ── Desktop Overrides for Chat ── */
-@media (min-width: 769px) {
-    .chat-input-bar {
-        position: sticky;
-        bottom: 0;
+/* ── Explore Grid (Mobile) ── */
+@media (max-width: 480px) {
+    .explore-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 4px !important;
     }
+}
 
-    .messages-container,
-    .chat-messages {
-        padding-bottom: 20px;
-    }
+/* Explore Video Card Styling */
+.explore-video-card {
+    position: relative;
+    aspect-ratio: 9/16;
+    background: #111;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.explore-thumb {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    transition: opacity 0.3s ease;
+}
+
+.explore-video-element {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.explore-info {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    z-index: 2;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+}
+
+.explore-stats {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    font-size: 11px;
+    color: white;
+    background: rgba(0,0,0,0.4);
+    padding: 2px 6px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* User Search Results List */
+.user-results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.user-row-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.user-row-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.user-row-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.user-row-info {
+    flex: 1;
+}
+
+.user-row-name {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.user-row-username {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.user-row-bio {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.btn-view-profile {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Chat Header Names */
+.chat-header-names {
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header-display-name {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.chat-header-username {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Conversation Row Details */
+.conv-names {
+    display: flex;
+    flex-direction: column;
+}
+
+.conv-display-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.conv-username {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.conv-last-msg.unread {
+    color: white;
+    font-weight: 700;
+}
+
+.conv-unread-badge {
+    background: #0095f6;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: auto;
+}
+
+.search-results-header h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
 }

@@ -409,12 +409,24 @@ exports.getExplore = async (req, res) => {
         const cols = await resolveVideoCols();
 
         const [videos] = await dbQuery(`
-            SELECT v.id, v.${cols.videoUrlCol} AS videoUrl, v.${cols.captionCol} AS caption, u.username, v.${cols.likesCol} AS likes_count, v.${cols.viewsCol} AS views_count
+            SELECT 
+                v.id, 
+                v.${cols.videoUrlCol} AS "videoUrl", 
+                v.thumbnail_url,
+                v.${cols.captionCol} AS caption, 
+                u.id AS user_id,
+                u.username, 
+                u.name,
+                u.profile_photo,
+                v.${cols.likesCol} AS likes_count, 
+                v.${cols.viewsCol} AS views_count
             FROM videos v
             JOIN users u ON v.${cols.userCol} = u.id
             WHERE v.${cols.activeCol} = 1
-            ORDER BY v.created_at DESC
-            LIMIT 50
+              AND v.${cols.videoUrlCol} IS NOT NULL
+              AND v.${cols.videoUrlCol} != ''
+            ORDER BY RANDOM()
+            LIMIT 30
         `);
         res.json({ success: true, data: videos });
     } catch (err) {
