@@ -1448,6 +1448,7 @@ class BlinkApp {
 
         cancelUploadBtn?.addEventListener('click', () => {
             if (this.currentUploadXhr) {
+                this.currentUploadXhr.abortedByBlink = true;
                 this.currentUploadXhr.abort();
                 this.currentUploadXhr = null;
                 this.showToast('Upload cancelled', 'info');
@@ -1479,6 +1480,11 @@ class BlinkApp {
             form.style.display = 'block';
         };
 
+        const preventExit = (e) => {
+            e.preventDefault();
+            e.returnValue = '';
+        };
+
         uploadBtn?.addEventListener('click', async () => {
             if (!this.requireAuth()) return;
             if (!selectedFile) return;
@@ -1489,9 +1495,15 @@ class BlinkApp {
                 formData.append('caption', document.getElementById('uploadCaption')?.value || '');
 
                 this.setButtonLoading(uploadBtn, true);
+                window.addEventListener('beforeunload', preventExit);
+                
                 const progressDiv = document.getElementById('uploadProgress');
                 const statusText = document.getElementById('uploadStatus');
+                const cancelBtn = document.getElementById('cancelUploadBtn');
+                
                 if (statusText) statusText.textContent = 'Preparing upload...';
+                if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+                
                 form.style.display = 'none';
                 progressDiv.style.display = 'block';
 
@@ -1512,7 +1524,9 @@ class BlinkApp {
                             if (percent < 100) {
                                 statusText.textContent = `Uploading to server... (${percent}%)`;
                             } else {
-                                statusText.textContent = 'Processing video... (this may take a moment)';
+                                // 100% reached, now the server takes over Cloudinary upload
+                                statusText.textContent = 'Processing video... (stay on this page)';
+                                if (cancelBtn) cancelBtn.style.display = 'none'; // Avoid cancelling during DB save
                             }
                         }
                     }
@@ -1520,6 +1534,8 @@ class BlinkApp {
 
                 xhr.onload = () => {
                     this.currentUploadXhr = null;
+                    window.removeEventListener('beforeunload', preventExit);
+                    
                     let data;
                     try { data = JSON.parse(xhr.responseText); } catch(e) { data = {}; }
 
@@ -1527,18 +1543,21 @@ class BlinkApp {
                         const statusText = document.getElementById('uploadStatus');
                         if (statusText) statusText.textContent = 'Upload complete! 🎉';
                         this.showToast('Video published! 🎬', 'success');
-                        this.feedLoaded = false;
                         
-                        // Close modal/reset UI before reload
+                        // Success! Now reset and refresh
                         setTimeout(() => {
-                            location.reload(); 
-                        }, 1500);
-                    } else if (retryCount < 2 && xhr.status !== 0) {
+                            this.feedLoaded = false;
+                            this.navigateTo('feed');
+                            location.reload(); // Refresh to show new video
+                        }, 1000);
+                    } else if (retryCount < 1 && xhr.status !== 0 && !xhr.abortedByBlink) {
                         console.log(`Retrying upload... attempt ${retryCount + 1}`);
                         performUpload(retryCount + 1);
-                    } else if (xhr.status !== 0) {
+                    } else {
                         this.setButtonLoading(uploadBtn, false);
-                        this.showToast(`Upload failed: ${data.error || 'Server error'}`, 'error');
+                        const errorMsg = data.error || data.message || 'Server upload failed';
+                        if (xhr.status !== 0) this.showToast(`Upload failed: ${errorMsg}`, 'error');
+                        
                         progressDiv.style.display = 'none';
                         form.style.display = 'block';
                     }
@@ -1546,20 +1565,17 @@ class BlinkApp {
 
                 xhr.onabort = () => {
                     this.currentUploadXhr = null;
-                    console.log('Upload explicitly aborted by user.');
+                    window.removeEventListener('beforeunload', preventExit);
+                    console.log('Upload aborted.');
                 };
 
                 xhr.onerror = () => {
-                    if (xhr.status === 0) return; // Likely aborted or network failure handled by onabort
                     this.currentUploadXhr = null;
-                    if (retryCount < 2) {
-                        performUpload(retryCount + 1);
-                    } else {
-                        this.setButtonLoading(uploadBtn, false);
-                        this.showToast('Upload failed: Connection error. Check your network.', 'error');
-                        progressDiv.style.display = 'none';
-                        form.style.display = 'block';
-                    }
+                    window.removeEventListener('beforeunload', preventExit);
+                    this.setButtonLoading(uploadBtn, false);
+                    this.showToast('Network error during upload', 'error');
+                    progressDiv.style.display = 'none';
+                    form.style.display = 'block';
                 };
 
                 xhr.send(formData);

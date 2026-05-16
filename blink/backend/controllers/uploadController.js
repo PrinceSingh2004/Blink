@@ -47,6 +47,20 @@ const uploadToCloudinary = (buffer, options) => {
  * POST /api/upload/video — Upload video with stability fixes
  */
 exports.uploadVideo = async (req, res) => {
+    let uploadCompleted = false;
+    let userCancelled = false;
+    let cloudinaryPublicId = null;
+
+    // Track request lifecycle
+    req.on("aborted", () => {
+        userCancelled = true;
+        console.log("🛑 Upload request aborted by client");
+    });
+
+    res.on("finish", () => {
+        uploadCompleted = true;
+    });
+
     try {
         const userId = req.user.id;
         const { caption = '' } = req.body;
@@ -59,39 +73,39 @@ exports.uploadVideo = async (req, res) => {
             return res.status(401).json({ success: false, error: "Unauthorized" });
         }
 
-        if (req.file.size > 100 * 1024 * 1024) {
-            return res.status(400).json({ success: false, error: "Video is too large. Max size 100MB." });
-        }
+        console.log(`🚀 Upload request started: ${req.file.originalname} | Size: ${req.file.size}`);
 
-        console.log(`🚀 Uploading: ${req.file.originalname} | Size: ${req.file.size}`);
-
-        // 1. Upload to Cloudinary (using streamifier for memory storage)
+        // 1. Upload to Cloudinary
+        console.log("☁️ Uploading to Cloudinary...");
         const result = await uploadToCloudinary(req.file.buffer, {
             resource_type: 'video',
             folder: 'blink/videos',
-            timeout: 600000, // 10 min timeout for larger videos
-            chunk_size: 6000000, // 6MB chunks for stability
+            chunk_size: 6000000,
             quality: 'auto',
-            fetch_format: 'auto'
+            fetch_format: 'auto',
+            timeout: 600000 // 10 minutes
         });
 
         if (!result || !result.secure_url) {
-            throw new Error('Cloudinary upload returned no URL');
+            throw new Error('Cloudinary upload returned no result');
         }
 
-        // 2. Check if client disconnected during upload
-        if (req.closed || req.socket.destroyed) {
-            console.log('🛑 Client disconnected. Cleaning up Cloudinary asset.');
-            if (result.public_id) {
-                await cloudinary.uploader.destroy(result.public_id, { resource_type: 'video' });
+        cloudinaryPublicId = result.public_id;
+        console.log("✅ Cloudinary upload finished:", cloudinaryPublicId);
+
+        // Check if user cancelled during Cloudinary upload
+        if (userCancelled) {
+            console.log("🧹 Cleaning up Cloudinary asset due to user cancellation...");
+            if (cloudinaryPublicId) {
+                await cloudinary.uploader.destroy(cloudinaryPublicId, { resource_type: 'video' });
             }
-            return;
+            return; // Request already aborted, no need to send response
         }
 
-        // 3. Insert into DB (Dynamic column detection)
+        // 2. Save to DB
+        console.log("💾 Saving to database...");
         const userCol = await getColumn('videos', ['user_id', 'userId', 'creator_id']) || 'user_id';
         const urlCol = await getColumn('videos', ['video_url', 'videoUrl', 'url']) || 'video_url';
-
         const thumbnailUrl = result.secure_url.replace(/\.[^/.]+$/, ".jpg");
 
         try {
@@ -99,6 +113,8 @@ exports.uploadVideo = async (req, res) => {
                 `INSERT INTO videos (${userCol}, ${urlCol}, thumbnail_url, caption, duration) VALUES (?, ?, ?, ?, ?)`,
                 [userId, result.secure_url, thumbnailUrl, caption.trim(), Math.round(result.duration || 0)]
             );
+
+            console.log("✅ DB save finished. Video ID:", dbResult.insertId);
 
             res.status(201).json({
                 success: true,
@@ -111,18 +127,26 @@ exports.uploadVideo = async (req, res) => {
             });
         } catch (dbErr) {
             console.error('🔥 DB Insert Failed. Cleaning up Cloudinary asset...', dbErr.message);
-            if (result.public_id) {
-                await cloudinary.uploader.destroy(result.public_id, { resource_type: 'video' });
+            if (cloudinaryPublicId) {
+                await cloudinary.uploader.destroy(cloudinaryPublicId, { resource_type: 'video' });
             }
-            throw dbErr; // Let the outer catch handle the response
+            throw dbErr;
         }
 
     } catch (err) {
-        console.error('🔥 Upload Error:', err.message);
-        res.status(500).json({ 
-            success: false, 
-            error: err.message || 'Server upload failed'
-        });
+        console.error('🔥 Upload Process Error:', err.message);
+        // Only cleanup if we haven't finished and we have a publicId
+        if (!uploadCompleted && cloudinaryPublicId) {
+            console.log("🧹 Cleanup on error...");
+            await cloudinary.uploader.destroy(cloudinaryPublicId, { resource_type: 'video' });
+        }
+        
+        if (!res.headersSent) {
+            res.status(500).json({ 
+                success: false, 
+                error: err.message || 'Server upload failed'
+            });
+        }
     }
 };
 
