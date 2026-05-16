@@ -184,6 +184,9 @@ const initDB = async () => {
             message TEXT NOT NULL,
             is_read SMALLINT DEFAULT 0,
             conversation_id INTEGER,
+            is_forwarded BOOLEAN DEFAULT FALSE,
+            deleted_for_sender BOOLEAN DEFAULT FALSE,
+            deleted_for_receiver BOOLEAN DEFAULT FALSE,
             "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
           );
@@ -204,6 +207,9 @@ const initDB = async () => {
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS message TEXT`);
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS is_read SMALLINT DEFAULT 0`);
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS conversation_id INTEGER`);
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS is_forwarded BOOLEAN DEFAULT FALSE`);
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_for_sender BOOLEAN DEFAULT FALSE`);
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_for_receiver BOOLEAN DEFAULT FALSE`);
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
             await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
         }
