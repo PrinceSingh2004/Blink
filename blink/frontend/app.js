@@ -1406,6 +1406,8 @@ class BlinkApp {
 
                 this.setButtonLoading(uploadBtn, true);
                 const progressDiv = document.getElementById('uploadProgress');
+                const statusText = document.getElementById('uploadStatus');
+                if (statusText) statusText.textContent = 'Preparing upload...';
                 form.style.display = 'none';
                 progressDiv.style.display = 'block';
 
@@ -1420,6 +1422,15 @@ class BlinkApp {
                         document.getElementById('progressText').textContent = `${percent}%`;
                         const offset = 283 - (283 * percent) / 100;
                         document.getElementById('progressCircle').style.strokeDashoffset = offset;
+                        
+                        const statusText = document.getElementById('uploadStatus');
+                        if (statusText) {
+                            if (percent < 100) {
+                                statusText.textContent = `Uploading to server... (${percent}%)`;
+                            } else {
+                                statusText.textContent = 'Processing video... (this may take a moment)';
+                            }
+                        }
                     }
                 };
 
@@ -1429,9 +1440,15 @@ class BlinkApp {
                     try { data = JSON.parse(xhr.responseText); } catch(e) { data = {}; }
 
                     if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+                        const statusText = document.getElementById('uploadStatus');
+                        if (statusText) statusText.textContent = 'Upload complete! 🎉';
                         this.showToast('Video published! 🎬', 'success');
                         this.feedLoaded = false;
-                        location.reload(); // Hard reload for stability
+                        
+                        // Close modal/reset UI before reload
+                        setTimeout(() => {
+                            location.reload(); 
+                        }, 1500);
                     } else if (retryCount < 2 && xhr.status !== 0) {
                         console.log(`Retrying upload... attempt ${retryCount + 1}`);
                         performUpload(retryCount + 1);

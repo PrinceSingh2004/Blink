@@ -94,20 +94,28 @@ exports.uploadVideo = async (req, res) => {
 
         const thumbnailUrl = result.secure_url.replace(/\.[^/.]+$/, ".jpg");
 
-        const [dbResult] = await dbQuery(
-            `INSERT INTO videos (${userCol}, ${urlCol}, thumbnail_url, caption, duration) VALUES (?, ?, ?, ?, ?)`,
-            [userId, result.secure_url, thumbnailUrl, caption.trim(), Math.round(result.duration || 0)]
-        );
+        try {
+            const [dbResult] = await dbQuery(
+                `INSERT INTO videos (${userCol}, ${urlCol}, thumbnail_url, caption, duration) VALUES (?, ?, ?, ?, ?)`,
+                [userId, result.secure_url, thumbnailUrl, caption.trim(), Math.round(result.duration || 0)]
+            );
 
-        res.status(201).json({
-            success: true,
-            message: 'Video uploaded successfully',
-            video: {
-                id: dbResult.insertId,
-                video_url: result.secure_url,
-                caption: caption.trim()
+            res.status(201).json({
+                success: true,
+                message: 'Video uploaded successfully',
+                video: {
+                    id: dbResult.insertId,
+                    video_url: result.secure_url,
+                    caption: caption.trim()
+                }
+            });
+        } catch (dbErr) {
+            console.error('🔥 DB Insert Failed. Cleaning up Cloudinary asset...', dbErr.message);
+            if (result.public_id) {
+                await cloudinary.uploader.destroy(result.public_id, { resource_type: 'video' });
             }
-        });
+            throw dbErr; // Let the outer catch handle the response
+        }
 
     } catch (err) {
         console.error('🔥 Upload Error:', err.message);
