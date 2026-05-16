@@ -241,22 +241,22 @@
                             </div>
 
                             <div class="chat-footer">
-                                <form class="chat-input-bar" id="chatForm" onsubmit="event.preventDefault(); app.sendMessage();">
-                                    <button type="button" class="emoji-btn"><i class="bi bi-emoji-smile"></i></button>
+                                <form class="chat-input-bar" id="chatForm" onsubmit="event.preventDefault(); app.sendMessage(event);">
+                                    <button type="button" class="chat-icon-btn">😊</button>
                                     <textarea 
                                         id="messageInput" 
                                         class="chat-textarea" 
                                         placeholder="Message..." 
                                         rows="1"
-                                        oninput="app.handleTextareaChange(this)"
+                                        oninput="app.handleTextareaChange(event)"
                                         onkeydown="app.handleKeyDown(event)"
                                     ></textarea>
                                     <button 
                                         type="submit" 
-                                        class="send-btn chat-send-btn" 
+                                        class="chat-send-btn" 
                                         id="sendMsgBtn" 
                                         disabled
-                                    >Send</button>
+                                    >➤</button>
                                 </form>
                             </div>
                         </div>

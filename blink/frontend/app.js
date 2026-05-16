@@ -1864,7 +1864,8 @@ class BlinkApp {
         container.scrollTop = container.scrollHeight;
     }
 
-    async sendMessage() {
+    async sendMessage(e) {
+        if (e && e.preventDefault) e.preventDefault();
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
         if (!text || !this.activeReceiverId) return;
@@ -1873,7 +1874,7 @@ class BlinkApp {
         console.log("SENDING MESSAGE:", { receiverId, text });
 
         input.value = '';
-        input.style.height = '44px'; // Reset height
+        input.style.height = '42px'; // Reset height
         document.getElementById('sendMsgBtn').disabled = true;
 
         try {
@@ -2033,11 +2034,12 @@ class BlinkApp {
         fetchHistory();
     }
 
-    handleTextareaChange(el) {
+    handleTextareaChange(e) {
+        const el = e.target;
         const sendBtn = document.getElementById('sendMsgBtn');
         if (sendBtn) sendBtn.disabled = !el.value.trim();
         
-        el.style.height = "44px";
+        el.style.height = "42px";
         el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
 
         // Typing logic
