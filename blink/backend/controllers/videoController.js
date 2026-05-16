@@ -76,10 +76,11 @@ exports.getFeed = async (req, res) => {
               AND v.${cols.videoUrlCol} IS NOT NULL
               AND v.${cols.videoUrlCol} != ''
             ORDER BY (
-                RANDOM() * 100 +
                 COALESCE(v.${cols.likesCol}, 0) * 3 +
+                COALESCE(v.${cols.commentsCol}, 0) * 2 +
                 COALESCE(v.${cols.viewsCol}, 0) * 1 +
-                COALESCE(v.${cols.commentsCol}, 0) * 2
+                EXTRACT(EPOCH FROM v.created_at) / 100000 +
+                RANDOM() * 100
             ) DESC
             LIMIT ? OFFSET ?
         `;

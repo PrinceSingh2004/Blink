@@ -1,36 +1,18 @@
-const sequelize = require('../config/db');
-const { Op } = require('sequelize');
-const Message = require('../models/Message');
-const User = require('../models/User');
-
-async function dbQuery(sql, params = []) {
-    let isInsert = sql.trim().toUpperCase().startsWith('INSERT');
-    if (isInsert && !sql.toUpperCase().includes('RETURNING')) {
-        sql += ' RETURNING id';
-    }
-    try {
-        const [results] = await sequelize.query(sql, { replacements: params });
-        if (isInsert) {
-            return [{ insertId: results && results.length > 0 ? results[0].id : null }];
-        }
-        return [results];
-    } catch (err) {
-        if (err.name === 'SequelizeUniqueConstraintError' || err.parent?.code === '23505') {
-            err.code = 'ER_DUP_ENTRY';
-        }
-        throw err;
-    }
-}
+const { Op } = require("sequelize");
+const Message = require("../models/Message");
+const User = require("../models/User");
+const sequelize = require("../config/db");
 
 /**
- * GET /api/chats — Get user's chat list
+ * GET /api/chats — Get user's chat list (Conversations)
  */
 exports.getConversations = async (req, res) => {
     try {
         const userId = req.user.id;
 
         // Fetch unique users the current user has messaged or received messages from
-        const [rows] = await dbQuery(`
+        // Using raw SQL for the complex conversation grouping
+        const [rows] = await sequelize.query(`
             SELECT 
                 u.id AS other_user_id,
                 u.username AS other_username,
@@ -49,7 +31,10 @@ exports.getConversations = async (req, res) => {
                 END
             )
             ORDER BY last_message_at DESC
-        `, [userId, userId, userId, userId, userId, userId]);
+        `, {
+            replacements: [userId, userId, userId, userId, userId, userId],
+            type: sequelize.QueryTypes.SELECT
+        });
 
         res.json({ success: true, conversations: rows });
     } catch (err) {
@@ -59,109 +44,114 @@ exports.getConversations = async (req, res) => {
 };
 
 /**
- * GET /api/chats/:userId — Get message history between two users
+ * GET /api/chats/:userId — Get full message history
  */
 exports.getMessages = async (req, res) => {
-    try {
-        const currentUserId = req.user.id;
-        const otherUserId = Number(req.params.userId);
+  try {
+    const currentUserId = Number(req.user.id);
+    const otherUserId = Number(req.params.userId);
 
-        if (!otherUserId) {
-            return res.status(400).json({ success: false, message: "Other user ID is required" });
+    console.log("GET MESSAGES DEBUG:", { currentUserId, otherUserId });
+
+    const messages = await Message.findAll({
+      where: {
+        [Op.or]: [
+          {
+            sender_id: currentUserId,
+            receiver_id: otherUserId,
+          },
+          {
+            sender_id: otherUserId,
+            receiver_id: currentUserId,
+          },
+        ],
+      },
+      order: [["createdAt", "ASC"]],
+    });
+
+    console.log("MESSAGES FOUND DEBUG:", messages.length);
+
+    // Auto-mark as read when loading history
+    await Message.update(
+        { is_read: 1 },
+        { 
+            where: { 
+                receiver_id: currentUserId, 
+                sender_id: otherUserId,
+                is_read: 0 
+            } 
         }
+    );
 
-        const messages = await Message.findAll({
-            where: {
-                [Op.or]: [
-                    { sender_id: currentUserId, receiver_id: otherUserId },
-                    { sender_id: otherUserId, receiver_id: currentUserId }
-                ]
-            },
-            order: [['createdAt', 'ASC']]
-        });
+    return res.json({
+      success: true,
+      messages,
+    });
+  } catch (error) {
+    console.error("GET MESSAGES ERROR DEBUG:", error);
 
-        // Mark as read (use 1/0 for smallint)
-        await Message.update(
-            { is_read: 1 },
-            { 
-                where: { 
-                    receiver_id: currentUserId, 
-                    sender_id: otherUserId,
-                    is_read: 0 
-                } 
-            }
-        );
-
-        res.json({ success: true, messages });
-    } catch (err) {
-        console.error('🔥 Get messages error:', err.message);
-        res.status(500).json({ success: false, message: 'Failed to load messages' });
-    }
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load history",
+      error: error.message,
+    });
+  }
 };
 
 /**
- * POST /api/chats/:userId — Send a message
+ * POST /api/chats/:userId — Send message
  */
 exports.sendMessage = async (req, res) => {
-    try {
-        const senderId = req.user.id;
-        const receiverId = Number(req.params.userId);
-        const { message } = req.body;
+  try {
+    const senderId = Number(req.user.id);
+    const receiverId = Number(req.params.userId);
+    const text = req.body.message;
 
-        if (!message || !message.trim()) {
-            return res.status(400).json({ success: false, message: "Message cannot be empty" });
-        }
+    console.log("SEND MESSAGE DEBUG:", { senderId, receiverId, text });
 
-        if (senderId === receiverId) {
-            return res.status(400).json({ success: false, message: "You cannot message yourself" });
-        }
-
-        // Debug logs
-        console.log("sender:", senderId, "receiver:", receiverId, "message:", message);
-
-        // Find or create conversation for grouping (optional but good for backwards compat)
-        const u1 = Math.min(senderId, receiverId);
-        const u2 = Math.max(senderId, receiverId);
-        let [[conv]] = await dbQuery('SELECT id FROM conversations WHERE user1_id = ? AND user2_id = ?', [u1, u2]);
-        if (!conv) {
-            const [result] = await dbQuery('INSERT INTO conversations (user1_id, user2_id) VALUES (?, ?)', [u1, u2]);
-            conv = { id: result.insertId };
-        }
-
-        const savedMessage = await Message.create({
-            sender_id: senderId,
-            receiver_id: receiverId,
-            message: message.trim(),
-            is_read: 0,
-            conversation_id: conv.id
-        });
-
-        console.log("saved message:", savedMessage.id);
-
-        // Real-time emit to both sender and receiver rooms
-        const io = req.app.get('io');
-        if (io) {
-            const emitData = {
-                id: savedMessage.id,
-                sender_id: senderId,
-                receiver_id: receiverId,
-                message: savedMessage.message,
-                conversation_id: conv.id,
-                createdAt: savedMessage.createdAt
-            };
-            io.to(`user_${receiverId}`).emit('receive_message', emitData);
-            io.to(`user_${senderId}`).emit('receive_message', emitData);
-        }
-
-        res.status(201).json({ 
-            success: true, 
-            message: savedMessage
-        });
-
-    } catch (err) {
-        console.error('🔥 Send message error:', err.message);
-        res.status(500).json({ success: false, message: 'Failed to send message' });
+    if (!text || !text.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Message cannot be empty",
+      });
     }
+
+    const savedMessage = await Message.create({
+      sender_id: senderId,
+      receiver_id: receiverId,
+      message: text.trim(),
+      is_read: 0,
+    });
+
+    console.log("MESSAGE SAVED DEBUG:", savedMessage.id);
+
+    const io = req.app.get("io");
+
+    if (io) {
+      // Emit to specific user rooms (Instagram style)
+      io.to(`user_${receiverId}`).emit("receive_message", savedMessage);
+      io.to(`user_${senderId}`).emit("receive_message", savedMessage);
+      
+      // Also emit notification for sidebar updates
+      io.to(`user_${receiverId}`).emit("new_message_notification", {
+          sender_id: senderId,
+          message: text.trim()
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: savedMessage,
+    });
+  } catch (error) {
+    console.error("SEND MESSAGE ERROR DEBUG:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send message",
+      error: error.message,
+    });
+  }
 };
 
 /**

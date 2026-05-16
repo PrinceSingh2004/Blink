@@ -171,28 +171,38 @@ const initDB = async () => {
             )
         `);
 
-        // Migration: Ensure messages table has correct columns
-        try {
-            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS receiver_id INT');
-            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS message TEXT');
-            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read SMALLINT DEFAULT 0');
-            
-            // Add timestamps with exact casing for PostgreSQL
-            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
-            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
-            
-            // Fix type if it was boolean
-            await sequelize.query(`
-                DO $$ 
-                BEGIN 
-                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='is_read' AND data_type='boolean') THEN
-                        ALTER TABLE messages ALTER COLUMN is_read TYPE SMALLINT USING (CASE WHEN is_read THEN 1 ELSE 0 END);
-                    END IF;
-                END $$;
-            `);
-        } catch (e) {
-            console.error('Migration error:', e.message);
+        // Step 2: Fix database schema automatically on server start
+        await sequelize.query(`
+          CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY,
+            sender_id INTEGER NOT NULL,
+            receiver_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            is_read SMALLINT DEFAULT 0,
+            "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+          );
+        `);
+
+        const tables = ['messages'];
+        for (const table of tables) {
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS sender_id INTEGER`);
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS receiver_id INTEGER`);
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS message TEXT`);
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS is_read SMALLINT DEFAULT 0`);
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
+            await sequelize.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
         }
+        
+        // Fix is_read type if it was boolean
+        await sequelize.query(`
+            DO $$ 
+            BEGIN 
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='is_read' AND data_type='boolean') THEN
+                    ALTER TABLE messages ALTER COLUMN is_read TYPE SMALLINT USING (CASE WHEN is_read THEN 1 ELSE 0 END);
+                END IF;
+            END $$;
+        `);
 
         console.log('✅ Database schema synchronized.');
     } catch (err) {

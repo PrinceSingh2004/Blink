@@ -446,11 +446,29 @@ class BlinkApp {
         }
     }
 
+    async refreshFeed() {
+        console.log("REFRESHING FEED...");
+        this.feedLoaded = false;
+        this._feedLoadId++;
+        this._feedHasMore = true;
+        
+        const container = document.getElementById('reelsContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="feed-loading-overlay">
+                    <div class="loading-spinner"></div>
+                    <p>Shuffling your feed...</p>
+                </div>`;
+        }
+
+        await this.loadFeed(1, false);
+    }
+
     setupFeed() {
         const refreshBtn = document.getElementById('feedRefreshBtn');
-        refreshBtn?.addEventListener('click', () => {
-            this.loadFeed(1, false);
-        });
+        if (refreshBtn) {
+            refreshBtn.onclick = () => this.refreshFeed();
+        }
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -1733,10 +1751,7 @@ class BlinkApp {
         }
 
         backBtn?.addEventListener('click', () => {
-            document.getElementById('chatListPanel')?.classList.remove('hidden');
-            document.getElementById('chatWindowPanel')?.classList.remove('active');
-            this.activeReceiverId = null;
-            this.renderConversations();
+            this.closeChat();
         });
     }
 
@@ -1855,6 +1870,8 @@ class BlinkApp {
         if (!text || !this.activeReceiverId) return;
 
         const receiverId = this.activeReceiverId;
+        console.log("SENDING MESSAGE:", { receiverId, text });
+
         input.value = '';
         input.style.height = '44px'; // Reset height
         document.getElementById('sendMsgBtn').disabled = true;
@@ -1867,6 +1884,7 @@ class BlinkApp {
 
             if (res?.success) {
                 const savedMessage = res.message;
+                console.log("MESSAGE SAVED ON SERVER:", savedMessage.id);
                 this.appendMessageLocally(savedMessage);
                 
                 // Socket emit
@@ -1878,6 +1896,7 @@ class BlinkApp {
                 });
             }
         } catch (err) {
+            console.error("SEND ERROR:", err);
             this.showToast('Failed to send message', 'error');
         }
     }
@@ -1981,15 +2000,11 @@ class BlinkApp {
 
         // Load Messages Logic
         const fetchHistory = async () => {
-            msgContainer.innerHTML = `
-                <div class="chat-loading">
-                    <i class="bi bi-arrow-clockwise spin"></i>
-                    <p>Loading messages...</p>
-                </div>`;
-
             try {
+                console.log("FETCHING CHAT HISTORY FOR:", userId);
                 const data = await this.api(`/chats/${userId}`);
-                console.log("messages response:", data);
+                console.log("CHAT HISTORY RESPONSE:", data);
+                
                 this.renderMessages(data.messages || []);
                 
                 // Mark as read
@@ -2003,10 +2018,11 @@ class BlinkApp {
                     }
                 }
             } catch (err) {
-                console.error("Failed to load history", err);
+                console.error("CHAT HISTORY ERROR:", err);
                 msgContainer.innerHTML = `
                     <div class="chat-error">
                         <p>Failed to load history</p>
+                        <p style="font-size: 10px; opacity: 0.7;">${err.message || 'Unknown error'}</p>
                         <button class="btn-retry" onclick="app.openChatWithUser(${userId}, '${username}', '${avatar}')">
                             Retry
                         </button>
@@ -2047,6 +2063,15 @@ class BlinkApp {
             e.preventDefault();
             this.sendMessage();
         }
+    }
+
+    closeChat() {
+        const listPanel = document.getElementById('chatListPanel');
+        const windowPanel = document.getElementById('chatWindowPanel');
+        if (listPanel) listPanel.classList.remove('hidden');
+        if (windowPanel) windowPanel.classList.remove('active');
+        this.activeReceiverId = null;
+        this.activeConversationId = null;
     }
 
     escapeHtml(str) {
