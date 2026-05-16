@@ -22,14 +22,12 @@ exports.getConversations = async (req, res) => {
                 m."createdAt" AS last_message_at,
                 (SELECT COUNT(*) FROM messages WHERE receiver_id = :userId AND sender_id = u.id AND is_read = 0) AS unread_count
             FROM users u
-            JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = :userId) OR (m.sender_id = :userId AND m.receiver_id = u.id)
-            WHERE m.id IN (
-                SELECT MAX(id) FROM messages 
-                WHERE (sender_id = :userId OR receiver_id = :userId) 
-                GROUP BY CASE 
-                    WHEN sender_id = :userId THEN receiver_id 
-                    ELSE sender_id 
-                END
+            JOIN messages m ON m.id = (
+                SELECT id FROM messages 
+                WHERE (sender_id = u.id AND receiver_id = :userId) 
+                   OR (sender_id = :userId AND receiver_id = u.id)
+                ORDER BY "createdAt" DESC
+                LIMIT 1
             )
             ORDER BY last_message_at DESC
         `, {

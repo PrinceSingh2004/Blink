@@ -2068,7 +2068,11 @@ class BlinkApp {
         if (!list) return;
 
         if (this.conversations.length === 0) {
-            list.innerHTML = `<div class="chat-empty-list">No messages yet. Start a conversation!</div>`;
+            list.innerHTML = `
+                <div class="chat-empty-list" style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
+                    <i class="bi bi-chat-dots" style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.5;"></i>
+                    <p>No messages yet.<br>Start a conversation from Explore!</p>
+                </div>`;
             return;
         }
 
@@ -2293,9 +2297,14 @@ class BlinkApp {
         document.getElementById('chatActive').style.display = 'flex';
 
         // Hide bottom nav on mobile when chatting
+        document.body.classList.add('chat-open');
+        
         if (window.innerWidth <= 768) {
             const bottomNav = document.getElementById('bottomNav');
+            const mobileBottomNav = document.getElementById('mobileBottomNav');
             if (bottomNav) bottomNav.style.display = 'none';
+            if (mobileBottomNav) mobileBottomNav.style.display = 'none';
+            
             document.getElementById('chatListPanel').classList.add('hidden');
             document.getElementById('chatWindowPanel').classList.add('active');
         }
@@ -2366,19 +2375,24 @@ class BlinkApp {
     handleKeyDown(e) {
         if (e.key === "Enter" && !e.shiftKey && window.innerWidth > 768) {
             e.preventDefault();
-            this.sendMessage();
+            this.sendMessage(e);
         }
     }
 
     closeChat() {
+        document.body.classList.remove('chat-open');
+        
         const listPanel = document.getElementById('chatListPanel');
         const windowPanel = document.getElementById('chatWindowPanel');
         const bottomNav = document.getElementById('bottomNav');
+        const mobileBottomNav = document.getElementById('mobileBottomNav');
         
         if (listPanel) listPanel.classList.remove('hidden');
         if (windowPanel) windowPanel.classList.remove('active');
-        if (window.innerWidth <= 768 && bottomNav) {
-            bottomNav.style.display = 'flex';
+        
+        if (window.innerWidth <= 768) {
+            if (bottomNav) bottomNav.style.display = 'flex';
+            if (mobileBottomNav) mobileBottomNav.style.display = 'flex';
         }
         
         this.activeReceiverId = null;
