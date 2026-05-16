@@ -305,19 +305,19 @@
                             <p class="profile-bio" id="profileUsername"></p>
                             <p class="profile-bio" id="profileBio"></p>
                             <div class="profile-actions-main profile-actions" id="profileActionsMain">
-                                <button class="btn-primary" id="editProfileBtn">
+                                <button class="profile-btn" id="editProfileBtn" style="background:var(--accent);">
                                     <i class="bi bi-pencil-square"></i> Edit
                                 </button>
-                                <button class="btn-primary" id="contactUsBtn" style="background:var(--bg-secondary); border:1px solid var(--border-color);">
+                                <button class="profile-btn" id="contactUsBtn" style="background:var(--bg-secondary); border:1px solid var(--border-color);">
                                     <i class="bi bi-envelope"></i> Contact
                                 </button>
-                                <button class="btn-primary" id="logoutBtn" style="background:#ef4444; border:none;">
-                                    <i class="bi bi-box-arrow-right"></i> Logout
-                                </button>
-                                <button class="profile-delete-mode-btn" id="deleteModeBtn" style="display:none;">
-                                    <i class="bi bi-trash"></i> Delete (<span id="deleteCount">0</span>)
-                                </button>
                             </div>
+                            <button class="logout-btn" id="logoutBtn" style="background:#ef4444; border:none; color:white; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:8px;">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </button>
+                            <button class="logout-btn" id="deleteModeBtn" style="display:none; background:var(--bg-secondary); border:1px solid var(--border-color); color:white; font-weight:bold; align-items:center; justify-content:center; gap:8px;">
+                                <i class="bi bi-trash"></i> Delete (<span id="deleteCount">0</span>)
+                            </button>
                             <div class="profile-stats">
                                 <div class="stat"><span class="stat-num" id="statPosts">0</span><span class="stat-label">Posts</span></div>
                                 <div class="stat"><span class="stat-num" id="statFollowers">0</span><span class="stat-label">Followers</span></div>
