@@ -120,6 +120,7 @@ const io = initSocket(server);
 const start = async () => {
     await testConnection();
     require('./models/Follow');
+    require('./models/VideoView');
     await initDB();
 
     server.listen(PORT, () => {

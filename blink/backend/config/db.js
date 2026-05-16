@@ -140,6 +140,21 @@ const initDB = async () => {
             )
         `);
 
+        await sequelize.query(`
+            CREATE TABLE IF NOT EXISTS video_views (
+                id SERIAL PRIMARY KEY,
+                video_id INT NOT NULL,
+                user_id INT DEFAULT NULL,
+                session_id VARCHAR(255) DEFAULT NULL,
+                ip_hash VARCHAR(255) DEFAULT NULL,
+                watched_seconds INT DEFAULT 0,
+                "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            )
+        `);
+
         console.log('✅ Database schema synchronized.');
     } catch (err) {
         console.error('❌ Schema sync error:', err.message);

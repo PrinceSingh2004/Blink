@@ -137,20 +137,60 @@ exports.viewVideo = async (req, res) => {
     try {
         const videoId = req.params.id;
         const userId = req.user ? req.user.id : null;
+        const { watchedSeconds = 0, sessionId = null } = req.body;
+        const ipHash = req.ip || req.connection.remoteAddress || 'unknown';
+        
         const cols = await resolveVideoCols();
         
-        await dbQuery('INSERT INTO views (user_id, video_id) VALUES (?, ?)', [userId, videoId]);
-        await dbQuery(`UPDATE videos SET ${cols.viewsCol} = ${cols.viewsCol} + 1 WHERE id = ?`, [videoId]);
+        // Check if video exists
+        const [[video]] = await dbQuery(`SELECT id, ${cols.viewsCol} as views_count FROM videos WHERE id = ?`, [videoId]);
+        if (!video) {
+            return res.status(404).json({ success: false, error: 'Video not found' });
+        }
+
+        // Check recent view in last 24 hours
+        let queryCondition = '';
+        let queryParams = [videoId];
         
-        const [[{ vc }]] = await dbQuery(`SELECT ${cols.viewsCol} AS vc FROM videos WHERE id = ?`, [videoId]);
+        if (userId) {
+            queryCondition = 'user_id = ?';
+            queryParams.push(userId);
+        } else if (sessionId) {
+            queryCondition = 'session_id = ?';
+            queryParams.push(sessionId);
+        } else {
+            queryCondition = 'ip_hash = ? AND user_id IS NULL';
+            queryParams.push(ipHash);
+        }
+
+        const [recentViews] = await dbQuery(
+            `SELECT id FROM video_views WHERE video_id = ? AND ${queryCondition} AND "createdAt" > NOW() - INTERVAL '24 hours'`,
+            queryParams
+        );
+
+        let vc = video.views_count;
         
-        const { getIO } = require('../utils/socket');
-        const io = getIO();
-        if (io) io.emit('update_views', { videoId, views_count: vc });
-        
+        if (recentViews.length === 0) {
+            // Insert view record
+            await dbQuery(
+                `INSERT INTO video_views (video_id, user_id, session_id, ip_hash, watched_seconds) VALUES (?, ?, ?, ?, ?)`, 
+                [videoId, userId, sessionId, ipHash, watchedSeconds]
+            );
+            
+            // Increment count
+            await dbQuery(`UPDATE videos SET ${cols.viewsCol} = ${cols.viewsCol} + 1 WHERE id = ?`, [videoId]);
+            
+            const [[updated]] = await dbQuery(`SELECT ${cols.viewsCol} AS vc FROM videos WHERE id = ?`, [videoId]);
+            vc = updated.vc;
+            
+            const { getIO } = require('../utils/socket');
+            const io = getIO();
+            if (io) io.emit('update_views', { videoId, views_count: vc });
+        }
+
         res.json({ success: true, views_count: vc });
     } catch (err) {
-        res.json({ success: true, warning: 'View recording skipped' });
+        res.status(500).json({ error: err.message });
     }
 };
 

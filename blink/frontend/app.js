@@ -551,19 +551,54 @@ class BlinkApp {
             });
         });
 
-        // ── FEATURE 5: VIEW COUNT (once per session) ────────
+        // ── FEATURE 5: VIEW COUNT (3-second watch logic) ────────
+        if (!this.viewTimers) this.viewTimers = new Map();
+        
         cards.forEach(card => {
             const observer = new IntersectionObserver(entries => {
                 entries.forEach(entry => {
+                    const videoId = card.dataset.id;
+                    const video = card.querySelector('video');
+                    
                     if (entry.isIntersecting) {
-                        const id = card.dataset.id;
-                        if (!this.viewedVideos.has(id)) {
-                            this.viewedVideos.add(id);
-                            this.api(`/videos/${id}/view`, { method: 'POST' }).catch(() => {});
+                        // Start 3-second timer
+                        if (!sessionStorage.getItem(`viewed_video_${videoId}`)) {
+                            const timer = setTimeout(async () => {
+                                // Check if video is still playing and not paused/empty
+                                if (video && !video.paused) {
+                                    sessionStorage.setItem(`viewed_video_${videoId}`, 'true');
+                                    try {
+                                        let sessionId = localStorage.getItem('guest_session_id');
+                                        if (!sessionId) {
+                                            sessionId = 'guest_' + Math.random().toString(36).substr(2, 9);
+                                            localStorage.setItem('guest_session_id', sessionId);
+                                        }
+
+                                        const data = await this.api(`/videos/${videoId}/view`, { 
+                                            method: 'POST',
+                                            body: JSON.stringify({ watchedSeconds: 3, sessionId })
+                                        });
+
+                                        if (data?.success && data.views_count) {
+                                            const viewBtn = card.querySelector('.view-count-btn span');
+                                            if (viewBtn) viewBtn.textContent = this.formatCount(data.views_count);
+                                        }
+                                    } catch (err) {
+                                        console.warn('View recording skipped or failed', err);
+                                    }
+                                }
+                            }, 3000);
+                            this.viewTimers.set(videoId, timer);
+                        }
+                    } else {
+                        // Clear timer if scrolled away before 3 seconds
+                        if (this.viewTimers.has(videoId)) {
+                            clearTimeout(this.viewTimers.get(videoId));
+                            this.viewTimers.delete(videoId);
                         }
                     }
                 });
-            }, { threshold: 0.5 });
+            }, { threshold: 0.7 });
             observer.observe(card);
         });
 
