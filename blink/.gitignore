@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.local
+.env.development
+.env.production
+*.log
+.DS_Store
+dist/
+build/
+backend/uploads/*
+!backend/uploads/.gitkeep
+.agents/
+db_out*.json
+skills-lock.json
+package-lock.json

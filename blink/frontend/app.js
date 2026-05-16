@@ -174,12 +174,11 @@ class BlinkApp {
 
     getAvatarUrl(user) {
         const name = user?.name || user?.username || "User";
-        return (
-            user?.profile_photo ||
-            user?.profilePhoto ||
-            user?.avatar ||
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff&bold=true`
-        );
+        const photo = user?.profile_photo || user?.profilePhoto || user?.avatar;
+        
+        if (photo) return photo;
+        
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff&bold=true`;
     }
 
     requireAuth() {
@@ -1426,7 +1425,10 @@ class BlinkApp {
                         if (this.requireAuth()) this.toggleFollow(fBtn);
                     };
                     document.getElementById('profileMsgBtn').onclick = () => {
-                        if (this.requireAuth()) this.openChatWithUser(u.id, u.username, avatarUrl);
+                        if (this.requireAuth()) {
+                            const name = u.name || u.username;
+                            this.openChatWithUser(u.id, name, avatarUrl, u.username);
+                        }
                     };
                 }
 
@@ -1571,40 +1573,45 @@ class BlinkApp {
     setupSearch() {
         const input = document.getElementById('searchInput');
         const clearBtn = document.getElementById('searchClear');
-        let debounce = null;
+        if (!input) return;
 
-        input?.addEventListener('input', () => {
+        let debounce = null;
+        input.oninput = () => {
             clearTimeout(debounce);
             const q = input.value.trim();
             clearBtn.style.display = q ? 'block' : 'none';
+
             if (q.length < 2) {
-                // Restore explore grid when search is cleared
-                this.exploreLoaded = false;
-                this.loadExplore();
+                if (q.length === 0) {
+                    this.exploreLoaded = false;
+                    this.loadExplore();
+                }
                 return;
             }
-            debounce = setTimeout(() => this.searchUsers(q), 400);
-        });
+            debounce = setTimeout(() => this.performExploreSearch(q), 400);
+        };
 
-        clearBtn?.addEventListener('click', () => {
+        clearBtn.onclick = () => {
             input.value = '';
             clearBtn.style.display = 'none';
-            // Restore explore grid
             this.exploreLoaded = false;
             this.loadExplore();
-        });
+        };
     }
 
-    async searchUsers(q) {
+    async performExploreSearch(q) {
+        const grid = document.getElementById('exploreGrid');
+        if (!grid) return;
+
         try {
             const data = await this.api(`/users/search?q=${encodeURIComponent(q)}`);
-            this.renderSearchResults(data?.users || []);
+            this.renderExploreUserResults(data?.users || []);
         } catch (err) {
             this.showToast('Search failed', 'error');
         }
     }
 
-    renderSearchResults(users) {
+    renderExploreUserResults(users) {
         const grid = document.getElementById('exploreGrid');
         if (!grid) return;
 
@@ -1618,10 +1625,10 @@ class BlinkApp {
         }
 
         grid.innerHTML = `
-            <div class="search-results-header">
-                <h3>People</h3>
+            <div class="search-results-header" style="grid-column: 1 / -1; margin-bottom: 12px;">
+                <h3 style="font-size: 14px; font-weight: 700; color: var(--text-muted);">PEOPLE</h3>
             </div>
-            <div class="user-results-list">
+            <div class="user-results-list" style="grid-column: 1 / -1; width: 100%;">
                 ${users.map(u => {
                     const avatar = this.getAvatarUrl(u);
                     const nameDisplay = u.name || u.username;
@@ -1639,12 +1646,11 @@ class BlinkApp {
             </div>
         `;
 
-        // Click user cards → open profile
         grid.querySelectorAll('.user-row-card').forEach(card => {
-            card.addEventListener('click', () => {
+            card.onclick = () => {
                 const userId = parseInt(card.dataset.userId);
                 if (userId) this.openUserProfile(userId);
-            });
+            };
         });
     }
 
@@ -1897,6 +1903,12 @@ class BlinkApp {
         const sendBtn = document.getElementById('sendMsgBtn');
         const backBtn = document.getElementById('chatBack');
         const searchInput = document.getElementById('chatSearchInput');
+        const newChatBtn = document.querySelector('.new-chat-btn');
+
+        // New Chat → Focus search
+        if (newChatBtn && searchInput) {
+            newChatBtn.onclick = () => searchInput.focus();
+        }
 
         // Conversation Search
         if (searchInput) {
@@ -1914,7 +1926,7 @@ class BlinkApp {
                     try {
                         const res = await this.api(`/chats/search?q=${encodeURIComponent(term)}`);
                         if (res?.success) {
-                            this.renderSearchResults(res.users, res.messages);
+                            this.renderSearchResults(res.users, res.messages, res.conversations);
                         }
                     } catch (err) {
                         console.error("Search failed", err);
@@ -1923,52 +1935,98 @@ class BlinkApp {
             };
         }
 
+        // Chat Input Bar Event Handlers
+        if (input) {
+            input.oninput = (e) => this.handleTextareaChange(e);
+            input.onkeydown = (e) => this.handleChatKeyDown(e);
+        }
+
+        if (sendBtn) {
+            sendBtn.onclick = (e) => this.sendMessage(e);
+        }
+
         backBtn?.addEventListener('click', () => {
             this.closeChat();
         });
     }
 
-    renderSearchResults(users, messages) {
+    handleTextareaChange(e) {
+        const el = e.target;
+        el.style.height = "42px";
+        el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+        
+        const sendBtn = document.getElementById('sendMsgBtn');
+        if (sendBtn) sendBtn.disabled = !el.value.trim();
+    }
+
+    handleChatKeyDown(e) {
+        if (e.key === "Enter" && !e.shiftKey && window.innerWidth > 768) {
+            e.preventDefault();
+            this.sendMessage(e);
+        }
+    }
+
+    renderSearchResults(users, messages, conversations = []) {
         const list = document.getElementById('conversationList');
         if (!list) return;
 
         let html = '';
 
-        if (users?.length > 0) {
-            html += `<div class="search-section-title" style="padding: 10px 16px; font-size: 12px; color: var(--text-muted); font-weight: 700;">USERS</div>`;
-            html += users.map(u => {
-                const avatar = this.getAvatarUrl({ profile_photo: u.profile_photo, username: u.username });
+        // 1. Existing Conversations Section
+        if (conversations?.length > 0) {
+            html += `<div class="search-section-title" style="padding: 10px 16px; font-size: 12px; color: var(--text-muted); font-weight: 700;">RECENT CHATS</div>`;
+            html += conversations.map(c => {
+                const avatar = this.getAvatarUrl({ profile_photo: c.other_profile_photo, username: c.other_username });
                 return `
-                <div class="conv-item conversation-row" onclick="app.openChatWithUser(${u.id}, '${u.username}', '${avatar}')">
+                <div class="conv-item conversation-row" onclick="app.openChatWithUser(${c.other_user_id}, '${c.other_name || c.other_username}', '${avatar}', '${c.other_username}')">
                     <img src="${avatar}" class="conv-avatar conversation-avatar">
                     <div class="conv-info">
-                        <div class="conv-name">${u.name} (@${u.username})</div>
+                        <div class="conv-name">${c.other_name || c.other_username}</div>
+                        <div class="conv-last-msg">${this.escapeHtml(c.last_message || '')}</div>
                     </div>
                 </div>`;
             }).join('');
         }
 
-        if (messages?.length > 0) {
-            html += `<div class="search-section-title" style="padding: 10px 16px; font-size: 12px; color: var(--text-muted); font-weight: 700;">MESSAGES</div>`;
-            html += messages.map(m => {
-                const otherUserId = Number(m.sender_id) === Number(this.user.id) ? m.receiver_id : m.sender_id;
-                const existingConv = this.conversations?.find(c => Number(c.other_user_id) === Number(otherUserId));
-                const username = existingConv ? existingConv.other_username : `User ${otherUserId}`;
-                const avatar = existingConv ? this.getAvatarUrl({ profile_photo: existingConv.other_profile_photo, username }) : this.getAvatarUrl({ username });
-
+        // 2. Users Section
+        if (users?.length > 0) {
+            html += `<div class="search-section-title" style="padding: 10px 16px; font-size: 12px; color: var(--text-muted); font-weight: 700;">SUGGESTED USERS</div>`;
+            html += users.map(u => {
+                const avatar = this.getAvatarUrl({ profile_photo: u.profile_photo, username: u.username });
                 return `
-                <div class="conv-item conversation-row" onclick="app.openChatWithUser(${otherUserId}, '${username}', '${avatar}')">
+                <div class="conv-item conversation-row" onclick="app.openChatWithUser(${u.id}, '${u.name || u.username}', '${avatar}', '${u.username}')">
                     <img src="${avatar}" class="conv-avatar conversation-avatar">
                     <div class="conv-info">
-                        <div class="conv-name">${username}</div>
+                        <div class="conv-name">${this.escapeHtml(u.name || u.username)} (@${u.username})</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // 3. Messages Section
+        if (messages?.length > 0) {
+            html += `<div class="search-section-title" style="padding: 10px 16px; font-size: 12px; color: var(--text-muted); font-weight: 700;">MESSAGE MATCHES</div>`;
+            html += messages.map(m => {
+                const otherUserId = Number(m.sender_id) === Number(this.user.id) ? m.receiver_id : m.sender_id;
+                // Try to find user data from existing conversations or just use generic
+                const existingConv = this.conversations?.find(c => Number(c.other_user_id) === Number(otherUserId));
+                const name = existingConv ? (existingConv.other_name || existingConv.other_username) : `User ${otherUserId}`;
+                const username = existingConv ? existingConv.other_username : null;
+                const avatar = existingConv ? this.getAvatarUrl({ profile_photo: existingConv.other_profile_photo, username: existingConv.other_username }) : this.getAvatarUrl({ username: name });
+
+                return `
+                <div class="conv-item conversation-row" onclick="app.openChatWithUser(${otherUserId}, '${name}', '${avatar}', '${username || name}')">
+                    <img src="${avatar}" class="conv-avatar conversation-avatar">
+                    <div class="conv-info">
+                        <div class="conv-name">${name}</div>
                         <div class="conv-last-msg">${this.escapeHtml(m.message)}</div>
                     </div>
                 </div>`;
             }).join('');
         }
 
-        if (!users?.length && !messages?.length) {
-            html = `<div class="chat-empty-list" style="padding: 20px; text-align: center; color: var(--text-muted);">No results found</div>`;
+        if (!users?.length && !messages?.length && !conversations?.length) {
+            html = `<div class="chat-empty-list" style="padding: 20px; text-align: center; color: var(--text-muted);">No matches found</div>`;
         }
 
         list.innerHTML = html;
@@ -2098,53 +2156,45 @@ class BlinkApp {
 
         if (!text || !this.activeReceiverId) return;
 
-        const receiverId = this.activeReceiverId;
-        console.log("SENDING MESSAGE:", { receiverId, text });
+        // Prevent self-chat on frontend
+        if (Number(this.user.id) === Number(this.activeReceiverId)) {
+            this.showToast("You cannot message yourself", "error");
+            return;
+        }
 
         if (sendBtn) sendBtn.disabled = true;
 
         try {
-            const res = await this.api(`/chats/${receiverId}`, {
+            const res = await this.api(`/chats/${this.activeReceiverId}`, {
                 method: 'POST',
                 body: JSON.stringify({ message: text })
             });
 
-            console.log("SEND RESPONSE:", res);
-
-            const savedMessage = res?.message || res?.data || res?.savedMessage;
+            const savedMessage = res?.message || res?.data;
 
             if (!savedMessage || !savedMessage.id) {
-                console.error("Invalid send response:", res);
-                throw new Error("Invalid message response from server");
+                throw new Error("Invalid message response");
             }
 
-            console.log("MESSAGE SAVED ON SERVER:", savedMessage.id);
             this.appendMessageLocally(savedMessage);
 
             // Socket emit
-            if (this.socket) this.socket.emit('send_message', {
-                sender_id: this.user.id,
-                receiver_id: receiverId,
-                message: text,
-                conversation_id: savedMessage.conversation_id
-            });
+            if (this.socket) {
+                this.socket.emit('send_message', {
+                    sender_id: this.user.id,
+                    receiver_id: this.activeReceiverId,
+                    message: text,
+                    conversation_id: savedMessage.conversation_id
+                });
+            }
 
-            // Clear input ONLY after success
             input.value = '';
             input.style.height = '42px'; // Reset height
-
         } catch (err) {
             console.error("SEND ERROR:", err);
-
-            // Only show toast inside catch, ensuring it is a real error
-            const errMsg = err.response?.data?.message || err.message || "Failed to send message";
-            this.showToast(errMsg, 'error');
+            this.showToast(err.message || "Failed to send message", 'error');
         } finally {
-            if (sendBtn && input.value.trim() === '') {
-                sendBtn.disabled = true; // Still disabled if empty
-            } else if (sendBtn) {
-                sendBtn.disabled = false;
-            }
+            if (sendBtn) sendBtn.disabled = false;
         }
     }
 

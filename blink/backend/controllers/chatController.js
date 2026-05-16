@@ -52,6 +52,13 @@ exports.getMessages = async (req, res) => {
     const currentUserId = Number(req.user.id);
     const otherUserId = Number(req.params.userId);
 
+    if (currentUserId === otherUserId) {
+        return res.status(400).json({
+            success: false,
+            message: "You cannot open chat with yourself",
+        });
+    }
+
     console.log("GET MESSAGES DEBUG:", { currentUserId, otherUserId });
 
     const messages = await Message.findAll({
@@ -108,7 +115,12 @@ exports.sendMessage = async (req, res) => {
     const receiverId = Number(req.params.userId);
     const text = req.body.message;
 
-    console.log("SEND MESSAGE DEBUG:", { senderId, receiverId, text });
+    if (senderId === receiverId) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot message yourself",
+      });
+    }
 
     if (!text || !text.trim()) {
       return res.status(400).json({
@@ -197,10 +209,10 @@ exports.searchChats = async (req, res) => {
 
     const users = await User.findAll({
       where: {
+        id: { [Op.ne]: currentUserId },
         [Op.or]: [
           { name: { [Op.iLike]: `%${q}%` } },
           { username: { [Op.iLike]: `%${q}%` } },
-          { email: { [Op.iLike]: `%${q}%` } },
         ],
       },
       attributes: ['id', 'name', 'username', 'profile_photo'],
