@@ -1497,182 +1497,74 @@ img { display: block; max-width: 100%; }
     .page { padding-bottom: 0; }
 
     /* Full-screen reels */
-    .reel-card {
-        max-width: 100%;
-    }
+/* ── Instagram-Style Mobile Layout ── */
+@media (max-width: 768px) {
+  .messages-page {
+    height: 100dvh; width: 100%; background: #020617; color: white; overflow: hidden;
+  }
 
-    .reel-video-wrapper {
-        width: 100%;
-        height: calc(100vh - 72px);
-        height: calc(100dvh - 72px);
-        border-radius: 0;
-    }
+  .messages-list {
+    height: 100dvh; overflow-y: auto; padding-bottom: 76px;
+  }
 
-    .reel-overlay {
-        bottom: 24px;
-        left: 14px;
-        right: 76px;
-    }
+  .messages-header {
+    position: sticky; top: 0; z-index: 40; height: 60px;
+    display: flex; align-items: center; padding: 0 16px;
+    background: rgba(2, 6, 23, 0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
 
-    .reel-actions {
-        bottom: 100px;
-        right: 10px;
-    }
+  .conversation-row {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  }
 
-    /* Auth */
-    .auth-card { padding: 32px 24px; margin: 16px; }
-    .auth-brand { font-size: 30px; }
+  .conversation-avatar {
+    width: 52px; height: 52px; border-radius: 50%; object-fit: cover;
+  }
 
-    /* Profile */
-    .profile-container { padding: 16px; width: 100%; }
-    .profile-header { flex-direction: column; align-items: center; text-align: center; gap: 20px; padding: 24px 18px; margin-bottom: 20px; }
-    .profile-stats { grid-template-columns: repeat(5, 1fr); gap: 4px; }
-    .stat-num { font-size: 18px; }
-    .stat-label { font-size: 10px; }
-    .profile-actions {
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-        margin-top: 20px;
-    }
-    .profile-videos {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-        margin-top: 0;
-    }
-    .profile-video-card { border-radius: 12px; }
+  .chat-screen {
+    height: 100dvh; display: flex; flex-direction: column; background: #020617;
+  }
 
-    /* Upload */
-    .upload-container { padding: 16px; width: 100%; align-items: flex-start; }
-    .upload-card { padding: 24px 16px; border-radius: 20px; border: none; box-shadow: none; background: transparent; }
-    .upload-dropzone { padding: 40px 20px; }
+  .chat-header {
+    height: 60px; display: flex; align-items: center; gap: 10px; padding: 0 12px;
+    background: rgba(2, 6, 23, 0.96); border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
 
-    /* Explore */
-    .explore-container { padding: 20px 16px; }
-    .explore-header h1 { font-size: 24px; }
+  .messages-container {
+    flex: 1; overflow-y: auto; padding: 14px; padding-bottom: 96px;
+  }
 
-    /* Follow actions */
-    .follow-actions {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-    }
-    .follow-btn,
-    .message-btn {
-        width: 100%;
-        min-width: 0;
-        height: 48px;
-    }
+  .message-row { display: flex; width: 100%; margin-bottom: 10px; }
+  .message-row.mine { justify-content: flex-end; }
+  .message-row.theirs { justify-content: flex-start; }
 
-    /* Toast */
-    #toastContainer { top: 12px; right: 12px; left: 12px; }
-    .toast { max-width: 100%; }
+  .message-bubble {
+    max-width: 76%; padding: 10px 14px; border-radius: 20px;
+    font-size: 14px; word-break: break-word;
+  }
 
-    /* Comments */
-    .comments-panel { max-height: 80vh; }
+  .message-row.mine .message-bubble {
+    background: linear-gradient(135deg, #6366f1, #7c3aed); color: white; border-bottom-right-radius: 6px;
+  }
 
-    /* ── Instagram-Style Mobile Messages ── */
-    #page-chat.active { display: flex; flex-direction: column; height: 100dvh; }
-    
-    .chat-container { 
-        flex: 1; height: 100%; display: flex; flex-direction: column; overflow: hidden;
-        border-radius: 0; box-shadow: none; border: none;
-    }
+  .message-row.theirs .message-bubble {
+    background: rgba(255,255,255,0.1); color: white; border-bottom-left-radius: 6px;
+  }
 
-    /* Mobile Messages List */
-    .chat-list-panel { 
-        position: fixed; inset: 0; z-index: 50; background: var(--bg-deep);
-        display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .chat-list-panel.hidden { transform: translateX(-100%); }
+  .chat-input-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    background: rgba(2, 6, 23, 0.98); border-top: 1px solid rgba(255,255,255,0.08);
+  }
 
-    /* Mobile Chat Header */
-    .chat-header {
-        height: 64px; display: flex; align-items: center; gap: 12px;
-        padding: 0 16px; background: rgba(15, 23, 42, 0.95);
-        backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
-        position: sticky; top: 0; z-index: 100;
-    }
-    
-    /* Mobile Chat Screen (Active Chat) */
-    .chat-window-panel {
-        position: fixed; inset: 0; z-index: 60; background: var(--bg-deep);
-        display: flex; flex-direction: column; transform: translateX(100%);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .chat-window-panel.active { transform: translateX(0); }
+  .chat-textarea {
+    flex: 1; min-height: 42px; max-height: 110px; resize: none; border: none; outline: none;
+    border-radius: 22px; padding: 11px 14px; background: #1e293b; color: white;
+  }
 
-    .chat-messages {
-        flex: 1; overflow-y: auto; padding: 16px;
-        padding-bottom: 90px; /* Space for input */
-        display: flex; flex-direction: column; gap: 8px;
-    }
-
-    /* Fixed Bottom Input for Mobile */
-    .chat-footer {
-        position: fixed; left: 0; right: 0; bottom: 0;
-        background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(16px);
-        border-top: 1px solid var(--border);
-        padding: 12px 16px;
-        padding-bottom: calc(12px + env(safe-area-inset-bottom));
-        z-index: 110;
-    }
-
-    .chat-input-bar {
-        display: flex; align-items: flex-end; gap: 10px;
-        background: #1e293b; border-radius: 24px; padding: 4px 12px;
-    }
-
-    .chat-textarea {
-        flex: 1; background: transparent; border: none; padding: 10px 0;
-        font-size: 15px; min-height: 40px; max-height: 120px;
-    }
-
-    .btn-send-msg {
-        width: 36px; height: 36px; background: var(--accent);
-        border-radius: 50%; color: white; display: flex;
-        align-items: center; justify-content: center; margin-bottom: 4px;
-        transition: transform 0.2s;
-    }
-    .btn-send-msg:active { transform: scale(0.9); }
-}
-
-/* ── Small phones ── */
-@media (max-width: 480px) {
-    .reel-overlay {
-        left: 12px;
-        right: 68px;
-        bottom: 20px;
-    }
-
-    .reel-actions {
-        right: 8px;
-        gap: 12px;
-    }
-
-    .reel-action-btn {
-        width: 42px;
-        height: 42px;
-        font-size: 18px;
-    }
-
-    .reel-user-row { gap: 8px; }
-    .reel-author-name { font-size: 13px; }
-    .reel-follow-btn { font-size: 11px; padding: 5px 10px; }
-
-    .explore-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .chat-header { padding: 12px 16px; }
-    .chat-footer { padding: 12px 16px; }
-
-    .profile-actions {
-        grid-template-columns: 1fr;
-        gap: 8px;
-    }
-    .follow-actions {
-        grid-template-columns: 1fr;
-        gap: 8px;
-    }
-    .stat-num { font-size: 16px; }
-    .stat-label { font-size: 9px; }
+  .chat-send-btn {
+    width: 42px; height: 42px; border-radius: 50%; border: none; background: #6366f1; color: white;
+  }
 }

@@ -195,10 +195,10 @@
                 </div>
             </section>
             <!-- ═══ PAGE: CHAT ═══ -->
-            <section class="page" id="page-chat">
+            <section class="page messages-page" id="page-chat">
                 <div class="chat-container">
-                    <div class="chat-list-panel" id="chatListPanel">
-                        <div class="chat-list-header">
+                    <div class="chat-list-panel messages-list" id="chatListPanel">
+                        <div class="chat-list-header messages-header">
                             <h2>Messages</h2>
                             <button class="new-chat-btn"><i class="bi bi-pencil-square"></i></button>
                         </div>
@@ -211,7 +211,7 @@
                         </div>
                     </div>
 
-                    <div class="chat-window-panel" id="chatWindowPanel">
+                    <div class="chat-window-panel chat-screen" id="chatWindowPanel">
                         <div class="chat-empty-state" id="chatEmptyState">
                             <div class="chat-empty-icon"><i class="bi bi-chat-heart"></i></div>
                             <h2>Your Messages</h2>
@@ -223,7 +223,7 @@
                             <div class="chat-header">
                                 <button class="chat-back" id="chatBack"><i class="bi bi-chevron-left"></i></button>
                                 <div class="chat-user-info" id="chatUserInfo">
-                                    <img src="" alt="" class="chat-avatar" id="chatHeaderAvatar">
+                                    <img src="" alt="" class="chat-avatar conversation-avatar" id="chatHeaderAvatar">
                                     <div class="chat-user-details">
                                         <span class="chat-username" id="chatHeaderName"></span>
                                         <span class="chat-status" id="chatHeaderStatus"></span>
@@ -234,7 +234,7 @@
                                 </div>
                             </div>
 
-                            <div class="chat-messages" id="chatMessages"></div>
+                            <div class="chat-messages messages-container" id="chatMessages"></div>
 
                             <div class="chat-typing-indicator" id="chatTyping">
                                 <span id="typingName"></span> is typing...
@@ -253,7 +253,7 @@
                                     ></textarea>
                                     <button 
                                         type="submit" 
-                                        class="send-btn" 
+                                        class="send-btn chat-send-btn" 
                                         id="sendMsgBtn" 
                                         disabled
                                     >Send</button>

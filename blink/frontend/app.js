@@ -1803,9 +1803,9 @@ class BlinkApp {
             const unread = c.unread_count > 0 ? `<span class="conv-unread">${c.unread_count}</span>` : '';
             
             return `
-            <div class="conv-item ${activeClass}" data-id="${c.other_user_id}" onclick="app.openChatWithUser(${c.other_user_id}, '${c.other_username}', '${avatar}')">
+            <div class="conv-item conversation-row ${activeClass}" data-id="${c.other_user_id}" onclick="app.openChatWithUser(${c.other_user_id}, '${c.other_username}', '${avatar}')">
                 <div class="conv-avatar-wrap">
-                    <img src="${avatar}" class="conv-avatar">
+                    <img src="${avatar}" class="conv-avatar conversation-avatar">
                     <div class="status-dot offline" data-user-id="${c.other_user_id}"></div>
                 </div>
                 <div class="conv-info">
