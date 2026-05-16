@@ -23,6 +23,7 @@ class BlinkApp {
         this.activeConversationId = null;
         this.conversations = [];
         this.isTypingTimeout = null;
+        this.isUploading = false;
 
         // Phase 4: Socket.IO
         this.socket = typeof io !== 'undefined' ? io() : null;
@@ -431,18 +432,72 @@ class BlinkApp {
             if (link) { 
                 e.preventDefault(); 
                 const page = link.getAttribute('data-page');
-                // Update URL without reload for SPA feel
-                window.history.pushState({ page }, '', link.getAttribute('href') || '/');
                 this.navigateTo(page); 
             }
         });
 
         window.addEventListener('popstate', (e) => {
-            if (e.state?.page) this.navigateTo(e.state.page);
+            if (e.state?.page) {
+                this.navigateTo(e.state.page, false);
+            } else {
+                // Handle physical back button on Home
+                if (this.currentPage === 'feed') {
+                    this.showExitModal();
+                    window.history.pushState({ page: 'feed' }, '', '/');
+                } else {
+                    this.navigateTo('feed');
+                }
+            }
         });
     }
 
-    navigateTo(page) {
+    /* ── Navigation Helpers ───────────────────────────────── */
+    goBack(fallback = 'feed') {
+        // 1. If upload is in progress, ask for confirmation
+        if (this.isUploading) {
+            if (!confirm("Upload is in progress. Do you want to cancel and go back?")) {
+                return;
+            }
+            if (this.currentUploadXhr) {
+                this.currentUploadXhr.abort();
+                this.currentUploadXhr = null;
+            }
+            this.isUploading = false;
+        }
+
+        // 2. If active chat is open, return to list
+        if (this.currentPage === 'chat' && document.getElementById('chatWindowPanel').classList.contains('active')) {
+            this.closeChat();
+            return;
+        }
+
+        // 3. Logic: go back in history or fallback
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            this.navigateTo(fallback);
+        }
+    }
+
+    showExitModal() {
+        document.getElementById('exitModal').classList.add('visible');
+    }
+
+    hideExitModal() {
+        document.getElementById('exitModal').classList.remove('visible');
+    }
+
+    exitApp() {
+        // Try to close window
+        window.close();
+        // If it doesn't close (browser restriction), show info
+        this.showToast("Press back again on your device to exit.", "info");
+        this.hideExitModal();
+    }
+
+    navigateTo(page, pushState = true) {
+        if (this.currentPage === page && pushState) return;
+
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         const target = document.getElementById(`page-${page}`);
         if (target) target.classList.add('active');
@@ -453,6 +508,11 @@ class BlinkApp {
         document.querySelectorAll('.bottom-link[data-page]').forEach(link => {
             link.classList.toggle('active', link.getAttribute('data-page') === page);
         });
+
+        if (pushState) {
+            const url = page === 'feed' ? '/' : `/${page}`;
+            window.history.pushState({ page }, '', url);
+        }
 
         this.currentPage = page;
         localStorage.setItem('lastPage', page);
@@ -1384,17 +1444,17 @@ class BlinkApp {
         }
 
         // Show user profile page
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById('page-user-profile').classList.add('active');
+        this.navigateTo('user-profile');
         this.currentPage = 'user-profile';
-
-        // Clear active nav
-        document.querySelectorAll('.nav-link[data-page], .bottom-link[data-page]').forEach(l => l.classList.remove('active'));
+        
+        // Ensure header name is reset
+        document.getElementById('userProfileHeaderName').textContent = 'Profile';
 
         try {
             const data = await this.api(`/users/${userId}`);
             if (data?.user) {
                 const u = data.user;
+                document.getElementById('userProfileHeaderName').textContent = u.name || u.username;
                 document.getElementById('userProfileName').textContent = u.name || u.username;
                 document.getElementById('userProfileUsername').textContent = `@${u.username}`;
                 document.getElementById('userProfileBio').textContent = u.bio || 'Blink member';
@@ -1718,6 +1778,7 @@ class BlinkApp {
                 formData.append('caption', document.getElementById('uploadCaption')?.value || '');
 
                 this.setButtonLoading(uploadBtn, true);
+                this.isUploading = true;
                 window.addEventListener('beforeunload', preventExit);
 
                 const progressDiv = document.getElementById('uploadProgress');
@@ -1758,6 +1819,7 @@ class BlinkApp {
                 xhr.onload = () => {
                     this.currentUploadXhr = null;
                     window.removeEventListener('beforeunload', preventExit);
+                    this.isUploading = false;
 
                     let data;
                     try { data = JSON.parse(xhr.responseText); } catch (e) { data = {}; }
@@ -1789,12 +1851,14 @@ class BlinkApp {
                 xhr.onabort = () => {
                     this.currentUploadXhr = null;
                     window.removeEventListener('beforeunload', preventExit);
+                    this.isUploading = false;
                     console.log('Upload aborted.');
                 };
 
                 xhr.onerror = () => {
                     this.currentUploadXhr = null;
                     window.removeEventListener('beforeunload', preventExit);
+                    this.isUploading = false;
                     this.setButtonLoading(uploadBtn, false);
                     this.showToast('Network error during upload', 'error');
                     progressDiv.style.display = 'none';

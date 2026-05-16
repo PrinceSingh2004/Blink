@@ -3496,3 +3496,112 @@ img {
     letter-spacing: 1px;
     margin-bottom: 12px;
 }
+
+/* ── BACK NAVIGATION & EXIT MODAL ───────────────────────── */
+.back-btn {
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+  flex-shrink: 0;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateX(-2px);
+}
+
+.mobile-page-header {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  background: #020617;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.exit-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: none; /* Controlled by JS */
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  padding: 20px;
+  animation: fadeIn 0.3s var(--ease);
+}
+
+.exit-modal.visible {
+  display: flex;
+}
+
+.exit-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  transform: scale(0.9);
+  animation: scaleUp 0.3s var(--spring) forwards;
+}
+
+@keyframes scaleUp {
+  to { transform: scale(1); }
+}
+
+.exit-card h3 {
+  font-size: 1.5rem;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.exit-card p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.exit-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.exit-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btn-exit {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-exit:hover {
+  background: #dc2626;
+}

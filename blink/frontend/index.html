@@ -192,9 +192,12 @@
 
             <!-- ═══ PAGE: EXPLORE ═══ -->
             <section class="page" id="page-explore">
+                <div class="mobile-page-header">
+                    <button class="back-btn" onclick="app.goBack('feed')"><i class="bi bi-chevron-left"></i></button>
+                    <h2 style="font-size: 1.1rem; font-weight: 700;">Explore</h2>
+                </div>
                 <div class="explore-container">
-                    <div class="explore-header">
-                        <h1>Explore</h1>
+                    <div class="explore-header" style="padding-top: 10px;">
                         <div class="search-box" id="searchBox">
                             <i class="bi bi-search"></i>
                             <input type="text" placeholder="Search creators & videos..." id="searchInput">
@@ -214,8 +217,9 @@
             <section class="page messages-page" id="page-chat">
                 <div class="chat-container">
                     <div class="chat-list-panel messages-list" id="chatListPanel">
-                        <div class="chat-list-header messages-header">
-                            <h2>Messages</h2>
+                        <div class="chat-list-header messages-header" style="height: 60px; display: flex; align-items: center; gap: 12px;">
+                            <button class="back-btn" onclick="app.goBack('feed')" style="width: 32px; height: 32px; font-size: 18px;"><i class="bi bi-chevron-left"></i></button>
+                            <h2 style="margin: 0; flex: 1;">Messages</h2>
                             <button class="new-chat-btn"><i class="bi bi-pencil-square"></i></button>
                         </div>
                         <div class="chat-search">
@@ -282,6 +286,10 @@
 
             <!-- ═══ PAGE: UPLOAD ═══ -->
             <section class="page" id="page-upload">
+                <div class="mobile-page-header">
+                    <button class="back-btn" onclick="app.goBack('feed')"><i class="bi bi-chevron-left"></i></button>
+                    <h2 style="font-size: 1.1rem; font-weight: 700;">Create</h2>
+                </div>
                 <div class="upload-container">
                     <div class="upload-card" id="uploadCard">
                         <div class="upload-dropzone" id="uploadDropzone">
@@ -331,6 +339,10 @@
 
             <!-- ═══ PAGE: PROFILE (Self) ═══ -->
             <section class="page" id="page-profile">
+                <div class="mobile-page-header">
+                    <button class="back-btn" onclick="app.goBack('feed')"><i class="bi bi-chevron-left"></i></button>
+                    <h2 style="font-size: 1.1rem; font-weight: 700;">My Profile</h2>
+                </div>
                 <div class="profile-container">
                     <div class="profile-header">
                         <div class="profile-avatar-wrap">
@@ -387,6 +399,10 @@
 
             <!-- ═══ PAGE: OTHER USER PROFILE ═══ -->
             <section class="page" id="page-user-profile">
+                <div class="mobile-page-header">
+                    <button class="back-btn" onclick="app.goBack()"><i class="bi bi-chevron-left"></i></button>
+                    <h2 id="userProfileHeaderName" style="font-size: 1.1rem; font-weight: 700;">Profile</h2>
+                </div>
                 <div class="profile-container">
                     <div class="profile-header">
                         <div class="profile-avatar-wrap">
@@ -540,7 +556,19 @@
         </div>
     </div>
 
+    <!-- Exit Confirmation Modal -->
+    <div class="exit-modal" id="exitModal">
+        <div class="exit-card">
+            <div class="auth-logo-icon" style="font-size: 3rem; margin-bottom: 1rem;"><i class="bi bi-door-open-fill"></i></div>
+            <h3>Exit Blink?</h3>
+            <p>Are you sure you want to leave? Your session will remain active.</p>
+            <div class="exit-actions">
+                <button class="btn-cancel" onclick="app.hideExitModal()">Cancel</button>
+                <button class="btn-exit" onclick="app.exitApp()">Exit</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
-
 </html>
