@@ -1907,13 +1907,25 @@ class BlinkApp {
     }
 
     handleReceiveMessage(msg) {
-        const belongsToOpenChat =
-            (Number(msg.sender_id) === Number(this.user.id) && Number(msg.receiver_id) === Number(this.activeReceiverId)) ||
-            (Number(msg.sender_id) === Number(this.activeReceiverId) && Number(msg.receiver_id) === Number(this.user.id));
+        const currentUserId = Number(this.user.id);
+        const activeId = Number(this.activeReceiverId);
+        const senderId = Number(msg.sender_id);
+        const receiverId = Number(msg.receiver_id);
 
-        if (belongsToOpenChat) {
+        const isMine = (senderId === currentUserId);
+        const isFromActive = (senderId === activeId);
+        const isToActive = (receiverId === activeId);
+
+        if (isFromActive || (isMine && isToActive)) {
             this.appendMessageLocally(msg);
+            
+            // If it's from the active user, mark as read instantly
+            if (isFromActive) {
+                this.api(`/chats/${senderId}/read`, { method: 'PUT' });
+            }
         }
+        
+        // Refresh conversation list to show latest message and badges
         this.loadConversations();
     }
 
