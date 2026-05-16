@@ -526,19 +526,22 @@ class BlinkApp {
 
         return `
         <div class="reel-card" data-id="${video.id}" data-userId="${user.id}">
-            <video class="reel-video" src="${video.video_url || video.videoUrl}" playsinline loop muted autoplay preload="metadata" poster="${video.thumbnail_url || ''}"></video>
-            
-            <div class="reel-overlay">
-                <div class="reel-user" data-user-id="${user.id}">
-                    <div class="reel-author" data-user-id="${user.id}">
-                        <img src="${avatar}" class="reel-author-avatar" alt="${user.username}">
-                        <div class="reel-user-row">
-                            <span class="reel-author-name">@${user.username || 'user'}</span>
-                            ${!isOwn ? followBtn : ''}
+            <div class="reel-video-wrapper">
+                <video class="reel-video" src="${video.video_url || video.videoUrl}" playsinline loop muted autoplay preload="metadata" poster="${video.thumbnail_url || ''}"></video>
+                
+                <div class="reel-overlay">
+                    <div class="reel-user" data-user-id="${user.id}">
+                        <div class="reel-author" data-user-id="${user.id}">
+                            <img src="${avatar}" class="reel-author-avatar" alt="${user.username}">
+                            <div class="reel-user-row">
+                                <span class="reel-author-name">@${user.username || 'user'}</span>
+                                ${!isOwn ? followBtn : ''}
+                            </div>
                         </div>
                     </div>
+                    ${video.caption ? `<p class="reel-caption">${this.escapeHtml(video.caption)}</p>` : ''}
                 </div>
-                ${video.caption ? `<p class="reel-caption">${this.escapeHtml(video.caption)}</p>` : ''}
+
                 <div class="reel-actions">
                     <button class="reel-action-btn like-btn ${likedClass}" data-id="${video.id}">
                         <i class="bi ${video.isLiked ? 'bi-heart-fill' : 'bi-heart'}"></i>
@@ -559,10 +562,10 @@ class BlinkApp {
                         <i class="bi bi-send-fill"></i>
                     </button>
                 </div>
+
+                <div class="reel-play-indicator"><i class="bi bi-play-fill"></i></div>
+                <div class="double-tap-heart"><i class="bi bi-heart-fill"></i></div>
             </div>
-            
-            <div class="reel-play-indicator"><i class="bi bi-play-fill"></i></div>
-            <div class="double-tap-heart"><i class="bi bi-heart-fill"></i></div>
         </div>`;
     }
 
