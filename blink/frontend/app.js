@@ -1134,15 +1134,22 @@ class BlinkApp {
             }
 
             container.innerHTML = data.data.map(v => {
-                const thumb = v.thumbnail_url || v.video_url;
+                let thumb = v.thumbnail_url;
+                if (!thumb && v.video_url && v.video_url.includes('cloudinary.com')) {
+                    thumb = v.video_url.replace('/upload/', '/upload/so_1/').replace(/\.(mp4|webm|mov)$/i, '.jpg');
+                }
+                if (!thumb) thumb = 'https://via.placeholder.com/400x700/111/fff?text=Video';
+
                 const isOwn = this.user && userId === this.user.id;
                 return `
-                <div class="profile-video-card" data-id="${v.id}">
-                    <img src="${thumb}" alt="${v.caption || 'Video'}" loading="lazy"
-                         onerror="this.style.display='none'; this.parentElement.insertAdjacentHTML('afterbegin', '<video src=\\'${v.video_url}\\' muted></video>')">
-                    <div class="video-stats">
-                        <span><i class="bi bi-heart-fill"></i> ${this.formatCount(v.likes_count)}</span>
-                        <span><i class="bi bi-eye-fill"></i> ${this.formatCount(v.views_count)}</span>
+                <div class="profile-video-card" data-id="${v.id}" onclick="app.navigateTo('feed')">
+                    <img src="${thumb}" alt="${v.caption || 'Video'}" class="profile-video-thumb" loading="lazy" onerror="this.src='https://via.placeholder.com/400x700/111/fff?text=Video'">
+                    <div class="profile-video-overlay">
+                        <div class="play-icon"><i class="bi bi-play-fill"></i></div>
+                        <div class="profile-video-stats">
+                            <span><i class="bi bi-heart-fill"></i> ${this.formatCount(v.likes_count || 0)}</span>
+                            <span><i class="bi bi-eye-fill"></i> ${this.formatCount(v.views_count || 0)}</span>
+                        </div>
                     </div>
                     ${isOwn ? `<button class="video-delete-btn" data-id="${v.id}"><i class="bi bi-trash3-fill"></i></button>` : ''}
                 </div>`;
