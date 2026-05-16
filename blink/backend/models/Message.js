@@ -20,8 +20,8 @@ const Message = sequelize.define('Message', {
         allowNull: false,
     },
     is_read: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
+        type: DataTypes.SMALLINT,
+        defaultValue: 0,
     },
     conversation_id: {
         type: DataTypes.INTEGER,

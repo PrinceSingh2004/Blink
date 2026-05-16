@@ -134,9 +134,9 @@ const initDB = async () => {
                 receiver_id INT NOT NULL,
                 message TEXT NOT NULL,
                 media_url TEXT DEFAULT NULL,
-                is_read BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_read SMALLINT DEFAULT 0,
+                "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
                 FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
@@ -171,13 +171,16 @@ const initDB = async () => {
             )
         `);
 
-        // Migration: Ensure messages table has receiver_id, message, is_read
+        // Migration: Ensure messages table has correct columns
         try {
             await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS receiver_id INT');
             await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS message TEXT');
-            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE');
-            // Data migration if needed
-            await sequelize.query('UPDATE messages SET message = text WHERE message IS NULL AND text IS NOT NULL');
+            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read SMALLINT DEFAULT 0');
+            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
+            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
+            
+            // Fix type if it was boolean
+            await sequelize.query('ALTER TABLE messages ALTER COLUMN is_read TYPE SMALLINT USING (CASE WHEN is_read::text = \'true\' THEN 1 ELSE 0 END)');
         } catch (e) {}
 
         console.log('✅ Database schema synchronized.');

@@ -36,8 +36,8 @@ exports.getConversations = async (req, res) => {
                 u.username AS other_username,
                 u.profile_photo AS other_profile_photo,
                 m.message AS last_message,
-                m.created_at AS last_message_at,
-                (SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND sender_id = u.id AND is_read = FALSE) AS unread_count
+                m."createdAt" AS last_message_at,
+                (SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND sender_id = u.id AND is_read = 0) AS unread_count
             FROM users u
             JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = u.id)
             WHERE m.id IN (
@@ -80,8 +80,17 @@ exports.getMessages = async (req, res) => {
             order: [['createdAt', 'ASC']]
         });
 
-        // Debug log
-        console.log("messages response:", messages.length);
+        // Mark as read (use 1/0 for smallint)
+        await Message.update(
+            { is_read: 1 },
+            { 
+                where: { 
+                    receiver_id: currentUserId, 
+                    sender_id: otherUserId,
+                    is_read: 0 
+                } 
+            }
+        );
 
         res.json({ success: true, messages });
     } catch (err) {
@@ -123,7 +132,7 @@ exports.sendMessage = async (req, res) => {
             sender_id: senderId,
             receiver_id: receiverId,
             message: message.trim(),
-            is_read: false,
+            is_read: 0,
             conversation_id: conv.id
         });
 
