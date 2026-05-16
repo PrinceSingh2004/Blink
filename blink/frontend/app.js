@@ -1815,41 +1815,12 @@ class BlinkApp {
     }
 
     async openChat(convId, username, avatar) {
-        this.activeConversationId = convId;
-        this.activeReceiverId = null; // Will be derived from conversation if needed, or set explicitly
-        
-        // Find other user id from conversations list
+        // Find other user id from conversations list to redirect to openChatWithUser
         const conv = this.conversations.find(c => c.id === convId);
-        if (conv) this.activeReceiverId = conv.other_user_id;
-
-        this.renderConversations(); // Update active state in list
-
-        // UI Transitions
-        document.getElementById('chatEmptyState').style.display = 'none';
-        document.getElementById('chatActive').style.display = 'flex';
-        
-        // Mobile Transition
-        if (window.innerWidth <= 768) {
-            document.getElementById('chatListPanel').classList.add('hidden');
-            document.getElementById('chatWindowPanel').classList.add('active');
-        }
-
-        // Header Info
-        document.getElementById('chatHeaderName').textContent = username;
-        document.getElementById('chatHeaderAvatar').src = avatar;
-
-        // Join Room
-        this.socket.emit('join_room', convId);
-
-        // Load Messages
-        const msgContainer = document.getElementById('chatMessages');
-        msgContainer.innerHTML = '<div class="chat-loading"><i class="bi bi-arrow-clockwise spin"></i></div>';
-
-        try {
-            const data = await this.api(`/chat/messages/${convId}`);
-            this.renderMessages(data.messages || []);
-        } catch (err) {
-            msgContainer.innerHTML = '<div class="chat-error">Failed to load history</div>';
+        if (conv) {
+            this.openChatWithUser(conv.other_user_id, username, avatar);
+        } else {
+            this.showToast('Could not open chat', 'error');
         }
     }
 
@@ -1975,29 +1946,35 @@ class BlinkApp {
     async openChatWithUser(userId, username, avatar) {
         if (!this.user) { this.showToast('Please sign in to message', 'error'); return; }
         
-        console.log("selectedUser:", { id: userId, username });
-        console.log("currentUser:", this.user);
-        
         this.activeReceiverId = userId;
         this.activeConversationId = null;
 
         // UI Transitions
         this.navigateTo('chat');
 
-        setTimeout(async () => {
-            // Header Info
-            document.getElementById('chatHeaderName').textContent = username;
-            document.getElementById('chatHeaderAvatar').src = avatar;
-            document.getElementById('chatEmptyState').style.display = 'none';
-            document.getElementById('chatActive').style.display = 'flex';
-            
-            if (window.innerWidth <= 768) {
-                document.getElementById('chatListPanel').classList.add('hidden');
-                document.getElementById('chatWindowPanel').classList.add('active');
-            }
+        const msgContainer = document.getElementById('chatMessages');
+        if (!msgContainer) return;
 
-            const msgContainer = document.getElementById('chatMessages');
-            msgContainer.innerHTML = '<div class="chat-loading"><i class="bi bi-arrow-clockwise spin"></i></div>';
+        // Header Info
+        document.getElementById('chatHeaderName').textContent = username;
+        document.getElementById('chatHeaderAvatar').src = avatar;
+        document.getElementById('chatEmptyState').style.display = 'none';
+        document.getElementById('chatActive').style.display = 'flex';
+        
+        if (window.innerWidth <= 768) {
+            document.getElementById('chatListPanel').classList.add('hidden');
+            document.getElementById('chatWindowPanel').classList.add('active');
+        }
+
+        this.renderConversations();
+
+        // Load Messages Logic
+        const fetchHistory = async () => {
+            msgContainer.innerHTML = `
+                <div class="chat-loading">
+                    <i class="bi bi-arrow-clockwise spin"></i>
+                    <p>Loading messages...</p>
+                </div>`;
 
             try {
                 const data = await this.api(`/chats/${userId}`);
@@ -2011,9 +1988,18 @@ class BlinkApp {
                     }
                 }
             } catch (err) {
-                msgContainer.innerHTML = '<div class="chat-error">Failed to load history</div>';
+                console.error("Failed to load history", err);
+                msgContainer.innerHTML = `
+                    <div class="chat-error">
+                        <p>Failed to load history</p>
+                        <button class="btn-retry" onclick="app.openChatWithUser(${userId}, '${username}', '${avatar}')">
+                            Retry
+                        </button>
+                    </div>`;
             }
-        }, 100);
+        };
+
+        fetchHistory();
     }
 
     escapeHtml(str) {
