@@ -628,17 +628,16 @@ class BlinkApp {
         
         btn.disabled = true;
         const userId = btn.dataset.id;
-        const isFollowing = btn.classList.contains('following');
+        const originalText = btn.textContent;
         
-        // Optimistic UI update
-        btn.classList.toggle('following');
-        btn.textContent = isFollowing ? 'Follow' : 'Following';
+        // Loading state
+        btn.textContent = 'Please wait...';
 
         try {
             const data = await this.api(`/users/follow/${userId}`, { method: 'POST' });
             if (data?.success) {
                 // Keep the state synced with the server response across all instances
-                document.querySelectorAll(`button[data-id="${userId}"].following, button[data-id="${userId}"].profile-follow-btn, button[data-id="${userId}"].btn-primary, button[data-id="${userId}"].reel-follow-btn`).forEach(b => {
+                document.querySelectorAll(`button[data-id="${userId}"].following, button[data-id="${userId}"].profile-follow-btn, button[data-id="${userId}"].follow-btn, button[data-id="${userId}"].reel-follow-btn`).forEach(b => {
                     b.classList.toggle('following', data.isFollowing);
                     b.textContent = data.isFollowing ? 'Following' : 'Follow';
                 });
@@ -655,10 +654,8 @@ class BlinkApp {
                 }
             }
         } catch (err) {
-            // Revert optimistic update on failure
-            btn.classList.toggle('following', isFollowing);
-            btn.textContent = isFollowing ? 'Following' : 'Follow';
-            this.showToast('Failed to toggle follow', 'error');
+            btn.textContent = originalText;
+            this.showToast(err.message || 'Failed to toggle follow', 'error');
         } finally {
             btn.disabled = false;
         }
@@ -1095,11 +1092,12 @@ class BlinkApp {
                 // Profile Actions
                 const btnWrap = document.getElementById('userProfileActions');
                 if (btnWrap) {
+                    btnWrap.className = 'follow-actions';
                     btnWrap.innerHTML = `
-                        <button class="btn-primary ${u.is_following ? 'following' : ''}" id="followBtn" style="flex:1;">
+                        <button class="follow-btn ${u.is_following ? 'following' : ''}" id="followBtn">
                             ${u.is_following ? 'Following' : 'Follow'}
                         </button>
-                        <button class="btn-primary" id="profileMsgBtn" style="flex:1; background:var(--bg-secondary); border:1px solid var(--border-color);">
+                        <button class="message-btn" id="profileMsgBtn">
                             <i class="bi bi-chat-text"></i> Message
                         </button>
                     `;
