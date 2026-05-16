@@ -401,6 +401,42 @@ img { display: block; max-width: 100%; }
     text-shadow: 0 1px 3px rgba(0,0,0,0.8);
 }
 
+.reel-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reel-username {
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.reel-follow-btn {
+  border: 1px solid rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  line-height: 1;
+}
+
+.reel-follow-btn.following {
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+}
+
+.reel-follow-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .reel-caption {
     font-size: 14px; color: #fff; line-height: 1.4;
     word-break: break-word; text-shadow: 0 1px 3px rgba(0,0,0,0.8);
@@ -1306,4 +1342,7 @@ img { display: block; max-width: 100%; }
     .explore-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .chat-header { padding: 12px 16px; }
     .chat-footer { padding: 12px 16px; }
+    .reel-user-row { gap: 8px; }
+    .reel-username { font-size: 13px; }
+    .reel-follow-btn { font-size: 11px; padding: 5px 10px; }
 }

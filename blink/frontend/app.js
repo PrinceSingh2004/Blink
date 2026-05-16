@@ -453,10 +453,10 @@ class BlinkApp {
             <div class="reel-overlay">
                 <div class="reel-user" data-user-id="${user.id}">
                     <img src="${avatar}" class="reel-avatar reel-author-avatar" alt="${user.username}" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=${user.username || 'U'}&background=6366f1&color=fff&size=80'">
-                    <div style="display:flex; flex-direction:column; align-items:flex-start;" class="reel-author-name">
-                        <span>${user.name || user.username} <small style="font-weight:normal; opacity:0.8;">@${user.username}</small></span>
+                    <div class="reel-user-row">
+                        <span class="reel-username reel-author-name">@${user.username}</span>
+                        ${!isOwn ? followBtn : ''}
                     </div>
-                    ${!isOwn ? followBtn : ''}
                 </div>
                 ${video.caption ? `<p class="reel-caption">${this.escapeHtml(video.caption)}</p>` : ''}
             </div>
@@ -631,7 +631,7 @@ class BlinkApp {
         const originalText = btn.textContent;
         
         // Loading state
-        btn.textContent = 'Please wait...';
+        btn.textContent = btn.classList.contains('reel-follow-btn') ? '...' : 'Please wait...';
 
         try {
             const data = await this.api(`/users/follow/${userId}`, { method: 'POST' });
