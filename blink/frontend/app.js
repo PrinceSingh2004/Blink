@@ -1933,15 +1933,15 @@ class BlinkApp {
     async sendMessage(e) {
         if (e && e.preventDefault) e.preventDefault();
         const input = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendMsgBtn');
         const text = input.value.trim();
+        
         if (!text || !this.activeReceiverId) return;
 
         const receiverId = this.activeReceiverId;
         console.log("SENDING MESSAGE:", { receiverId, text });
 
-        input.value = '';
-        input.style.height = '42px'; // Reset height
-        document.getElementById('sendMsgBtn').disabled = true;
+        if (sendBtn) sendBtn.disabled = true;
 
         try {
             const res = await this.api(`/chats/${receiverId}`, {
@@ -1949,26 +1949,47 @@ class BlinkApp {
                 body: JSON.stringify({ message: text })
             });
 
-            if (res?.success) {
-                const savedMessage = res.message;
-                console.log("MESSAGE SAVED ON SERVER:", savedMessage.id);
-                this.appendMessageLocally(savedMessage);
-                
-                // Socket emit
-                this.socket.emit('send_message', {
-                    sender_id: this.user.id,
-                    receiver_id: receiverId,
-                    message: text,
-                    conversation_id: savedMessage.conversation_id
-                });
+            console.log("SEND RESPONSE:", res);
+
+            const savedMessage = res?.message || res?.data || res?.savedMessage;
+
+            if (!savedMessage || !savedMessage.id) {
+                console.error("Invalid send response:", res);
+                throw new Error("Invalid message response from server");
             }
+
+            console.log("MESSAGE SAVED ON SERVER:", savedMessage.id);
+            this.appendMessageLocally(savedMessage);
+            
+            // Socket emit
+            this.socket.emit('send_message', {
+                sender_id: this.user.id,
+                receiver_id: receiverId,
+                message: text,
+                conversation_id: savedMessage.conversation_id
+            });
+
+            // Clear input ONLY after success
+            input.value = '';
+            input.style.height = '42px'; // Reset height
+
         } catch (err) {
             console.error("SEND ERROR:", err);
-            this.showToast('Failed to send message', 'error');
+            
+            // Only show toast inside catch, ensuring it is a real error
+            const errMsg = err.response?.data?.message || err.message || "Failed to send message";
+            this.showToast(errMsg, 'error');
+        } finally {
+            if (sendBtn && input.value.trim() === '') {
+                sendBtn.disabled = true; // Still disabled if empty
+            } else if (sendBtn) {
+                sendBtn.disabled = false;
+            }
         }
     }
 
     appendMessageLocally(msg) {
+        if (!msg || !msg.id) return;
         const container = document.getElementById('chatMessages');
         if (!container) return;
         
@@ -1993,21 +2014,18 @@ class BlinkApp {
     }
 
     handleReceiveMessage(msg) {
-        const currentUserId = Number(this.user.id);
+        const currentUserId = Number(this.user?.id);
         const activeId = Number(this.activeReceiverId);
-        const senderId = Number(msg.sender_id);
-        const receiverId = Number(msg.receiver_id);
 
-        const isMine = (senderId === currentUserId);
-        const isFromActive = (senderId === activeId);
-        const isToActive = (receiverId === activeId);
+        const belongsToCurrentChat =
+            (Number(msg.sender_id) === currentUserId && Number(msg.receiver_id) === activeId) ||
+            (Number(msg.sender_id) === activeId && Number(msg.receiver_id) === currentUserId);
 
-        if (isFromActive || (isMine && isToActive)) {
+        if (belongsToCurrentChat) {
             this.appendMessageLocally(msg);
             
-            // If it's from the active user, mark as read instantly
-            if (isFromActive) {
-                this.api(`/chats/${senderId}/read`, { method: 'PUT' });
+            if (Number(msg.sender_id) === activeId) {
+                this.api(`/chats/${activeId}/read`, { method: 'PUT' }).catch(() => {});
             }
         }
         
