@@ -1858,6 +1858,7 @@ class BlinkApp {
 
         const receiverId = this.activeReceiverId;
         input.value = '';
+        input.style.height = '44px'; // Reset height
         document.getElementById('sendMsgBtn').disabled = true;
 
         try {
@@ -2000,6 +2001,21 @@ class BlinkApp {
         };
 
         fetchHistory();
+    }
+
+    handleTextareaChange(el) {
+        const sendBtn = document.getElementById('sendMsgBtn');
+        if (sendBtn) sendBtn.disabled = !el.value.trim();
+        
+        el.style.height = "44px";
+        el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    }
+
+    handleKeyDown(e) {
+        if (e.key === "Enter" && !e.shiftKey && window.innerWidth > 768) {
+            e.preventDefault();
+            this.sendMessage();
+        }
     }
 
     escapeHtml(str) {
