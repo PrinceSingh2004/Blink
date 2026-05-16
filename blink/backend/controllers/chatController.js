@@ -11,8 +11,8 @@ exports.getConversations = async (req, res) => {
         const userId = req.user.id;
 
         // Fetch unique users the current user has messaged or received messages from
-        // Using raw SQL for the complex conversation grouping
-        const [rows] = await sequelize.query(`
+        // In Sequelize v6+ with SELECT type, it returns just the rows array
+        const rows = await sequelize.query(`
             SELECT 
                 u.id AS other_user_id,
                 u.username AS other_username,
@@ -20,24 +20,24 @@ exports.getConversations = async (req, res) => {
                 u.profile_photo AS other_profile_photo,
                 m.message AS last_message,
                 m."createdAt" AS last_message_at,
-                (SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND sender_id = u.id AND is_read = 0) AS unread_count
+                (SELECT COUNT(*) FROM messages WHERE receiver_id = :userId AND sender_id = u.id AND is_read = 0) AS unread_count
             FROM users u
-            JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = u.id)
+            JOIN messages m ON (m.sender_id = u.id AND m.receiver_id = :userId) OR (m.sender_id = :userId AND m.receiver_id = u.id)
             WHERE m.id IN (
                 SELECT MAX(id) FROM messages 
-                WHERE (sender_id = ? OR receiver_id = ?) 
+                WHERE (sender_id = :userId OR receiver_id = :userId) 
                 GROUP BY CASE 
-                    WHEN sender_id = ? THEN receiver_id 
+                    WHEN sender_id = :userId THEN receiver_id 
                     ELSE sender_id 
                 END
             )
             ORDER BY last_message_at DESC
         `, {
-            replacements: [userId, userId, userId, userId, userId, userId],
+            replacements: { userId },
             type: sequelize.QueryTypes.SELECT
         });
 
-        res.json({ success: true, conversations: rows });
+        res.json({ success: true, conversations: rows || [] });
     } catch (err) {
         console.error('Get conversations error:', err.message);
         res.status(500).json({ error: 'Failed to load conversations' });

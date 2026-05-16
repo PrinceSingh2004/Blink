@@ -456,6 +456,7 @@ class BlinkApp {
         });
 
         this.currentPage = page;
+        localStorage.setItem('lastPage', page);
 
         if (page === 'feed') this.loadFeed(1, false);
         if (page === 'explore' && !this.exploreLoaded) this.loadExplore();
@@ -465,8 +466,8 @@ class BlinkApp {
             // Reset chat list visibility for mobile
             const panel = document.getElementById('chatListPanel');
             if (panel) panel.classList.remove('hidden');
-            const window = document.getElementById('chatWindowPanel');
-            if (window) window.classList.remove('active');
+            const windowPanel = document.getElementById('chatWindowPanel');
+            if (windowPanel) windowPanel.classList.remove('active');
         }
     }
 
@@ -747,28 +748,36 @@ class BlinkApp {
         });
 
         // ── FEATURE 1: LIKE BUTTON ──────────────────────────
-        document.querySelectorAll('.like-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (!this.requireAuth()) return;
-                await this.toggleLike(btn);
+        cards.forEach(card => {
+            card.querySelectorAll('.like-btn').forEach(btn => {
+                if (btn.dataset.bound) return;
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (!this.requireAuth()) return;
+                    await this.toggleLike(btn);
+                });
             });
-        });
 
-        // ── FEATURE 3: COMMENT BUTTON ───────────────────────
-        document.querySelectorAll('.comment-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.openComments(btn.dataset.id);
+            // ── FEATURE 3: COMMENT BUTTON ───────────────────────
+            card.querySelectorAll('.comment-btn').forEach(btn => {
+                if (btn.dataset.bound) return;
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openComments(btn.dataset.id);
+                });
             });
-        });
 
-        // ── FEATURE 6: MUTE / UNMUTE ────────────────────────
-        document.querySelectorAll('.mute-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.isMuted = !this.isMuted;
-                this.updateAllMuteState();
+            // ── FEATURE 6: MUTE / UNMUTE ────────────────────────
+            card.querySelectorAll('.mute-btn').forEach(btn => {
+                if (btn.dataset.bound) return;
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.isMuted = !this.isMuted;
+                    this.updateAllMuteState();
+                });
             });
         });
 
@@ -824,21 +833,38 @@ class BlinkApp {
         });
 
         // ── FEATURE 4: CLICK USERNAME → OPEN PROFILE ────────
-        document.querySelectorAll('.reel-author-avatar, .reel-author-name').forEach(el => {
-            el.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const author = el.closest('.reel-author');
-                const userId = author.dataset.userId;
-                if (userId) this.openUserProfile(parseInt(userId));
+        cards.forEach(card => {
+            card.querySelectorAll('.reel-author-avatar, .reel-author-name').forEach(el => {
+                if (el.dataset.bound) return;
+                el.dataset.bound = '1';
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const author = el.closest('.reel-author');
+                    const userId = author.dataset.userId;
+                    if (userId) this.openUserProfile(parseInt(userId));
+                });
             });
-        });
 
-        // ── FEATURE 7: FOLLOW BUTTON ON REEL ────────
-        document.querySelectorAll('.reel-follow-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (!this.requireAuth()) return;
-                await this.toggleFollow(btn);
+            // ── FEATURE 7: FOLLOW BUTTON ON REEL ────────
+            card.querySelectorAll('.reel-follow-btn').forEach(btn => {
+                if (btn.dataset.bound) return;
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    if (!this.requireAuth()) return;
+                    await this.toggleFollow(btn);
+                });
+            });
+
+            // ── FEATURE 8: SHARE BUTTON ────────
+            card.querySelectorAll('.share-btn').forEach(btn => {
+                if (btn.dataset.bound) return;
+                btn.dataset.bound = '1';
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const videoId = card.dataset.id;
+                    this.handleShare(videoId);
+                });
             });
         });
     }
@@ -880,6 +906,31 @@ class BlinkApp {
         } finally {
             btn.disabled = false;
         }
+    }
+
+    handleShare(videoId) {
+        const url = `${window.location.origin}/?v=${videoId}`;
+        if (navigator.share) {
+            navigator.share({
+                title: 'Blink Video',
+                text: 'Check out this video on Blink!',
+                url: url,
+            }).catch(err => {
+                if (err.name !== 'AbortError') {
+                    this.copyToClipboard(url);
+                }
+            });
+        } else {
+            this.copyToClipboard(url);
+        }
+    }
+
+    copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            this.showToast('Link copied to clipboard!', 'success');
+        }).catch(() => {
+            this.showToast('Failed to copy link', 'error');
+        });
     }
 
     /* ── FEATURE 2: Double Tap Heart Animation ───────────── */
@@ -1108,13 +1159,14 @@ class BlinkApp {
 
     prependComment(c) {
         const list = document.getElementById('commentsList');
+        if (!list) return;
+
+        // Remove loading spinner or empty message
         const empty = list.querySelector('.comments-empty');
         if (empty) empty.remove();
 
-        const temp = document.createElement('div');
-        temp.innerHTML = this.createCommentHTML(c);
-        const item = temp.firstElementChild;
-        list.prepend(item);
+        const html = this.createCommentHTML(c);
+        list.insertAdjacentHTML('afterbegin', html);
         this.bindCommentActions();
     }
 
