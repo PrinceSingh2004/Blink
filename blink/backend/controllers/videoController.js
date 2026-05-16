@@ -63,7 +63,7 @@ exports.getFeed = async (req, res) => {
             FROM videos v
             LEFT JOIN users u ON v.${cols.userCol} = u.id
             WHERE v.${cols.activeCol} = 1
-            ORDER BY RAND()
+            ORDER BY RANDOM()
             LIMIT 20
         `;
 

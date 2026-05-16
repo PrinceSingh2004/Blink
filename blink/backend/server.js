@@ -109,6 +109,7 @@ const io = initSocket(server);
 
 const start = async () => {
     await testConnection();
+    require('./models/Follow');
     await initDB();
 
     server.listen(PORT, () => {
