@@ -89,6 +89,34 @@ app.post("/api/logout", (req, res) => {
     res.json({ success: true, message: "Logged out successfully" });
 });
 
+// ── Contact Us ─────────────────────────────────────────
+app.post('/api/contact', async (req, res) => {
+    try {
+        const { name, email, message } = req.body;
+        if (!name || !email || !message) return res.status(400).json({ error: "All fields required" });
+        
+        let userId = null;
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer')) {
+            const token = authHeader.split(' ')[1];
+            const jwt = require('jsonwebtoken');
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+                userId = decoded.id;
+            } catch (e) {}
+        }
+
+        const sequelize = require('./config/db');
+        await sequelize.query(
+            'INSERT INTO contact_messages (name, email, message, user_id) VALUES (?, ?, ?, ?)',
+            { replacements: [name, email, message, userId] }
+        );
+        res.json({ success: true, message: "Message sent successfully" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── Static Frontend ────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend')));
 

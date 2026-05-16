@@ -304,12 +304,18 @@
                             <h1 id="profileName"></h1>
                             <p class="profile-bio" id="profileUsername"></p>
                             <p class="profile-bio" id="profileBio"></p>
-                            <div class="profile-actions-main" style="display:flex; gap:10px; margin-top: 10px;" id="profileActionsMain">
-                                <button class="btn-primary" id="editProfileBtn" style="padding: 6px 16px; border-radius: 6px; font-size: 14px;">
-                                    <i class="bi bi-pencil-square"></i> Edit Profile
+                            <div class="profile-actions-main profile-actions" id="profileActionsMain">
+                                <button class="btn-primary" id="editProfileBtn">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </button>
+                                <button class="btn-primary" id="contactUsBtn" style="background:var(--bg-secondary); border:1px solid var(--border-color);">
+                                    <i class="bi bi-envelope"></i> Contact
+                                </button>
+                                <button class="btn-primary" id="logoutBtn" style="background:#ef4444; border:none;">
+                                    <i class="bi bi-box-arrow-right"></i> Logout
                                 </button>
                                 <button class="profile-delete-mode-btn" id="deleteModeBtn" style="display:none;">
-                                    <i class="bi bi-trash"></i> Delete Selected (<span id="deleteCount">0</span>)
+                                    <i class="bi bi-trash"></i> Delete (<span id="deleteCount">0</span>)
                                 </button>
                             </div>
                             <div class="profile-stats">
@@ -379,6 +385,10 @@
                 </div>
                 <span>Upload</span>
             </a>
+            <a href="#" class="bottom-link" data-page="chat">
+                <i class="bi bi-chat-dots-fill"></i>
+                <span>Messages</span>
+            </a>
             <a href="#" class="bottom-link" data-page="profile">
                 <i class="bi bi-person-circle"></i>
                 <span>Profile</span>
@@ -436,6 +446,35 @@
                 <button type="submit" class="btn-primary" id="saveProfileBtn">
                     <span class="btn-text">Save Changes</span>
                     <span class="btn-loader" style="display:none;"><i class="bi bi-arrow-clockwise spin"></i> Saving...</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contact Us Modal -->
+    <div class="modal" id="contactUsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal-content" style="background:var(--bg-secondary); width:90%; max-width:400px; padding:2rem; border-radius:1rem; border:1px solid var(--border-color);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="font-size:1.5rem; margin:0;">Contact Us</h2>
+                <button id="closeContactUsModal" style="background:none; border:none; color:var(--text-secondary); font-size:1.5rem; cursor:pointer;"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form id="contactUsForm" style="display:flex; flex-direction:column; gap:1rem;">
+                <div class="input-group">
+                    <label>Name</label>
+                    <input type="text" id="contactName" placeholder="Your name" required>
+                </div>
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="contactEmail" placeholder="Your email address" required>
+                </div>
+                <div class="input-group">
+                    <label>Message</label>
+                    <textarea id="contactMessage" placeholder="How can we help?" rows="4" required></textarea>
+                </div>
+                <div id="contactUsAlert" class="auth-alert" style="display:none;"></div>
+                <button type="submit" class="btn-primary" id="sendContactBtn">
+                    <span class="btn-text">Send Message</span>
+                    <span class="btn-loader" style="display:none;"><i class="bi bi-arrow-clockwise spin"></i> Sending...</span>
                 </button>
             </form>
         </div>

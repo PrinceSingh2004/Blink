@@ -87,7 +87,7 @@ class BlinkApp {
             const data = await res.json().catch(() => null);
 
             if (res.status === 401) {
-                this.forceLogout();
+                this.forceLogout(true, "Session expired. Please login again.");
                 return null;
             }
             if (!res.ok) {
@@ -258,36 +258,37 @@ class BlinkApp {
     }
 
     async logout() {
-        if (!confirm("Are you sure you want to logout?")) return;
-        await this.forceLogout(true);
+        this.forceLogout(true, "Logged out successfully");
     }
 
-    async forceLogout(showToast = false) {
+    async forceLogout(showToast = false, msg = "Logged out successfully") {
         try {
             // Global Logout API call
             await fetch(`${this.API_BASE}/api/logout`, {
                 method: 'POST',
                 credentials: 'include'
-            });
+            }).catch(() => {});
             
             // Clean specific app tokens
             this.token = null; 
             this.user = null;
             
             // Clear ALL storage for safety
-            localStorage.clear();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
             sessionStorage.clear();
 
-            // Notify and Redirect
-            const isDarkMode = document.body.classList.contains('dark-mode') || true; // assumed
-            alert("Logged out successfully");
-            window.location.reload(); // Since it's an SPA and reloads into the login overlay
+            if (showToast) {
+                this.showToast(msg, msg.includes("expired") ? "error" : "success");
+                setTimeout(() => { window.location.href = "/login"; }, 1500);
+            } else {
+                window.location.href = "/login";
+            }
         } catch (err) {
             console.error('Logout failed:', err);
-            // Fallback: still clear client side
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.reload();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = "/login";
         }
     }
 
@@ -961,6 +962,55 @@ class BlinkApp {
                 this.setButtonLoading(btn, false);
             }
         });
+
+        // Contact Us & Logout handlers
+        const contactUsBtn = document.getElementById('contactUsBtn');
+        const contactUsModal = document.getElementById('contactUsModal');
+        const closeContactUsModal = document.getElementById('closeContactUsModal');
+        const contactUsForm = document.getElementById('contactUsForm');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        contactUsBtn?.addEventListener('click', () => {
+            contactUsModal.style.display = 'flex';
+        });
+
+        closeContactUsModal?.addEventListener('click', () => {
+            contactUsModal.style.display = 'none';
+        });
+
+        contactUsForm?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('sendContactBtn');
+            const alert = document.getElementById('contactUsAlert');
+            const name = document.getElementById('contactName').value.trim();
+            const email = document.getElementById('contactEmail').value.trim();
+            const message = document.getElementById('contactMessage').value.trim();
+
+            this.setButtonLoading(btn, true);
+            alert.style.display = 'none';
+
+            try {
+                const data = await this.api('/contact', {
+                    method: 'POST',
+                    body: JSON.stringify({ name, email, message })
+                });
+
+                if (data?.success) {
+                    this.showToast('Message sent successfully!', 'success');
+                    contactUsModal.style.display = 'none';
+                    contactUsForm.reset();
+                }
+            } catch (err) {
+                alert.textContent = err.message || 'Failed to send message';
+                alert.style.display = 'block';
+            } finally {
+                this.setButtonLoading(btn, false);
+            }
+        });
+
+        logoutBtn?.addEventListener('click', () => {
+            this.logout();
+        });
     }
 
     async loadProfile() {
@@ -1033,10 +1083,10 @@ class BlinkApp {
                 const btnWrap = document.getElementById('userProfileActions');
                 if (btnWrap) {
                     btnWrap.innerHTML = `
-                        <button class="profile-follow-btn ${u.is_following ? 'following' : ''}" id="followBtn">
+                        <button class="btn-primary ${u.is_following ? 'following' : ''}" id="followBtn" style="flex:1;">
                             ${u.is_following ? 'Following' : 'Follow'}
                         </button>
-                        <button class="profile-msg-btn" id="profileMsgBtn">
+                        <button class="btn-primary" id="profileMsgBtn" style="flex:1; background:var(--bg-secondary); border:1px solid var(--border-color);">
                             <i class="bi bi-chat-text"></i> Message
                         </button>
                     `;
