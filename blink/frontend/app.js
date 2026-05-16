@@ -562,7 +562,6 @@ class BlinkApp {
                         <i class="bi bi-send-fill"></i>
                     </button>
                 </div>
-
                 <div class="reel-play-indicator"><i class="bi bi-play-fill"></i></div>
                 <div class="double-tap-heart"><i class="bi bi-heart-fill"></i></div>
             </div>
