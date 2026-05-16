@@ -9,6 +9,8 @@ class BlinkApp {
         this.token = localStorage.getItem('token');
         this.user = this.loadUser();
         this.feedLoaded = false;
+        this._feedLoadId = 0;
+        this._feedHasMore = true;
         this.exploreLoaded = false;
         this.selectedVideos = new Set();
         this.isSelectionMode = false;
@@ -40,6 +42,7 @@ class BlinkApp {
         this.setupProfile();
         this.setupPasswordToggles();
         this.setupComments();
+        this.setupFeed();
         this.setupChat(); // Phase 7
         this.runSafetyCheck();
         this.checkAuth();
@@ -436,49 +439,57 @@ class BlinkApp {
         }
     }
 
+    setupFeed() {
+        const refreshBtn = document.getElementById('feedRefreshBtn');
+        refreshBtn?.addEventListener('click', () => {
+            this.loadFeed(1, false);
+        });
+    }
+
     /* ─────────────────────────────────────────────────────────
        VIDEO FEED — With all social features
        ───────────────────────────────────────────────────────── */
     async loadFeed(page = 1, append = false) {
         const container = document.getElementById('reelsContainer');
+        const refreshBtn = document.getElementById('feedRefreshBtn');
         if (!container) return;
+
+        // Race condition guard: only apply the response from the latest request
+        const loadId = ++this._feedLoadId;
 
         try {
             if (!append) {
                 this.feedPage = 1;
+                container.innerHTML = '<div class="reels-loading"><div class="pulse-loader"></div><p>Loading feed…</p></div>';
+                refreshBtn?.classList.add('loading');
             } else {
                 this.feedPage = page;
+                if (this._feedLoadingMore) return; // Prevent double load
             }
 
-            const data = await this.api(`/videos/feed?page=${this.feedPage}&limit=20`);
+            const data = await this.api(`/videos/feed?page=${this.feedPage}&limit=20&_t=${Date.now()}`);
+
+            // Discard if a newer loadFeed was called while we were awaiting
+            if (loadId !== this._feedLoadId) return;
             
             if (!data?.data || data.data.length === 0) {
                 if (!append) {
                     container.innerHTML = `
                         <div class="feed-empty">
-                            <i class="bi bi-camera-video"></i>
-                            <h2>No videos yet</h2>
-                            <p>Be the first to share a Blink!</p>
+                            <div class="empty-icon-wrap">
+                                <i class="bi bi-camera-reels"></i>
+                            </div>
+                            <h2>Nothing to see here</h2>
+                            <p>The feed is quiet. Be the pioneer of new content or explore creators!</p>
+                            <div class="empty-actions" style="display:flex; gap:12px; justify-content:center;">
+                                <button class="btn-primary" id="emptyUploadBtn" style="padding:10px 24px;">Upload Video</button>
+                                <button class="btn-outline" id="emptyExploreBtn" style="padding:10px 24px;">Explore</button>
+                            </div>
                         </div>`;
+                    document.getElementById('emptyUploadBtn')?.addEventListener('click', () => this.navigateTo('upload'));
+                    document.getElementById('emptyExploreBtn')?.addEventListener('click', () => this.navigateTo('explore'));
                 }
-                return;
-            }
-
-            if (data.data.length === 0 && !append) {
-                container.innerHTML = `
-                    <div class="feed-empty">
-                        <div class="empty-icon-wrap">
-                            <i class="bi bi-camera-reels"></i>
-                        </div>
-                        <h2>Nothing to see here</h2>
-                        <p>The feed is quiet. Be the pioneer of new content or explore creators!</p>
-                        <div class="empty-actions" style="display:flex; gap:12px; justify-content:center;">
-                            <button class="btn-primary" id="emptyUploadBtn" style="padding:10px 24px;">Upload Video</button>
-                            <button class="btn-outline" id="emptyExploreBtn" style="padding:10px 24px;">Explore</button>
-                        </div>
-                    </div>`;
-                document.getElementById('emptyUploadBtn')?.addEventListener('click', () => this.navigateTo('upload'));
-                document.getElementById('emptyExploreBtn')?.addEventListener('click', () => this.navigateTo('explore'));
+                refreshBtn?.classList.remove('loading');
                 return;
             }
 
@@ -488,13 +499,18 @@ class BlinkApp {
                 container.insertAdjacentHTML('beforeend', html);
             } else {
                 container.innerHTML = html;
+                container.scrollTop = 0; // Scroll to top on fresh load
             }
 
             this.feedLoaded = true;
+            this._feedHasMore = data.hasMore !== false;
             this.setupReelInteractions();
             this.setupAutoplay();
+            refreshBtn?.classList.remove('loading');
         } catch (err) {
+            if (loadId !== this._feedLoadId) return;
             this.feedLoaded = false;
+            refreshBtn?.classList.remove('loading');
             if (!append) {
                 container.innerHTML = `
                     <div class="feed-empty">
@@ -508,7 +524,7 @@ class BlinkApp {
                         </button>
                     </div>`;
                 document.getElementById('retryFeedBtn')?.addEventListener('click', () => {
-                    container.innerHTML = '<div class="reels-loading"><div class="pulse-loader"></div><p>Retrying...</p></div>';
+                    container.innerHTML = '<div class="reels-loading"><div class="pulse-loader"></div><p>Retrying…</p></div>';
                     this.loadFeed(1, false);
                 });
             }
@@ -821,11 +837,10 @@ class BlinkApp {
                 if (!video) return;
                 if (entry.isIntersecting) {
                     video.muted = this.isMuted;
-                    video.currentTime = 0; // Always start from beginning when scrolling in
+                    video.currentTime = 0;
                     const playPromise = video.play();
                     if (playPromise !== undefined) {
                         playPromise.catch(() => {
-                            // Autoplay was prevented
                             console.log("Autoplay prevented, waiting for interaction");
                         });
                     }
@@ -845,6 +860,22 @@ class BlinkApp {
             }
             this.feedObserver.observe(card);
         });
+
+        // Infinite scroll: load more when near bottom
+        const container = document.getElementById('reelsContainer');
+        if (container && !container._blinkScrollBound) {
+            container._blinkScrollBound = true;
+            container.addEventListener('scroll', () => {
+                if (this._feedLoadingMore || !this._feedHasMore) return;
+                const { scrollTop, scrollHeight, clientHeight } = container;
+                if (scrollTop + clientHeight >= scrollHeight - clientHeight * 1.5) {
+                    this._feedLoadingMore = true;
+                    this.loadFeed(this.feedPage + 1, true).finally(() => {
+                        this._feedLoadingMore = false;
+                    });
+                }
+            });
+        }
     }
 
     /* ─────────────────────────────────────────────────────────

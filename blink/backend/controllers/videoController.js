@@ -51,42 +51,52 @@ exports.getFeed = async (req, res) => {
         const offset = (page - 1) * limit;
 
         const cols = await resolveVideoCols();
+        const currentUserId = req.user ? req.user.id : 0;
 
         const query = `
             SELECT 
                 v.id,
                 v.${cols.userCol} AS user_id,
                 v.${cols.videoUrlCol} AS video_url,
+                v.thumbnail_url,
                 v.${cols.captionCol} AS caption,
                 v.${cols.likesCol} AS likes_count,
                 v.${cols.commentsCol} AS comments_count,
                 v.${cols.viewsCol} AS views_count,
                 v.created_at,
                 u.id AS u_id,
+                u.name AS u_name,
                 u.username AS u_username,
                 u.profile_photo AS u_profile_photo,
                 EXISTS(SELECT 1 FROM likes l WHERE l.video_id = v.id AND l.user_id = ?) AS is_liked,
                 EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.following_id = u.id) AS is_following
             FROM videos v
             LEFT JOIN users u ON v.${cols.userCol} = u.id
-            WHERE v.${cols.activeCol} = 1
-            ORDER BY (RANDOM() * 0.4 + COALESCE(v.${cols.likesCol}, 0) * 0.3 + COALESCE(v.${cols.viewsCol}, 0) * 0.2) DESC, v.created_at DESC
+            WHERE (v.${cols.activeCol} = true OR v.${cols.activeCol} = 1)
+              AND v.${cols.videoUrlCol} IS NOT NULL
+              AND v.${cols.videoUrlCol} != ''
+            ORDER BY (
+                RANDOM() * 100 +
+                COALESCE(v.${cols.likesCol}, 0) * 3 +
+                COALESCE(v.${cols.viewsCol}, 0) * 1 +
+                COALESCE(v.${cols.commentsCol}, 0) * 2
+            ) DESC
             LIMIT ? OFFSET ?
         `;
 
-        const currentUserId = req.user ? req.user.id : null;
         const [rows] = await dbQuery(query, [currentUserId, currentUserId, limit, offset]);
         
         const formattedData = rows.map(row => ({
             id: row.id,
             video_url: row.video_url,
+            thumbnail_url: row.thumbnail_url || null,
             caption: row.caption,
             views_count: row.views_count,
             likes_count: row.likes_count,
             comments_count: row.comments_count,
             user: {
                 id: row.u_id,
-                name: row.u_username,
+                name: row.u_name || row.u_username,
                 username: row.u_username,
                 profilePhoto: row.u_profile_photo,
                 avatar: row.u_profile_photo
@@ -95,7 +105,7 @@ exports.getFeed = async (req, res) => {
             isFollowing: Boolean(row.is_following)
         }));
 
-        res.json({ success: true, data: formattedData });
+        res.json({ success: true, data: formattedData, page, hasMore: formattedData.length === limit });
     } catch (err) {
         console.error('🔥 Feed error:', err.message);
         res.status(500).json({ success: false, error: 'Failed to load feed' });
