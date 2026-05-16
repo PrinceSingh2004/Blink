@@ -20,8 +20,14 @@ async function getColumn(table, options) {
     if (columnCache[cacheKey]) return columnCache[cacheKey];
 
     try {
-        const [rows] = await sequelize.query(`SELECT column_name as "Field" FROM information_schema.columns WHERE table_name = ?`, { replacements: [table] });
-        const columns = rows.map(r => r.Field.toLowerCase());
+        const [rows] = await sequelize.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_schema = 'public' 
+            AND table_name = ?
+        `, { replacements: [table] });
+        
+        const columns = rows.map(r => (r.column_name || r.Field || r.field || r.name || '').toLowerCase()).filter(Boolean);
 
         for (const opt of options) {
             if (columns.includes(opt.toLowerCase())) {
@@ -34,7 +40,7 @@ async function getColumn(table, options) {
         console.warn(`⚠️ [Schema] No column from [${options.join(', ')}] found in table "${table}"`);
         return null;
     } catch (err) {
-        console.error(`❌ [Schema Error] Failed to DESCRIBE table "${table}":`, err.message);
+        console.error(`❌ [Schema Error] Failed to detect columns for table "${table}":`, err.message);
         return null;
     }
 }

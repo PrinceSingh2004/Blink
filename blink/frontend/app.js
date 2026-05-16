@@ -18,12 +18,12 @@ class BlinkApp {
         this.isMuted = true;           // Feature 6: mute state
         this.viewedVideos = new Set();  // Feature 5: session-based view tracking
         this.commentVideoId = null;    // Feature 3: active comment video
-        
+
         // Phase 7: Chat State
         this.activeConversationId = null;
         this.conversations = [];
         this.isTypingTimeout = null;
-        
+
         // Phase 4: Socket.IO
         this.socket = typeof io !== 'undefined' ? io() : null;
         this.setupSocket();
@@ -34,18 +34,72 @@ class BlinkApp {
     /* ─────────────────────────────────────────────────────────
        INITIALIZATION
        ───────────────────────────────────────────────────────── */
-    init() {
-        this.setupAuth();
-        this.setupNavigation();
-        this.setupUpload();
-        this.setupSearch();
-        this.setupProfile();
-        this.setupPasswordToggles();
-        this.setupComments();
-        this.setupFeed();
-        this.setupChat(); // Phase 7
-        this.runSafetyCheck();
-        this.checkAuth();
+    async init() {
+        try {
+            await this.handleColdStart();
+            this.setupAuth();
+            this.setupNavigation();
+            this.setupUpload();
+            this.setupSearch();
+            this.setupProfile();
+            this.setupPasswordToggles();
+            this.setupComments();
+            this.setupFeed();
+            this.setupChat(); // Phase 7
+            this.runSafetyCheck();
+            this.checkAuth();
+        } catch (err) {
+            console.error("Initialization halted:", err.message);
+        }
+    }
+
+    async handleColdStart() {
+        const overlay = document.getElementById('coldStartOverlay');
+        const title = document.getElementById('coldStartTitle');
+        const desc = document.getElementById('coldStartDesc');
+        const retryBtn = document.getElementById('coldStartRetry');
+        
+        if (!overlay) return;
+        overlay.style.display = 'flex';
+        
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        const tryConnect = async () => {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                const res = await fetch(`${this.API_BASE}/api/health`, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                return res.ok;
+            } catch (e) {
+                return false;
+            }
+        };
+
+        const wakeUpTimer = setTimeout(() => {
+            if (title) title.textContent = "Server is waking up…";
+            if (desc) desc.textContent = "Blink uses a free tier on Render which sleeps after inactivity. It usually takes 15-30 seconds to wake up. Thanks for your patience! ✨";
+        }, 12000);
+
+        while (attempts < maxAttempts) {
+            if (await tryConnect()) {
+                clearTimeout(wakeUpTimer);
+                overlay.style.display = 'none';
+                return;
+            }
+            attempts++;
+            await new Promise(r => setTimeout(r, 4000));
+        }
+
+        clearTimeout(wakeUpTimer);
+        if (title) title.textContent = "Backend is taking too long";
+        if (desc) desc.textContent = "We're having trouble connecting to the Blink server. This can happen if the free instance is under heavy load or starting up.";
+        if (retryBtn) {
+            retryBtn.style.display = 'block';
+            retryBtn.onclick = () => window.location.reload();
+        }
+        throw new Error("Server wake-up timeout");
     }
 
     detectApiBase() {
@@ -54,7 +108,7 @@ class BlinkApp {
 
     setupSocket() {
         if (!this.socket) return;
-        
+
         if (this.user?.id) {
             this.socket.emit('join_user', this.user.id);
         }
@@ -118,9 +172,9 @@ class BlinkApp {
     getAvatarUrl(user) {
         const name = user?.name || user?.username || "User";
         return (
-            user?.profile_photo || 
-            user?.profilePhoto || 
-            user?.avatar || 
+            user?.profile_photo ||
+            user?.profilePhoto ||
+            user?.avatar ||
             `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff&bold=true`
         );
     }
@@ -172,7 +226,7 @@ class BlinkApp {
             this.clearFieldErrors(loginForm);
             if (!identifier) { this.highlightFieldError(identifierInput, alert, 'Email or username is required'); return; }
             if (!password) { this.highlightFieldError(passwordInput, alert, 'Password is required'); return; }
-            
+
             this.setButtonLoading(btn, true); this.hideAlert(alert);
 
             try {
@@ -209,7 +263,7 @@ class BlinkApp {
             const userInput = document.getElementById('signupUsername');
             const emailInput = document.getElementById('signupEmail');
             const passInput = document.getElementById('signupPassword');
-            
+
             const username = userInput.value.trim();
             const email = emailInput.value.trim();
             const password = passInput.value;
@@ -219,7 +273,7 @@ class BlinkApp {
             if (!email) { this.highlightFieldError(emailInput, alert, 'Email is required'); return; }
             if (!password) { this.highlightFieldError(passInput, alert, 'Password is required'); return; }
             if (password.length < 6) { this.highlightFieldError(passInput, alert, 'Password must be at least 6 characters'); return; }
-            
+
             this.setButtonLoading(btn, true); this.hideAlert(alert);
 
             try {
@@ -266,7 +320,7 @@ class BlinkApp {
         if (!localStorage.getItem('token')) {
             // Already handled by checkAuth() which shows overlay,
             // but for absolute certainty on all pages:
-            this.token = null; 
+            this.token = null;
             this.user = null;
             this.checkAuth();
         }
@@ -275,10 +329,10 @@ class BlinkApp {
     checkAuth() {
         const overlay = document.getElementById('authOverlay');
         const shell = document.getElementById('appShell');
-        
+
         // Show shell to everyone for public content
         shell.style.display = 'flex';
-        
+
         if (this.token && this.user) {
             overlay.style.display = 'none';
             this.updateSidebar();
@@ -290,10 +344,10 @@ class BlinkApp {
         } else {
             // Default to landing state if not logged in
             // But let them see the feed
-            overlay.style.display = 'none'; 
+            overlay.style.display = 'none';
             this.updateSidebar();
         }
-        
+
         const lastPage = localStorage.getItem('lastPage') || 'feed';
         this.navigateTo(lastPage);
     }
@@ -314,12 +368,12 @@ class BlinkApp {
             await fetch(`${this.API_BASE}/api/logout`, {
                 method: 'POST',
                 credentials: 'include'
-            }).catch(() => {});
-            
+            }).catch(() => { });
+
             // Clean specific app tokens
-            this.token = null; 
+            this.token = null;
             this.user = null;
-            
+
             // Clear ALL storage for safety
             localStorage.removeItem('token');
             localStorage.removeItem('user');
@@ -353,7 +407,7 @@ class BlinkApp {
             const avatarUrl = this.getAvatarUrl(this.user);
             if (name) name.textContent = `@${this.user.username}`;
             if (avatar) avatar.innerHTML = `<img src="${avatarUrl}" alt="avatar" class="sidebar-avatar-img">`;
-            
+
             if (bottomLink) {
                 bottomLink.innerHTML = `<img src="${avatarUrl}" class="bottom-avatar-img" alt="me"><span>Profile</span>`;
             }
@@ -372,7 +426,17 @@ class BlinkApp {
     setupNavigation() {
         document.addEventListener('click', (e) => {
             const link = e.target.closest('[data-page]');
-            if (link) { e.preventDefault(); this.navigateTo(link.getAttribute('data-page')); }
+            if (link) { 
+                e.preventDefault(); 
+                const page = link.getAttribute('data-page');
+                // Update URL without reload for SPA feel
+                window.history.pushState({ page }, '', link.getAttribute('href') || '/');
+                this.navigateTo(page); 
+            }
+        });
+
+        window.addEventListener('popstate', (e) => {
+            if (e.state?.page) this.navigateTo(e.state.page);
         });
     }
 
@@ -406,7 +470,7 @@ class BlinkApp {
     async loadExplore() {
         const grid = document.getElementById('exploreGrid');
         if (!grid) return;
-        
+
         try {
             const data = await this.api('/videos/explore');
             const videos = data?.data || [];
@@ -425,7 +489,7 @@ class BlinkApp {
                 const card = document.createElement("div");
                 card.className = "explore-video-card";
                 card.dataset.id = video.id;
-                
+
                 card.innerHTML = `
                     <video src="${video.videoUrl}" muted playsinline preload="none" loop></video>
                     <div class="explore-info">@${video.username}</div>
@@ -445,7 +509,7 @@ class BlinkApp {
 
                 grid.appendChild(card);
             });
-        } catch(err) {
+        } catch (err) {
             console.error('Explore load error:', err);
             grid.innerHTML = '<div class="explore-empty"><p>Failed to load explore feed</p></div>';
         }
@@ -456,7 +520,7 @@ class BlinkApp {
         this.feedLoaded = false;
         this._feedLoadId++;
         this._feedHasMore = true;
-        
+
         const container = document.getElementById('reelsContainer');
         if (container) {
             container.innerHTML = `
@@ -501,7 +565,7 @@ class BlinkApp {
 
             // Discard if a newer loadFeed was called while we were awaiting
             if (loadId !== this._feedLoadId) return;
-            
+
             if (!data?.data || data.data.length === 0) {
                 if (!append) {
                     container.innerHTML = `
@@ -524,7 +588,7 @@ class BlinkApp {
             }
 
             const html = data.data.map(v => this.createReelCard(v)).join('');
-            
+
             if (append) {
                 container.insertAdjacentHTML('beforeend', html);
             } else {
@@ -565,8 +629,8 @@ class BlinkApp {
         const user = video.user || {};
         const avatar = this.getAvatarUrl(user);
         const likedClass = video.isLiked ? 'liked' : '';
-        const followBtn = video.isFollowing ? 
-            `<button class="reel-follow-btn following" data-id="${user.id}">Following</button>` : 
+        const followBtn = video.isFollowing ?
+            `<button class="reel-follow-btn following" data-id="${user.id}">Following</button>` :
             `<button class="reel-follow-btn" data-id="${user.id}">Follow</button>`;
         const isOwn = this.user && this.user.id === user.id;
 
@@ -690,13 +754,13 @@ class BlinkApp {
 
         // ── FEATURE 5: VIEW COUNT (3-second watch logic) ────────
         if (!this.viewTimers) this.viewTimers = new Map();
-        
+
         cards.forEach(card => {
             const observer = new IntersectionObserver(entries => {
                 entries.forEach(entry => {
                     const videoId = card.dataset.id;
                     const video = card.querySelector('video');
-                    
+
                     if (entry.isIntersecting) {
                         // Start 3-second timer
                         if (!sessionStorage.getItem(`viewed_video_${videoId}`)) {
@@ -711,7 +775,7 @@ class BlinkApp {
                                             localStorage.setItem('guest_session_id', sessionId);
                                         }
 
-                                        const data = await this.api(`/videos/${videoId}/view`, { 
+                                        const data = await this.api(`/videos/${videoId}/view`, {
                                             method: 'POST',
                                             body: JSON.stringify({ watchedSeconds: 3, sessionId })
                                         });
@@ -762,11 +826,11 @@ class BlinkApp {
     async toggleFollow(btn) {
         if (!this.user) { this.showToast('Please sign in to follow', 'error'); return; }
         if (btn.disabled) return;
-        
+
         btn.disabled = true;
         const userId = btn.dataset.id;
         const originalText = btn.textContent;
-        
+
         // Loading state
         btn.textContent = btn.classList.contains('reel-follow-btn') ? '...' : 'Please wait...';
 
@@ -778,7 +842,7 @@ class BlinkApp {
                     b.classList.toggle('following', data.isFollowing);
                     b.textContent = data.isFollowing ? 'Following' : 'Follow';
                 });
-                
+
                 // Update profile stats if currently viewing that user
                 const userStatFollowers = document.getElementById('userStatFollowers');
                 if (userStatFollowers && document.getElementById('page-user-profile').classList.contains('active')) {
@@ -885,7 +949,7 @@ class BlinkApp {
             if (video) {
                 video.onended = () => {
                     video.currentTime = 0;
-                    video.play().catch(() => {});
+                    video.play().catch(() => { });
                 };
             }
             this.feedObserver.observe(card);
@@ -1223,7 +1287,7 @@ class BlinkApp {
                 this.updateSidebar();
 
                 this.loadUserVideos(u.id, 'profileVideos');
-                
+
                 // Bind delete action
                 document.getElementById('deleteModeBtn').onclick = () => this.deleteSelected();
             }
@@ -1263,7 +1327,7 @@ class BlinkApp {
 
                 const avatarUrl = this.getAvatarUrl(u);
                 document.getElementById('userProfileAvatar').src = avatarUrl;
-                
+
                 // Profile Actions
                 const btnWrap = document.getElementById('userProfileActions');
                 if (btnWrap) {
@@ -1341,7 +1405,7 @@ class BlinkApp {
                         // Open full video view would go here
                     }
                 };
-                
+
                 // Long press to enter selection mode
                 let pressTimer;
                 card.onmousedown = card.ontouchstart = () => {
@@ -1394,7 +1458,7 @@ class BlinkApp {
             card.classList.add('selected');
         }
         document.getElementById('deleteCount').textContent = this.selectedVideos.size;
-        
+
         if (this.selectedVideos.size === 0) {
             this.exitSelectionMode();
         }
@@ -1551,7 +1615,7 @@ class BlinkApp {
         uploadBtn?.addEventListener('click', async () => {
             if (!this.requireAuth()) return;
             if (!selectedFile) return;
-            
+
             const performUpload = async (retryCount = 0) => {
                 const formData = new FormData();
                 formData.append('video', selectedFile);
@@ -1559,14 +1623,14 @@ class BlinkApp {
 
                 this.setButtonLoading(uploadBtn, true);
                 window.addEventListener('beforeunload', preventExit);
-                
+
                 const progressDiv = document.getElementById('uploadProgress');
                 const statusText = document.getElementById('uploadStatus');
                 const cancelBtn = document.getElementById('cancelUploadBtn');
-                
+
                 if (statusText) statusText.textContent = 'Preparing upload...';
                 if (cancelBtn) cancelBtn.style.display = 'inline-flex';
-                
+
                 form.style.display = 'none';
                 progressDiv.style.display = 'block';
 
@@ -1581,7 +1645,7 @@ class BlinkApp {
                         document.getElementById('progressText').textContent = `${percent}%`;
                         const offset = 283 - (283 * percent) / 100;
                         document.getElementById('progressCircle').style.strokeDashoffset = offset;
-                        
+
                         const statusText = document.getElementById('uploadStatus');
                         if (statusText) {
                             if (percent < 100) {
@@ -1598,15 +1662,15 @@ class BlinkApp {
                 xhr.onload = () => {
                     this.currentUploadXhr = null;
                     window.removeEventListener('beforeunload', preventExit);
-                    
+
                     let data;
-                    try { data = JSON.parse(xhr.responseText); } catch(e) { data = {}; }
+                    try { data = JSON.parse(xhr.responseText); } catch (e) { data = {}; }
 
                     if (xhr.status >= 200 && xhr.status < 300 && data.success) {
                         const statusText = document.getElementById('uploadStatus');
                         if (statusText) statusText.textContent = 'Upload complete! 🎉';
                         this.showToast('Video published! 🎬', 'success');
-                        
+
                         // Success! Now reset and refresh
                         setTimeout(() => {
                             this.feedLoaded = false;
@@ -1620,7 +1684,7 @@ class BlinkApp {
                         this.setButtonLoading(uploadBtn, false);
                         const errorMsg = data.error || data.message || 'Server upload failed';
                         if (xhr.status !== 0) this.showToast(`Upload failed: ${errorMsg}`, 'error');
-                        
+
                         progressDiv.style.display = 'none';
                         form.style.display = 'block';
                     }
@@ -1686,7 +1750,7 @@ class BlinkApp {
 
     showAlert(el, message, type) { if (!el) return; el.textContent = message; el.className = `auth-alert ${type}`; }
     hideAlert(el) { if (!el) return; el.className = 'auth-alert'; el.textContent = ''; }
-    
+
     highlightFieldError(input, alertEl, message) {
         if (!input) return;
         input.classList.add('field-error');
@@ -1750,7 +1814,7 @@ class BlinkApp {
             searchInput.oninput = (e) => {
                 const term = e.target.value.trim();
                 clearTimeout(searchTimeout);
-                
+
                 if (!term) {
                     this.renderConversations();
                     return;
@@ -1779,7 +1843,7 @@ class BlinkApp {
         if (!list) return;
 
         let html = '';
-        
+
         if (users?.length > 0) {
             html += `<div class="search-section-title" style="padding: 10px 16px; font-size: 12px; color: var(--text-muted); font-weight: 700;">USERS</div>`;
             html += users.map(u => {
@@ -1800,7 +1864,7 @@ class BlinkApp {
                 const otherUserId = Number(m.sender_id) === Number(this.user.id) ? m.receiver_id : m.sender_id;
                 const existingConv = this.conversations?.find(c => Number(c.other_user_id) === Number(otherUserId));
                 const username = existingConv ? existingConv.other_username : `User ${otherUserId}`;
-                const avatar = existingConv ? this.getAvatarUrl({profile_photo: existingConv.other_profile_photo, username}) : this.getAvatarUrl({username});
+                const avatar = existingConv ? this.getAvatarUrl({ profile_photo: existingConv.other_profile_photo, username }) : this.getAvatarUrl({ username });
 
                 return `
                 <div class="conv-item conversation-row" onclick="app.openChatWithUser(${otherUserId}, '${username}', '${avatar}')">
@@ -1840,7 +1904,7 @@ class BlinkApp {
         const totalUnread = this.conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
         const badge = document.getElementById('chatBadge');
         const mobileBadge = document.getElementById('mobileChatBadge');
-        
+
         if (badge) {
             badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
             badge.style.display = totalUnread > 0 ? 'flex' : 'none';
@@ -1867,7 +1931,7 @@ class BlinkApp {
             });
             const activeClass = this.activeReceiverId === c.other_user_id ? 'active' : '';
             const unread = c.unread_count > 0 ? `<span class="conv-unread">${c.unread_count}</span>` : '';
-            
+
             return `
             <div class="conv-item conversation-row ${activeClass}" data-id="${c.other_user_id}" onclick="app.openChatWithUser(${c.other_user_id}, '${c.other_username}', '${avatar}')">
                 <div class="conv-avatar-wrap">
@@ -1916,7 +1980,7 @@ class BlinkApp {
             const isMine = Number(m.sender_id) === currentUserId;
             const isLastMessage = idx === messages.length - 1;
             const seenText = (isMine && isLastMessage && m.is_read === 1) ? '<div class="msg-seen-status">Seen</div>' : '';
-            
+
             return `
             <div class="message-row ${isMine ? 'mine' : 'theirs'}" data-id="${m.id}">
                 <div class="message-bubble">${this.escapeHtml(m.message)}</div>
@@ -1926,7 +1990,7 @@ class BlinkApp {
                 ${seenText}
             </div>`;
         }).join('');
-        
+
         container.scrollTop = container.scrollHeight;
     }
 
@@ -1935,7 +1999,7 @@ class BlinkApp {
         const input = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendMsgBtn');
         const text = input.value.trim();
-        
+
         if (!text || !this.activeReceiverId) return;
 
         const receiverId = this.activeReceiverId;
@@ -1960,9 +2024,9 @@ class BlinkApp {
 
             console.log("MESSAGE SAVED ON SERVER:", savedMessage.id);
             this.appendMessageLocally(savedMessage);
-            
+
             // Socket emit
-            this.socket.emit('send_message', {
+            if (this.socket) this.socket.emit('send_message', {
                 sender_id: this.user.id,
                 receiver_id: receiverId,
                 message: text,
@@ -1975,7 +2039,7 @@ class BlinkApp {
 
         } catch (err) {
             console.error("SEND ERROR:", err);
-            
+
             // Only show toast inside catch, ensuring it is a real error
             const errMsg = err.response?.data?.message || err.message || "Failed to send message";
             this.showToast(errMsg, 'error');
@@ -1992,7 +2056,7 @@ class BlinkApp {
         if (!msg || !msg.id) return;
         const container = document.getElementById('chatMessages');
         if (!container) return;
-        
+
         // Check for duplicates
         const existing = container.querySelector(`[data-id="${msg.id}"]`);
         if (existing) return;
@@ -2023,12 +2087,12 @@ class BlinkApp {
 
         if (belongsToCurrentChat) {
             this.appendMessageLocally(msg);
-            
+
             if (Number(msg.sender_id) === activeId) {
-                this.api(`/chats/${activeId}/read`, { method: 'PUT' }).catch(() => {});
+                this.api(`/chats/${activeId}/read`, { method: 'PUT' }).catch(() => { });
             }
         }
-        
+
         // Refresh conversation list to show latest message and badges
         this.loadConversations();
     }
@@ -2060,7 +2124,7 @@ class BlinkApp {
 
     async openChatWithUser(userId, username, avatar) {
         if (!this.user) { this.showToast('Please sign in to message', 'error'); return; }
-        
+
         this.activeReceiverId = userId;
         this.activeConversationId = null;
 
@@ -2075,7 +2139,7 @@ class BlinkApp {
         document.getElementById('chatHeaderAvatar').src = avatar;
         document.getElementById('chatEmptyState').style.display = 'none';
         document.getElementById('chatActive').style.display = 'flex';
-        
+
         if (window.innerWidth <= 768) {
             document.getElementById('chatListPanel').classList.add('hidden');
             document.getElementById('chatWindowPanel').classList.add('active');
@@ -2089,9 +2153,9 @@ class BlinkApp {
                 console.log("FETCHING CHAT HISTORY FOR:", userId);
                 const data = await this.api(`/chats/${userId}`);
                 console.log("CHAT HISTORY RESPONSE:", data);
-                
+
                 this.renderMessages(data.messages || []);
-                
+
                 // Mark as read
                 this.api(`/chats/${userId}/read`, { method: 'PUT' });
                 this.loadConversations(); // Refresh list to clear badges
@@ -2099,7 +2163,7 @@ class BlinkApp {
                 if (data.messages && data.messages.length > 0) {
                     this.activeConversationId = data.messages[0].conversation_id;
                     if (this.activeConversationId) {
-                        this.socket.emit('join_room', this.activeConversationId);
+                        if (this.socket) this.socket.emit('join_room', this.activeConversationId);
                     }
                 }
             } catch (err) {
@@ -2122,23 +2186,23 @@ class BlinkApp {
         const el = e.target;
         const sendBtn = document.getElementById('sendMsgBtn');
         if (sendBtn) sendBtn.disabled = !el.value.trim();
-        
+
         el.style.height = "42px";
         el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
 
         // Typing logic
-        if (this.activeConversationId) {
+        if (this.activeConversationId && this.socket) {
             clearTimeout(this.typingTimeout);
-            this.socket.emit('typing', { 
-                conversationId: this.activeConversationId, 
-                userId: this.user.id, 
-                isTyping: true 
+            this.socket.emit('typing', {
+                conversationId: this.activeConversationId,
+                userId: this.user.id,
+                isTyping: true
             });
             this.typingTimeout = setTimeout(() => {
-                this.socket.emit('typing', { 
-                    conversationId: this.activeConversationId, 
-                    userId: this.user.id, 
-                    isTyping: false 
+                this.socket.emit('typing', {
+                    conversationId: this.activeConversationId,
+                    userId: this.user.id,
+                    isTyping: false
                 });
             }, 2000);
         }
@@ -2169,3 +2233,4 @@ class BlinkApp {
 
 // ── Boot ──
 const app = new BlinkApp();
+

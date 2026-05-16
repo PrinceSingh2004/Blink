@@ -1,5 +1,9 @@
 const { Sequelize } = require("sequelize");
 
+if (!process.env.DATABASE_URL) {
+  throw new Error("❌ DATABASE_URL is missing in Render Environment Variables. Please set it in the Render Dashboard.");
+}
+
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: "postgres",
   protocol: "postgres",

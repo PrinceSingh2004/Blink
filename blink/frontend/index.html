@@ -30,6 +30,22 @@
 
 <body>
     <!-- ═══════════════════════════════════════════════════
+         COLD START SPLASH
+         ═══════════════════════════════════════════════════ -->
+    <div id="coldStartOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-primary); z-index:100000; justify-content:center; align-items:center; flex-direction:column; text-align:center; padding:2rem;">
+        <div class="auth-logo" style="margin-bottom:2rem;">
+            <div class="auth-logo-icon"><i class="bi bi-play-circle-fill"></i></div>
+            <h1 class="auth-brand">Blink</h1>
+        </div>
+        <div class="pulse-loader" style="margin-bottom:1.5rem;"></div>
+        <h2 id="coldStartTitle" style="font-size:1.25rem; margin-bottom:0.5rem; color:var(--text-primary);">Starting Blink server…</h2>
+        <p id="coldStartDesc" style="color:var(--text-secondary); max-width:300px; line-height:1.5;">Please wait while we wake up the backend on Render.</p>
+        <button id="coldStartRetry" class="btn-primary" style="display:none; margin-top:2rem; padding:12px 32px;">
+            <i class="bi bi-arrow-clockwise"></i> Retry Connection
+        </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════
          AUTH OVERLAY
          ═══════════════════════════════════════════════════ -->
     <div class="auth-overlay" id="authOverlay">
@@ -113,24 +129,24 @@
             </div>
 
             <nav class="sidebar-nav">
-                <a href="#" class="nav-link active" data-page="feed" id="navHome">
+                <a href="/" class="nav-link active" data-page="feed" id="navHome">
                     <i class="bi bi-house-door-fill"></i>
                     <span>Home</span>
                 </a>
-                <a href="#" class="nav-link" data-page="explore" id="navExplore">
+                <a href="/explore" class="nav-link" data-page="explore" id="navExplore">
                     <i class="bi bi-compass-fill"></i>
                     <span>Explore</span>
                 </a>
-                <a href="#" class="nav-link" data-page="chat" id="navChat">
+                <a href="/messages" class="nav-link" data-page="chat" id="navChat">
                     <i class="bi bi-chat-dots-fill"></i>
                     <span>Messages</span>
                     <span class="badge" id="chatBadge" style="display:none;"></span>
                 </a>
-                <a href="#" class="nav-link" data-page="upload" id="navUpload">
+                <a href="/upload" class="nav-link" data-page="upload" id="navUpload">
                     <i class="bi bi-plus-square-fill"></i>
                     <span>Upload</span>
                 </a>
-                <a href="#" class="nav-link" data-page="profile" id="navProfile">
+                <a href="/profile" class="nav-link" data-page="profile" id="navProfile">
                     <i class="bi bi-person-circle"></i>
                     <span>Profile</span>
                 </a>
@@ -223,7 +239,7 @@
                             <div class="chat-header">
                                 <button class="chat-back" id="chatBack"><i class="bi bi-chevron-left"></i></button>
                                 <div class="chat-user-info" id="chatUserInfo">
-                                    <img src="" alt="" class="chat-avatar conversation-avatar" id="chatHeaderAvatar">
+                                    <img class="chat-avatar conversation-avatar" id="chatHeaderAvatar" alt="User avatar">
                                     <div class="chat-user-details">
                                         <span class="chat-username" id="chatHeaderName"></span>
                                         <span class="chat-status" id="chatHeaderStatus"></span>
@@ -374,7 +390,7 @@
                 <div class="profile-container">
                     <div class="profile-header">
                         <div class="profile-avatar-wrap">
-                            <img src="" id="userProfileAvatar" alt="avatar" class="profile-avatar">
+                            <img id="userProfileAvatar" alt="avatar" class="profile-avatar">
                         </div>
                         <div class="profile-info">
                             <h1 id="userProfileName"></h1>
@@ -409,25 +425,25 @@
 
         <!-- BOTTOM NAV (Mobile) -->
         <nav class="bottom-nav" id="bottomNav">
-            <a href="#" class="bottom-link active" data-page="feed">
+            <a href="/" class="bottom-link active" data-page="feed">
                 <i class="bi bi-house-door-fill"></i>
                 <span>Home</span>
             </a>
-            <a href="#" class="bottom-link" data-page="explore">
+            <a href="/explore" class="bottom-link" data-page="explore">
                 <i class="bi bi-compass-fill"></i>
                 <span>Explore</span>
             </a>
-            <a href="#" class="bottom-link upload-item" data-page="upload">
+            <a href="/upload" class="bottom-link upload-item" data-page="upload">
                 <div class="upload-circle">
                     <i class="bi bi-plus-lg"></i>
                 </div>
                 <span>Upload</span>
             </a>
-            <a href="#" class="bottom-link" data-page="chat">
+            <a href="/messages" class="bottom-link" data-page="chat">
                 <i class="bi bi-chat-dots-fill"></i>
                 <span>Messages</span>
             </a>
-            <a href="#" class="bottom-link" data-page="profile" id="bottomProfileLink">
+            <a href="/profile" class="bottom-link" data-page="profile" id="bottomProfileLink">
                 <i class="bi bi-person-circle"></i>
                 <span>Profile</span>
             </a>
