@@ -176,12 +176,23 @@ const initDB = async () => {
             await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS receiver_id INT');
             await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS message TEXT');
             await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read SMALLINT DEFAULT 0');
+            
+            // Add timestamps with exact casing for PostgreSQL
             await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
             await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()');
             
             // Fix type if it was boolean
-            await sequelize.query('ALTER TABLE messages ALTER COLUMN is_read TYPE SMALLINT USING (CASE WHEN is_read::text = \'true\' THEN 1 ELSE 0 END)');
-        } catch (e) {}
+            await sequelize.query(`
+                DO $$ 
+                BEGIN 
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='messages' AND column_name='is_read' AND data_type='boolean') THEN
+                        ALTER TABLE messages ALTER COLUMN is_read TYPE SMALLINT USING (CASE WHEN is_read THEN 1 ELSE 0 END);
+                    END IF;
+                END $$;
+            `);
+        } catch (e) {
+            console.error('Migration error:', e.message);
+        }
 
         console.log('✅ Database schema synchronized.');
     } catch (err) {
