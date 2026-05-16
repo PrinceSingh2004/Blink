@@ -6,7 +6,7 @@
 class BlinkApp {
     constructor() {
         this.API_BASE = this.detectApiBase();
-        this.token = localStorage.getItem('blink_token');
+        this.token = localStorage.getItem('token');
         this.user = this.loadUser();
         this.feedLoaded = false;
         this.exploreLoaded = false;
@@ -46,13 +46,6 @@ class BlinkApp {
     }
 
     detectApiBase() {
-        const host = window.location.hostname;
-        if (host === 'localhost' || host === '127.0.0.1') {
-            return `http://${host}:5000`;
-        }
-        if (window.location.protocol === 'file:') {
-            return 'http://localhost:5000';
-        }
         return 'https://blink-yzoo.onrender.com';
     }
 
@@ -94,7 +87,7 @@ class BlinkApp {
             const data = await res.json().catch(() => null);
 
             if (res.status === 401) {
-                this.logout();
+                this.forceLogout();
                 return null;
             }
             if (!res.ok) {
@@ -234,7 +227,7 @@ class BlinkApp {
 
     /* ── Global Safety Check ── */
     runSafetyCheck() {
-        if (!localStorage.getItem('blink_token')) {
+        if (!localStorage.getItem('token')) {
             // Already handled by checkAuth() which shows overlay,
             // but for absolute certainty on all pages:
             this.token = null; 
@@ -260,13 +253,16 @@ class BlinkApp {
 
     setAuth(token, user) {
         this.token = token; this.user = user;
-        localStorage.setItem('blink_token', token);
-        localStorage.setItem('blink_user', JSON.stringify(user));
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
     }
 
     async logout() {
         if (!confirm("Are you sure you want to logout?")) return;
+        await this.forceLogout(true);
+    }
 
+    async forceLogout(showToast = false) {
         try {
             // Global Logout API call
             await fetch(`${this.API_BASE}/api/logout`, {
@@ -296,7 +292,7 @@ class BlinkApp {
     }
 
     loadUser() {
-        try { return JSON.parse(localStorage.getItem('blink_user')); }
+        try { return JSON.parse(localStorage.getItem('user')); }
         catch { return null; }
     }
 
@@ -441,11 +437,17 @@ class BlinkApp {
     }
 
     createReelCard(video) {
-        const avatar = video.profile_photo || `https://ui-avatars.com/api/?name=${video.username}&background=6366f1&color=fff&size=80`;
-        const likedClass = video.liked_by_me ? 'liked' : '';
+        const user = video.user || {};
+        const avatar = user.profilePhoto || `https://ui-avatars.com/api/?name=${user.username || 'U'}&background=6366f1&color=fff&size=80`;
+        const likedClass = video.isLiked ? 'liked' : '';
+        const followBtn = video.isFollowing ? 
+            `<button class="reel-follow-btn following" data-id="${user.id}">Following</button>` : 
+            `<button class="reel-follow-btn" data-id="${user.id}">Follow</button>`;
+        const isOwn = this.user && this.user.id === user.id;
+
         return `
-        <div class="reel-card" data-id="${video.id}" data-userId="${video.userId}">
-            <video src="${video.videoUrl}" loop playsinline preload="metadata" muted></video>
+        <div class="reel-card" data-id="${video.id}" data-userId="${user.id}">
+            <video src="${video.video_url || video.videoUrl}" loop playsinline preload="metadata" muted controls onerror="console.error('Video playback error', event)"></video>
             <div class="reel-overlay"></div>
             <div class="reel-play-indicator"><i class="bi bi-play-fill"></i></div>
             <div class="double-tap-heart"><i class="bi bi-heart-fill"></i></div>
@@ -467,9 +469,10 @@ class BlinkApp {
                 </button>
             </div>
             <div class="reel-info">
-                <div class="reel-author" data-user-id="${video.user_id}">
-                    <img src="${avatar}" class="reel-author-avatar" alt="${video.username}" loading="lazy">
-                    <span class="reel-author-name">@${video.username}</span>
+                <div class="reel-author" data-user-id="${user.id}">
+                    <img src="${avatar}" class="reel-author-avatar" alt="${user.username}" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=${user.username || 'U'}&background=6366f1&color=fff&size=80'">
+                    <span class="reel-author-name">${user.name || user.username} <small>@${user.username}</small></span>
+                    ${!isOwn ? followBtn : ''}
                 </div>
                 ${video.caption ? `<p class="reel-caption">${this.escapeHtml(video.caption)}</p>` : ''}
             </div>
@@ -561,13 +564,51 @@ class BlinkApp {
         });
 
         // ── FEATURE 4: CLICK USERNAME → OPEN PROFILE ────────
-        document.querySelectorAll('.reel-author').forEach(author => {
-            author.addEventListener('click', (e) => {
+        document.querySelectorAll('.reel-author-avatar, .reel-author-name').forEach(el => {
+            el.addEventListener('click', (e) => {
                 e.stopPropagation();
+                const author = el.closest('.reel-author');
                 const userId = author.dataset.userId;
                 if (userId) this.openUserProfile(parseInt(userId));
             });
         });
+
+        // ── FEATURE 7: FOLLOW BUTTON ON REEL ────────
+        document.querySelectorAll('.reel-follow-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.toggleFollow(btn);
+            });
+        });
+    }
+
+    async toggleFollow(btn) {
+        const userId = btn.dataset.id;
+        const isFollowing = btn.classList.contains('following');
+        
+        btn.classList.toggle('following');
+        btn.textContent = isFollowing ? 'Follow' : 'Following';
+
+        try {
+            const data = await this.api(`/users/follow/${userId}`, { method: 'POST' });
+            if (data?.success) {
+                // Keep the state synced with the server response
+                document.querySelectorAll(`.reel-follow-btn[data-id="${userId}"], .profile-follow-btn[data-id="${userId}"]`).forEach(b => {
+                    b.classList.toggle('following', data.isFollowing);
+                    b.textContent = data.isFollowing ? 'Following' : 'Follow';
+                });
+                
+                // Update profile stats if currently viewing that user
+                const userStatFollowers = document.getElementById('userStatFollowers');
+                if (userStatFollowers && document.getElementById('page-user-profile').classList.contains('active')) {
+                    userStatFollowers.textContent = this.formatCount(data.followersCount || 0);
+                }
+            }
+        } catch (err) {
+            btn.classList.toggle('following', isFollowing);
+            btn.textContent = isFollowing ? 'Following' : 'Follow';
+            this.showToast('Failed to follow user', 'error');
+        }
     }
 
     /* ── FEATURE 2: Double Tap Heart Animation ───────────── */
@@ -823,13 +864,62 @@ class BlinkApp {
 
                 if (data?.success) {
                     this.user.profile_photo = data.profile_photo;
-                    localStorage.setItem('blink_user', JSON.stringify(this.user));
+                    localStorage.setItem('user', JSON.stringify(this.user));
                     document.getElementById('profileAvatar').src = data.profile_photo;
                     this.updateSidebar();
                     this.showToast('Avatar updated! ✨', 'success');
                 }
             } catch (err) {
                 this.showToast('Avatar upload failed', 'error');
+            }
+        });
+
+        // Edit Profile Binding
+        const editProfileBtn = document.getElementById('editProfileBtn');
+        const editProfileModal = document.getElementById('editProfileModal');
+        const closeEditProfileModal = document.getElementById('closeEditProfileModal');
+        const editProfileForm = document.getElementById('editProfileForm');
+
+        editProfileBtn?.addEventListener('click', () => {
+            if (!this.user) return;
+            document.getElementById('editProfileName').value = this.user.name || this.user.username;
+            document.getElementById('editProfileUsername').value = this.user.username;
+            document.getElementById('editProfileBio').value = this.user.bio || '';
+            document.getElementById('editProfileAlert').style.display = 'none';
+            editProfileModal.style.display = 'flex';
+        });
+
+        closeEditProfileModal?.addEventListener('click', () => {
+            editProfileModal.style.display = 'none';
+        });
+
+        editProfileForm?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('saveProfileBtn');
+            const alert = document.getElementById('editProfileAlert');
+            const name = document.getElementById('editProfileName').value.trim();
+            const username = document.getElementById('editProfileUsername').value.trim();
+            const bio = document.getElementById('editProfileBio').value.trim();
+
+            this.setButtonLoading(btn, true);
+            alert.style.display = 'none';
+
+            try {
+                const data = await this.api('/users/profile', {
+                    method: 'PUT',
+                    body: JSON.stringify({ name, username, bio })
+                });
+
+                if (data?.success) {
+                    this.showToast('Profile updated!', 'success');
+                    editProfileModal.style.display = 'none';
+                    this.loadProfile(); // reload self
+                }
+            } catch (err) {
+                alert.textContent = err.message || 'Failed to update profile';
+                alert.style.display = 'block';
+            } finally {
+                this.setButtonLoading(btn, false);
             }
         });
     }
@@ -841,6 +931,7 @@ class BlinkApp {
             const data = await this.api('/users/me');
             if (data?.user) {
                 const u = data.user;
+                document.getElementById('profileName').textContent = u.name || u.username;
                 document.getElementById('profileUsername').textContent = `@${u.username}`;
                 document.getElementById('profileBio').textContent = u.bio || 'Blink member';
                 document.getElementById('statPosts').textContent = u.posts_count || 0;
@@ -854,7 +945,7 @@ class BlinkApp {
 
                 // Update sidebar too
                 this.user = { ...this.user, ...u };
-                localStorage.setItem('blink_user', JSON.stringify(this.user));
+                localStorage.setItem('user', JSON.stringify(this.user));
                 this.updateSidebar();
 
                 this.loadUserVideos(u.id, 'profileVideos');
@@ -887,6 +978,7 @@ class BlinkApp {
             const data = await this.api(`/users/${userId}`);
             if (data?.user) {
                 const u = data.user;
+                document.getElementById('userProfileName').textContent = u.name || u.username;
                 document.getElementById('userProfileUsername').textContent = `@${u.username}`;
                 document.getElementById('userProfileBio').textContent = u.bio || 'Blink member';
                 document.getElementById('userStatPosts').textContent = u.posts_count || 0;
@@ -909,7 +1001,9 @@ class BlinkApp {
                             <i class="bi bi-chat-text"></i> Message
                         </button>
                     `;
-                    document.getElementById('followBtn').onclick = () => this.toggleFollow(u.id);
+                    const fBtn = document.getElementById('followBtn');
+                    fBtn.dataset.id = u.id; // required for toggleFollow
+                    fBtn.onclick = () => this.toggleFollow(fBtn);
                     document.getElementById('profileMsgBtn').onclick = () => this.openChatWithUser(u.id, u.username, avatarUrl);
                 }
 

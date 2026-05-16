@@ -52,23 +52,46 @@ exports.getFeed = async (req, res) => {
             SELECT 
                 v.id,
                 v.${cols.userCol} AS user_id,
-                v.${cols.userCol} AS userId,
-                v.${cols.videoUrlCol} AS videoUrl,
+                v.${cols.videoUrlCol} AS video_url,
                 v.${cols.captionCol} AS caption,
-                u.username,
-                u.profile_photo,
                 v.${cols.likesCol} AS likes_count,
                 v.${cols.commentsCol} AS comments_count,
-                v.${cols.viewsCol} AS views_count
+                v.${cols.viewsCol} AS views_count,
+                v.created_at,
+                u.id AS u_id,
+                u.username AS u_username,
+                u.profile_photo AS u_profile_photo,
+                EXISTS(SELECT 1 FROM likes l WHERE l.video_id = v.id AND l.user_id = ?) AS is_liked,
+                EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.following_id = u.id) AS is_following
             FROM videos v
             LEFT JOIN users u ON v.${cols.userCol} = u.id
             WHERE v.${cols.activeCol} = 1
-            ORDER BY RANDOM()
+            ORDER BY (v.${cols.viewsCol} * 1 + v.${cols.likesCol} * 3 + v.${cols.commentsCol} * 2) DESC, v.created_at DESC
             LIMIT 20
         `;
 
-        const [rows] = await dbQuery(query);
-        res.json({ success: true, data: rows || [] });
+        const currentUserId = req.user ? req.user.id : null;
+        const [rows] = await dbQuery(query, [currentUserId, currentUserId]);
+        
+        const formattedData = rows.map(row => ({
+            id: row.id,
+            video_url: row.video_url,
+            caption: row.caption,
+            views_count: row.views_count,
+            likes_count: row.likes_count,
+            comments_count: row.comments_count,
+            user: {
+                id: row.u_id,
+                name: row.u_username,
+                username: row.u_username,
+                profilePhoto: row.u_profile_photo,
+                avatar: row.u_profile_photo
+            },
+            isLiked: Boolean(row.is_liked),
+            isFollowing: Boolean(row.is_following)
+        }));
+
+        res.json({ success: true, data: formattedData });
     } catch (err) {
         console.error('🔥 Feed error:', err.message);
         res.status(500).json({ success: false, error: 'Failed to load feed' });

@@ -76,9 +76,11 @@ exports.uploadVideo = async (req, res) => {
         const userCol = await getColumn('videos', ['user_id', 'userId', 'creator_id']) || 'user_id';
         const urlCol = await getColumn('videos', ['video_url', 'videoUrl', 'url']) || 'video_url';
 
+        const thumbnailUrl = result.secure_url.replace(/\.[^/.]+$/, ".jpg");
+
         const [dbResult] = await dbQuery(
-            `INSERT INTO videos (${userCol}, ${urlCol}, caption, duration) VALUES (?, ?, ?, ?)`,
-            [userId, result.secure_url, caption.trim(), Math.round(result.duration || 0)]
+            `INSERT INTO videos (${userCol}, ${urlCol}, thumbnail_url, caption, duration) VALUES (?, ?, ?, ?, ?)`,
+            [userId, result.secure_url, thumbnailUrl, caption.trim(), Math.round(result.duration || 0)]
         );
 
         res.status(201).json({

@@ -27,8 +27,15 @@ app.use(helmet({
 }));
 
 // ── CORS ───────────────────────────────────────────────
+const allowedOrigins = ['https://blink-yzoo.onrender.com', 'http://localhost:5173', 'http://localhost:5000'];
 app.use(cors({
-    origin: '*',
+    origin: function(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 
@@ -44,10 +51,13 @@ if (!fs.existsSync(uploadDir)) {
 }
 app.use('/uploads', express.static(uploadDir));
 
-
 // ── Health Check ───────────────────────────────────────
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/health', (req, res) => {
+    res.json({ success: true, message: "Backend working" });
 });
 
 // ── DB Health Check ────────────────────────────────────
