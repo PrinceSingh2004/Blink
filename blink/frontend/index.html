@@ -569,6 +569,35 @@
         </div>
     </div>
 
+    <!-- Message Context Menu -->
+    <div id="messageContextMenu" class="message-context-menu" style="display:none;">
+        <button onclick="app.copyMessageText()"><i class="bi bi-files"></i> Copy Text</button>
+        <button onclick="app.showForwardModal()"><i class="bi bi-reply-all-fill"></i> Forward</button>
+        <button onclick="app.deleteMessageForMe()" class="delete-btn"><i class="bi bi-trash3"></i> Delete for me</button>
+        <button id="deleteEveryoneBtn" onclick="app.deleteMessageForEveryone()" class="delete-btn" style="display:none;"><i class="bi bi-trash-fill"></i> Delete for everyone</button>
+    </div>
+
+    <!-- Forward Modal -->
+    <div class="modal-overlay" id="forwardModal" style="display:none;">
+        <div class="modal-card forward-modal-card">
+            <div class="modal-header">
+                <h3>Forward Message</h3>
+                <button class="modal-close" id="closeForwardModal"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="forward-search">
+                <i class="bi bi-search"></i>
+                <input type="text" id="forwardSearchInput" placeholder="Search people...">
+            </div>
+            <div class="forward-recipients" id="forwardRecipientsList">
+                <!-- User list for selection -->
+            </div>
+            <div class="modal-footer forward-footer">
+                <span id="forwardSelectedCount">0 selected</span>
+                <button class="btn-primary" id="sendForwardBtn" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

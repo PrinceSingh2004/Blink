@@ -13,22 +13,45 @@ exports.getConversations = async (req, res) => {
         // Fetch unique users the current user has messaged or received messages from
         // In Sequelize v6+ with SELECT type, it returns just the rows array
         const rows = await sequelize.query(`
+            WITH LatestMessages AS (
+                SELECT 
+                    CASE 
+                        WHEN sender_id = :userId THEN receiver_id 
+                        ELSE sender_id 
+                    END AS partner_id,
+                    id,
+                    message,
+                    "createdAt",
+                    is_read,
+                    sender_id
+                FROM messages
+                WHERE (sender_id = :userId AND deleted_for_sender = false) 
+                   OR (receiver_id = :userId AND deleted_for_receiver = false)
+            ),
+            PartnerLatest AS (
+                SELECT partner_id, MAX("createdAt") as max_created
+                FROM LatestMessages
+                GROUP BY partner_id
+            )
             SELECT 
                 u.id AS other_user_id,
                 u.username AS other_username,
                 u.name AS other_name,
                 u.profile_photo AS other_profile_photo,
-                m.message AS last_message,
-                m."createdAt" AS last_message_at,
-                (SELECT COUNT(*) FROM messages WHERE receiver_id = :userId AND sender_id = u.id AND is_read = 0) AS unread_count
+                lm.message AS last_message,
+                lm."createdAt" AS last_message_at,
+                (
+                    SELECT COUNT(*) 
+                    FROM messages 
+                    WHERE receiver_id = :userId 
+                      AND sender_id = u.id 
+                      AND is_read = 0
+                      AND deleted_for_receiver = false
+                ) AS unread_count
             FROM users u
-            JOIN messages m ON m.id = (
-                SELECT id FROM messages 
-                WHERE (sender_id = u.id AND receiver_id = :userId) 
-                   OR (sender_id = :userId AND receiver_id = u.id)
-                ORDER BY "createdAt" DESC
-                LIMIT 1
-            )
+            JOIN PartnerLatest pl ON u.id = pl.partner_id
+            JOIN LatestMessages lm ON u.id = lm.partner_id AND lm."createdAt" = pl.max_created
+            WHERE u.id != :userId
             ORDER BY last_message_at DESC
         `, {
             replacements: { userId },
@@ -65,10 +88,12 @@ exports.getMessages = async (req, res) => {
           {
             sender_id: currentUserId,
             receiver_id: otherUserId,
+            deleted_for_sender: false
           },
           {
             sender_id: otherUserId,
             receiver_id: currentUserId,
+            deleted_for_receiver: false
           },
         ],
       },
@@ -132,6 +157,7 @@ exports.sendMessage = async (req, res) => {
       receiver_id: receiverId,
       message: text.trim(),
       is_read: 0,
+      is_forwarded: req.body.is_forwarded || false
     });
 
     console.log("MESSAGE SAVED DEBUG:", savedMessage.id);
@@ -238,4 +264,71 @@ exports.searchChats = async (req, res) => {
     console.error("Search chats error:", error);
     res.status(500).json({ success: false, message: "Search failed" });
   }
+};
+
+/**
+ * DELETE /api/chats/messages/:messageId — Delete message
+ */
+exports.deleteMessage = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const messageId = req.params.messageId;
+        const type = req.query.type; // 'me' or 'everyone'
+
+        const message = await Message.findByPk(messageId);
+        if (!message) return res.status(404).json({ error: 'Message not found' });
+
+        if (type === 'everyone') {
+            if (message.sender_id !== userId) {
+                return res.status(403).json({ error: 'You can only delete your own messages for everyone' });
+            }
+            await message.destroy();
+        } else {
+            // Delete for me
+            if (message.sender_id === userId) {
+                message.deleted_for_sender = true;
+            } else if (message.receiver_id === userId) {
+                message.deleted_for_receiver = true;
+            }
+            await message.save();
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to delete message' });
+    }
+};
+
+/**
+ * POST /api/chats/forward — Forward message to multiple users
+ */
+exports.forwardMessage = async (req, res) => {
+    try {
+        const senderId = req.user.id;
+        const { userIds, text } = req.body;
+
+        if (!userIds || !Array.isArray(userIds) || !text) {
+            return res.status(400).json({ error: 'Missing recipients or text' });
+        }
+
+        const messages = await Promise.all(userIds.map(async (receiverId) => {
+            const msg = await Message.create({
+                sender_id: senderId,
+                receiver_id: receiverId,
+                message: text,
+                is_forwarded: true
+            });
+            
+            const io = req.app.get("io");
+            if (io) {
+                io.to(`user_${receiverId}`).emit("receive_message", msg);
+                io.to(`user_${senderId}`).emit("receive_message", msg);
+            }
+            return msg;
+        }));
+
+        res.json({ success: true, count: messages.length });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to forward message' });
+    }
 };

@@ -27,6 +27,18 @@ const Message = sequelize.define("Message", {
     type: DataTypes.INTEGER,
     allowNull: true,
   },
+  is_forwarded: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  deleted_for_sender: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  deleted_for_receiver: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
 }, {
   tableName: "messages",
   timestamps: true,

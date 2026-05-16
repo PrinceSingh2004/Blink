@@ -2442,7 +2442,7 @@ img {
 .conversation-list {
     flex: 1;
     overflow-y: auto;
-    padding-bottom: 20px;
+    padding-bottom: 90px; /* Space for bottom nav on mobile */
 }
 
 .conv-item {
@@ -3236,11 +3236,15 @@ img {
         position: fixed;
         inset: 0;
         background: #020617;
-        display: flex;
+        display: none; /* Hide by default on mobile */
         flex-direction: column;
         height: 100dvh;
         z-index: 2000;
         overflow: hidden;
+    }
+
+    .chat-screen.active {
+        display: flex; /* Show only when active */
     }
 
     .chat-header {
@@ -3604,4 +3608,161 @@ img {
 
 .btn-exit:hover {
   background: #dc2626;
+}
+
+/* ── Message Context Menu ── */
+.message-context-menu {
+    position: fixed;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    min-width: 180px;
+    padding: 6px;
+    animation: fadeInMenu 0.15s ease-out;
+}
+
+@keyframes fadeInMenu {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.message-context-menu button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+}
+
+.message-context-menu button:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.message-context-menu button.delete-btn {
+    color: #ef4444;
+}
+
+.message-context-menu button.delete-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* ── Forward Modal ── */
+.forward-modal-card {
+    max-width: 400px !important;
+    max-height: 80vh !important;
+}
+
+.forward-search {
+    padding: 16px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+}
+
+.forward-search i {
+    position: absolute;
+    left: 28px;
+    top: 28px;
+    color: var(--text-muted);
+}
+
+.forward-search input {
+    width: 100%;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 10px 16px 10px 42px;
+    color: white;
+}
+
+.forward-recipients {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    min-height: 250px;
+}
+
+.forward-user-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.forward-user-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.forward-user-row.selected {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.forward-check {
+    margin-left: auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 12px;
+}
+
+.forward-user-row.selected .forward-check {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+.forward-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+}
+
+#forwardSelectedCount {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+/* Forwarded Label in Chat */
+.msg-forwarded-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.8;
+}
+
+.msg-forwarded-label i {
+    font-size: 12px;
+}
+
+@media (max-width: 480px) {
+    .message-context-menu {
+        width: calc(100% - 40px);
+        left: 20px !important;
+        bottom: 20px;
+        top: auto !important;
+    }
 }

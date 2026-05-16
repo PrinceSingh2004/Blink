@@ -2133,9 +2133,12 @@ class BlinkApp {
 
         if (this.conversations.length === 0) {
             list.innerHTML = `
-                <div class="chat-empty-list" style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
-                    <i class="bi bi-chat-dots" style="font-size: 32px; margin-bottom: 12px; display: block; opacity: 0.5;"></i>
-                    <p>No messages yet.<br>Start a conversation from Explore!</p>
+                <div class="chat-empty-list" style="padding: 60px 20px; text-align: center; color: var(--text-muted);">
+                    <div class="empty-icon-wrap" style="width: 80px; height: 80px; margin: 0 auto 20px; background: var(--bg-elevated); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; opacity: 0.6;">
+                        <i class="bi bi-chat-heart"></i>
+                    </div>
+                    <h3 style="color: var(--text-primary); margin-bottom: 8px;">No messages yet</h3>
+                    <p style="font-size: 14px; line-height: 1.5;">Tap "New Chat" or find someone in Explore to start messaging!</p>
                 </div>`;
             return;
         }
@@ -2146,16 +2149,17 @@ class BlinkApp {
                 username: c.other_username,
                 name: c.other_name
             });
-            const activeClass = this.activeReceiverId === c.other_user_id ? 'active' : '';
+            const isActive = this.activeReceiverId === c.other_user_id;
             const unreadCount = parseInt(c.unread_count) || 0;
-            const unreadBadge = unreadCount > 0 ? `<div class="conv-unread-badge">${unreadCount}</div>` : '';
             const displayName = c.other_name || c.other_username;
 
             return `
-            <div class="conv-item conversation-row ${activeClass}" data-id="${c.other_user_id}" onclick="app.openChatWithUser(${c.other_user_id}, '${displayName}', '${avatar}', '${c.other_username}')">
+            <div class="conv-item conversation-row ${isActive ? 'active' : ''} ${unreadCount > 0 ? 'has-unread' : ''}" 
+                 data-id="${c.other_user_id}" 
+                 onclick="app.openChatWithUser(${c.other_user_id}, '${this.escapeHtml(displayName)}', '${avatar}', '${this.escapeHtml(c.other_username)}')">
                 <div class="conv-avatar-wrap">
-                    <img src="${avatar}" class="conv-avatar conversation-avatar">
-                    <div class="status-dot offline" data-user-id="${c.other_user_id}"></div>
+                    <img src="${avatar}" class="conv-avatar conversation-avatar" alt="${c.other_username}">
+                    <div class="status-dot online" data-user-id="${c.other_user_id}"></div>
                 </div>
                 <div class="conv-info">
                     <div class="conv-name-row">
@@ -2167,7 +2171,7 @@ class BlinkApp {
                     </div>
                     <div class="conv-msg-row">
                         <span class="conv-last-msg ${unreadCount > 0 ? 'unread' : ''}">${this.escapeHtml(c.last_message || 'No messages yet')}</span>
-                        ${unreadBadge}
+                        ${unreadCount > 0 ? `<div class="conv-unread-badge">${unreadCount}</div>` : ''}
                     </div>
                 </div>
             </div>`;
@@ -2204,7 +2208,8 @@ class BlinkApp {
             const seenText = (isMine && isLastMessage && m.is_read === 1) ? '<div class="msg-seen-status">Seen</div>' : '';
 
             return `
-            <div class="message-row ${isMine ? 'mine' : 'theirs'}" data-id="${m.id}">
+            <div class="message-row ${isMine ? 'mine' : 'theirs'}" data-id="${m.id}" oncontextmenu="app.handleMessageContextMenu(event, ${m.id}, ${isMine})">
+                ${m.is_forwarded ? `<div class="msg-forwarded-label"><i class="bi bi-reply-fill"></i> Forwarded</div>` : ''}
                 <div class="message-bubble">${this.escapeHtml(m.message)}</div>
                 <div class="msg-meta">
                     ${new Date(m.createdAt || m.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -2281,7 +2286,8 @@ class BlinkApp {
 
         const isMine = Number(msg.sender_id) === Number(this.user.id);
         const msgHtml = `
-        <div class="message-row ${isMine ? 'mine' : 'theirs'}" data-id="${msg.id}">
+        <div class="message-row ${isMine ? 'mine' : 'theirs'}" data-id="${msg.id}" oncontextmenu="app.handleMessageContextMenu(event, ${msg.id}, ${isMine})">
+            ${msg.is_forwarded ? `<div class="msg-forwarded-label"><i class="bi bi-reply-fill"></i> Forwarded</div>` : ''}
             <div class="message-bubble">${this.escapeHtml(msg.message)}</div>
             <div class="msg-meta">
                 ${new Date(msg.createdAt || msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -2461,6 +2467,225 @@ class BlinkApp {
         
         this.activeReceiverId = null;
         this.activeConversationId = null;
+    }
+
+    // ── Message Actions ──
+    handleMessageContextMenu(e, msgId, isMine) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        this.selectedMessageId = msgId;
+        const menu = document.getElementById('messageContextMenu');
+        if (!menu) return;
+
+        const everyoneBtn = document.getElementById('deleteEveryoneBtn');
+        if (everyoneBtn) everyoneBtn.style.display = isMine ? 'flex' : 'none';
+
+        menu.style.display = 'block';
+        
+        // Position menu
+        if (e && e.pageX) {
+            let x = e.pageX;
+            let y = e.pageY;
+            
+            // Boundary checks
+            if (x + 180 > window.innerWidth) x = window.innerWidth - 190;
+            if (y + 150 > window.innerHeight) y = window.innerHeight - 160;
+            
+            menu.style.left = `${x}px`;
+            menu.style.top = `${y}px`;
+        }
+
+        // Global click to close
+        const closeMenu = () => {
+            menu.style.display = 'none';
+            document.removeEventListener('click', closeMenu);
+        };
+        setTimeout(() => document.addEventListener('click', closeMenu), 10);
+    }
+
+    async copyMessageText() {
+        if (!this.selectedMessageId) return;
+        const msgRow = document.querySelector(`.message-row[data-id="${this.selectedMessageId}"]`);
+        const text = msgRow?.querySelector('.message-bubble')?.textContent;
+        
+        if (text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                this.showToast('Text copied to clipboard');
+            } catch (err) {
+                this.showToast('Failed to copy', 'error');
+            }
+        }
+    }
+
+    async deleteMessageForMe() {
+        if (!this.selectedMessageId) return;
+        if (!confirm('Delete this message for you?')) return;
+
+        try {
+            const res = await this.api(`/chats/messages/${this.selectedMessageId}?type=me`, { method: 'DELETE' });
+            if (res.success) {
+                document.querySelector(`.message-row[data-id="${this.selectedMessageId}"]`)?.remove();
+                this.showToast('Message deleted');
+            }
+        } catch (err) {
+            this.showToast('Failed to delete', 'error');
+        }
+    }
+
+    async deleteMessageForEveryone() {
+        if (!this.selectedMessageId) return;
+        if (!confirm('Delete this message for everyone?')) return;
+
+        try {
+            const res = await this.api(`/chats/messages/${this.selectedMessageId}?type=everyone`, { method: 'DELETE' });
+            if (res.success) {
+                document.querySelector(`.message-row[data-id="${this.selectedMessageId}"]`)?.remove();
+                this.showToast('Message deleted for everyone');
+            }
+        } catch (err) {
+            this.showToast('Failed to delete', 'error');
+        }
+    }
+
+    showForwardModal() {
+        const modal = document.getElementById('forwardModal');
+        const input = document.getElementById('forwardSearchInput');
+        const list = document.getElementById('forwardRecipientsList');
+        const count = document.getElementById('forwardSelectedCount');
+        const sendBtn = document.getElementById('sendForwardBtn');
+
+        if (!modal) return;
+
+        this.forwardRecipients = new Set();
+        if (count) count.textContent = '0 selected';
+        if (sendBtn) sendBtn.disabled = true;
+        if (list) list.innerHTML = '<div class="loading-spinner" style="padding: 20px; text-align: center;"><i class="bi bi-arrow-clockwise spin"></i></div>';
+
+        modal.style.display = 'flex';
+        
+        // Initial load of users (recent chats)
+        this.loadForwardUsers('');
+
+        if (input) {
+            input.value = '';
+            input.focus();
+            input.oninput = (e) => this.loadForwardUsers(e.target.value);
+        }
+
+        const closeBtn = document.getElementById('closeForwardModal');
+        if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
+
+        if (sendBtn) {
+            sendBtn.onclick = () => this.executeForward();
+        }
+    }
+
+    async loadForwardUsers(query) {
+        const list = document.getElementById('forwardRecipientsList');
+        if (!list) return;
+
+        try {
+            // Use existing search endpoint or filter from local conversations
+            let users = [];
+            if (!query) {
+                // Show people you've chatted with recently
+                users = this.conversations.map(c => ({
+                    id: c.other_user_id,
+                    name: c.other_name,
+                    username: c.other_username,
+                    profile_photo: c.other_profile_photo
+                }));
+            } else {
+                const res = await this.api(`/chats/search?q=${encodeURIComponent(query)}`);
+                users = res.users || [];
+            }
+
+            // Exclude self
+            users = users.filter(u => Number(u.id) !== Number(this.user.id));
+
+            if (users.length === 0) {
+                list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No users found</div>';
+                return;
+            }
+
+            list.innerHTML = users.map(u => {
+                const avatar = this.getAvatarUrl(u);
+                const isSelected = this.forwardRecipients.has(u.id);
+                return `
+                <div class="forward-user-row ${isSelected ? 'selected' : ''}" onclick="app.toggleForwardRecipient(${u.id}, this)">
+                    <img src="${avatar}" class="conv-avatar" style="width: 40px; height: 40px;">
+                    <div class="conv-info">
+                        <div class="conv-name" style="font-size: 14px;">${this.escapeHtml(u.name || u.username)}</div>
+                        <div class="conv-last-msg" style="font-size: 12px;">@${u.username}</div>
+                    </div>
+                    <div class="forward-check">
+                        ${isSelected ? '<i class="bi bi-check-lg"></i>' : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (err) {
+            list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">Failed to load users</div>';
+        }
+    }
+
+    toggleForwardRecipient(userId, el) {
+        if (this.forwardRecipients.has(userId)) {
+            this.forwardRecipients.delete(userId);
+            el.classList.remove('selected');
+            el.querySelector('.forward-check').innerHTML = '';
+        } else {
+            this.forwardRecipients.add(userId);
+            el.classList.add('selected');
+            el.querySelector('.forward-check').innerHTML = '<i class="bi bi-check-lg"></i>';
+        }
+
+        const count = document.getElementById('forwardSelectedCount');
+        const sendBtn = document.getElementById('sendForwardBtn');
+        const size = this.forwardRecipients.size;
+
+        if (count) count.textContent = `${size} selected`;
+        if (sendBtn) sendBtn.disabled = size === 0;
+    }
+
+    async executeForward() {
+        if (!this.selectedMessageId || this.forwardRecipients.size === 0) return;
+        
+        const msgRow = document.querySelector(`.message-row[data-id="${this.selectedMessageId}"]`);
+        const text = msgRow?.querySelector('.message-bubble')?.textContent;
+        if (!text) return;
+
+        const sendBtn = document.getElementById('sendForwardBtn');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i> Sending...';
+        }
+
+        try {
+            const res = await this.api('/chats/forward', {
+                method: 'POST',
+                body: JSON.stringify({
+                    userIds: Array.from(this.forwardRecipients),
+                    text: text
+                })
+            });
+
+            if (res.success) {
+                this.showToast(`Forwarded to ${res.count} ${res.count === 1 ? 'person' : 'people'}`);
+                document.getElementById('forwardModal').style.display = 'none';
+                this.loadConversations(); // Refresh inbox
+            }
+        } catch (err) {
+            this.showToast('Failed to forward', 'error');
+        } finally {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = 'Send';
+            }
+        }
     }
 
     escapeHtml(str) {
