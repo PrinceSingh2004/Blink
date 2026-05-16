@@ -49,7 +49,7 @@ exports.getUser = async (req, res) => {
         const [rows] = await sequelize.query(`
             SELECT 
                 u.id, u.username, u.name, u.profile_photo, u.bio,
-                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'user_id'} = u.id) AS posts_count,
+                (SELECT COUNT(*) FROM videos WHERE ${videoUserCol || 'user_id'} = u.id AND is_active = 1) AS posts_count,
                 (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS followers_count,
                 (SELECT COUNT(*) FROM follows WHERE follower_id = u.id) AS following_count,
                 EXISTS(SELECT 1 FROM follows WHERE follower_id = ? AND following_id = u.id) AS is_following

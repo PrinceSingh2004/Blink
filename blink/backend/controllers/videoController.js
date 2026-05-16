@@ -72,7 +72,7 @@ exports.getFeed = async (req, res) => {
                 EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.following_id = u.id) AS is_following
             FROM videos v
             LEFT JOIN users u ON v.${cols.userCol} = u.id
-            WHERE (v.${cols.activeCol} = true OR v.${cols.activeCol} = 1)
+            WHERE (v.${cols.activeCol} = 1)
               AND v.${cols.videoUrlCol} IS NOT NULL
               AND v.${cols.videoUrlCol} != ''
             ORDER BY (
