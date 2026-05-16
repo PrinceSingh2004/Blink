@@ -46,6 +46,10 @@ async function resolveVideoCols() {
  */
 exports.getFeed = async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = (page - 1) * limit;
+
         const cols = await resolveVideoCols();
 
         const query = `
@@ -66,12 +70,12 @@ exports.getFeed = async (req, res) => {
             FROM videos v
             LEFT JOIN users u ON v.${cols.userCol} = u.id
             WHERE v.${cols.activeCol} = 1
-            ORDER BY (v.${cols.viewsCol} * 1 + v.${cols.likesCol} * 3 + v.${cols.commentsCol} * 2) DESC, v.created_at DESC
-            LIMIT 20
+            ORDER BY (RANDOM() * 0.4 + COALESCE(v.${cols.likesCol}, 0) * 0.3 + COALESCE(v.${cols.viewsCol}, 0) * 0.2) DESC, v.created_at DESC
+            LIMIT ? OFFSET ?
         `;
 
         const currentUserId = req.user ? req.user.id : null;
-        const [rows] = await dbQuery(query, [currentUserId, currentUserId]);
+        const [rows] = await dbQuery(query, [currentUserId, currentUserId, limit, offset]);
         
         const formattedData = rows.map(row => ({
             id: row.id,

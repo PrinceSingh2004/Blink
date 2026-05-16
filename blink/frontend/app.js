@@ -335,7 +335,7 @@ class BlinkApp {
 
         this.currentPage = page;
 
-        if (page === 'feed' && !this.feedLoaded) this.loadFeed();
+        if (page === 'feed') this.loadFeed(1, false);
         if (page === 'explore' && !this.exploreLoaded) this.loadExplore();
         if (page === 'profile') this.loadProfile();
         if (page === 'chat') {
@@ -399,41 +399,59 @@ class BlinkApp {
     /* ─────────────────────────────────────────────────────────
        VIDEO FEED — With all social features
        ───────────────────────────────────────────────────────── */
-    async loadFeed() {
+    async loadFeed(page = 1, append = false) {
         const container = document.getElementById('reelsContainer');
         if (!container) return;
 
         try {
-            const data = await this.api('/videos/feed');
+            if (!append) {
+                this.feedPage = 1;
+            } else {
+                this.feedPage = page;
+            }
+
+            const data = await this.api(`/videos/feed?page=${this.feedPage}&limit=20`);
+            
             if (!data?.data || data.data.length === 0) {
-                container.innerHTML = `
-                    <div class="feed-empty">
-                        <i class="bi bi-camera-video"></i>
-                        <h2>No videos yet</h2>
-                        <p>Be the first to share a Blink!</p>
-                    </div>`;
+                if (!append) {
+                    container.innerHTML = `
+                        <div class="feed-empty">
+                            <i class="bi bi-camera-video"></i>
+                            <h2>No videos yet</h2>
+                            <p>Be the first to share a Blink!</p>
+                        </div>`;
+                }
                 return;
             }
 
-            container.innerHTML = data.data.map(v => this.createReelCard(v)).join('');
+            const html = data.data.map(v => this.createReelCard(v)).join('');
+            
+            if (append) {
+                container.insertAdjacentHTML('beforeend', html);
+            } else {
+                container.innerHTML = html;
+            }
+
             this.feedLoaded = true;
             this.setupReelInteractions();
             this.setupAutoplay();
         } catch (err) {
             this.feedLoaded = false; // allow retry
-            container.innerHTML = `
-                <div class="feed-empty">
-                    <i class="bi bi-wifi-off"></i>
-                    <h2>Connection Error</h2>
-                    <p>${err.message || 'Failed to load feed'}</p>
-                    <button id="retryFeedBtn" class="btn-primary" style="margin-top: 1.5rem; padding: 12px 32px;">
-                        <i class="bi bi-arrow-clockwise"></i> Retry
-                    </button>
-                </div>`;
-            document.getElementById('retryFeedBtn')?.addEventListener('click', () => {
-                container.innerHTML = '<div class="reels-loading"><div class="pulse-loader"></div><p>Retrying...</p></div>';
-                this.loadFeed();
-            });
+            if (!append) {
+                container.innerHTML = `
+                    <div class="feed-empty">
+                        <i class="bi bi-wifi-off"></i>
+                        <h2>Connection Error</h2>
+                        <p>${err.message || 'Failed to load feed'}</p>
+                        <button id="retryFeedBtn" class="btn-primary" style="margin-top: 1.5rem; padding: 12px 32px;">
+                            <i class="bi bi-arrow-clockwise"></i> Retry
+                        </button>
+                    </div>`;
+                document.getElementById('retryFeedBtn')?.addEventListener('click', () => {
+                    container.innerHTML = '<div class="reels-loading"><div class="pulse-loader"></div><p>Retrying...</p></div>';
+                    this.loadFeed(1, false);
+                });
+            }
         }
     }
 
@@ -491,6 +509,9 @@ class BlinkApp {
         const cards = document.querySelectorAll('.reel-card');
 
         cards.forEach(card => {
+            if (card.dataset.eventsBound) return;
+            card.dataset.eventsBound = '1';
+
             const video = card.querySelector('video');
             const indicator = card.querySelector('.reel-play-indicator');
             const doubleTapHeart = card.querySelector('.double-tap-heart');
