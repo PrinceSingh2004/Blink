@@ -129,14 +129,16 @@ const initDB = async () => {
         await sequelize.query(`
             CREATE TABLE IF NOT EXISTS messages (
                 id SERIAL PRIMARY KEY,
-                conversation_id INT NOT NULL,
+                conversation_id INT NULL,
                 sender_id INT NOT NULL,
-                text TEXT DEFAULT NULL,
+                receiver_id INT NOT NULL,
+                message TEXT NOT NULL,
                 media_url TEXT DEFAULT NULL,
-                seen SMALLINT DEFAULT 0,
+                is_read SMALLINT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
-                FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE
+                FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
             )
         `);
 
@@ -167,6 +169,16 @@ const initDB = async () => {
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
             )
         `);
+
+        // Migration: Ensure messages table has receiver_id, message, is_read
+        try {
+            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS receiver_id INT');
+            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS message TEXT');
+            await sequelize.query('ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read SMALLINT DEFAULT 0');
+            // Data migration if needed (copy text to message, seen to is_read)
+            await sequelize.query('UPDATE messages SET message = text WHERE message IS NULL AND text IS NOT NULL');
+            await sequelize.query('UPDATE messages SET is_read = seen WHERE is_read IS NULL AND seen IS NOT NULL');
+        } catch (e) {}
 
         console.log('✅ Database schema synchronized.');
     } catch (err) {

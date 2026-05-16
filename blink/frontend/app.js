@@ -1808,6 +1808,12 @@ class BlinkApp {
 
     async openChat(convId, username, avatar) {
         this.activeConversationId = convId;
+        this.activeReceiverId = null; // Will be derived from conversation if needed, or set explicitly
+        
+        // Find other user id from conversations list
+        const conv = this.conversations.find(c => c.id === convId);
+        if (conv) this.activeReceiverId = conv.other_user_id;
+
         this.renderConversations(); // Update active state in list
 
         // UI Transitions
@@ -1843,14 +1849,23 @@ class BlinkApp {
         const container = document.getElementById('chatMessages');
         if (!container) return;
 
+        if (messages.length === 0) {
+            container.innerHTML = `
+                <div class="chat-empty-history">
+                    <div class="empty-history-icon"><i class="bi bi-chat-dots"></i></div>
+                    <p>Start your conversation 👋</p>
+                </div>`;
+            return;
+        }
+
         container.innerHTML = messages.map(m => {
             const isSent = m.sender_id === this.user.id;
-            const seenIcon = isSent ? (m.seen ? '<i class="bi bi-check2-all msg-seen"></i>' : '<i class="bi bi-check2"></i>') : '';
+            const seenIcon = isSent ? (m.is_read ? '<i class="bi bi-check2-all msg-seen"></i>' : '<i class="bi bi-check2"></i>') : '';
             return `
             <div class="message ${isSent ? 'sent' : 'received'}">
-                <div class="msg-bubble">${this.escapeHtml(m.text)}</div>
+                <div class="msg-bubble">${this.escapeHtml(m.message || m.text || '')}</div>
                 <div class="msg-meta">
-                    ${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    ${new Date(m.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     ${seenIcon}
                 </div>
             </div>`;
@@ -1862,54 +1877,75 @@ class BlinkApp {
     async sendMessage() {
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
-        if (!text || !this.activeConversationId) return;
+        if (!text) return;
 
-        const conv = this.conversations.find(c => c.id === this.activeConversationId);
-        const receiverId = conv ? conv.other_user_id : null;
+        // Try to get receiverId from active conversation or header
+        let receiverId = this.activeReceiverId;
+        if (!receiverId) {
+            const conv = this.conversations.find(c => c.id === this.activeConversationId);
+            receiverId = conv ? conv.other_user_id : null;
+        }
+
+        if (!receiverId) return;
 
         input.value = '';
         document.getElementById('sendMsgBtn').disabled = true;
 
-        // Optimistic UI & Socket
+        // Optimistic UI Data
         const msgData = {
             conversationId: this.activeConversationId,
             senderId: this.user.id,
             receiverId: receiverId,
-            text: text,
+            message: text,
             created_at: new Date()
         };
 
+        // Append locally for instant feedback
+        this.appendMessageLocally(msgData);
+
+        // Socket emit
         this.socket.emit('send_message', msgData);
         
         // Save to DB
         try {
-            await this.api('/chat/messages', {
+            await this.api(`/chat/${receiverId}`, {
                 method: 'POST',
-                body: JSON.stringify({
-                    receiverId,
-                    text
-                })
+                body: JSON.stringify({ message: text })
             });
         } catch (err) {
             this.showToast('Message failed to sync', 'error');
         }
     }
 
+    appendMessageLocally(msg) {
+        const container = document.getElementById('chatMessages');
+        if (!container) return;
+        
+        // Remove empty history message if present
+        const empty = container.querySelector('.chat-empty-history');
+        if (empty) empty.remove();
+
+        const isSent = msg.senderId === this.user.id || msg.sender_id === this.user.id;
+        const msgHtml = `
+        <div class="message ${isSent ? 'sent' : 'received'}">
+            <div class="msg-bubble">${this.escapeHtml(msg.message || msg.text || '')}</div>
+            <div class="msg-meta">
+                ${new Date(msg.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+        </div>`;
+        container.insertAdjacentHTML('beforeend', msgHtml);
+        container.scrollTop = container.scrollHeight;
+    }
+
     handleReceiveMessage(msg) {
-        if (this.activeConversationId === msg.conversationId) {
-            const container = document.getElementById('chatMessages');
-            const isSent = msg.senderId === this.user.id;
-            const msgHtml = `
-            <div class="message ${isSent ? 'sent' : 'received'}">
-                <div class="msg-bubble">${this.escapeHtml(msg.text)}</div>
-                <div class="msg-meta">
-                    ${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-            </div>`;
-            container.insertAdjacentHTML('beforeend', msgHtml);
-            container.scrollTop = container.scrollHeight;
+        const isCurrentConv = (this.activeConversationId === msg.conversationId) || 
+                             (this.activeReceiverId && (msg.sender_id === this.activeReceiverId || msg.receiver_id === this.activeReceiverId));
+
+        if (isCurrentConv) {
+            this.appendMessageLocally(msg);
             
             // Emit seen if received
+            const isSent = msg.sender_id === this.user.id;
             if (!isSent) this.socket.emit('seen', { conversationId: msg.conversationId, userId: this.user.id });
         }
         this.loadConversations(); // Refresh last message in list
@@ -1943,27 +1979,42 @@ class BlinkApp {
     async openChatWithUser(userId, username, avatar) {
         if (!this.user) { this.showToast('Please sign in to message', 'error'); return; }
         
-        try {
-            // First we ensure the conversation exists by calling the sendMessage endpoint with empty/init
-            // or we just find the conversation ID.
-            const data = await this.api('/chat/messages', {
-                method: 'POST',
-                body: JSON.stringify({
-                    receiverId: userId,
-                    text: '' // Initialize conversation
-                })
-            });
+        this.activeReceiverId = userId;
+        this.activeConversationId = null;
 
-            if (data?.conversationId) {
-                this.navigateTo('chat');
-                // Wait for page transition then open
-                setTimeout(() => {
-                    this.openChat(data.conversationId, username, avatar);
-                }, 100);
+        // UI Transitions
+        this.navigateTo('chat');
+
+        setTimeout(async () => {
+            // Header Info
+            document.getElementById('chatHeaderName').textContent = username;
+            document.getElementById('chatHeaderAvatar').src = avatar;
+            document.getElementById('chatEmptyState').style.display = 'none';
+            document.getElementById('chatActive').style.display = 'flex';
+            
+            if (window.innerWidth <= 768) {
+                document.getElementById('chatListPanel').classList.add('hidden');
+                document.getElementById('chatWindowPanel').classList.add('active');
             }
-        } catch (err) {
-            this.showToast('Failed to start chat', 'error');
-        }
+
+            const msgContainer = document.getElementById('chatMessages');
+            msgContainer.innerHTML = '<div class="chat-loading"><i class="bi bi-arrow-clockwise spin"></i></div>';
+
+            try {
+                const data = await this.api(`/chat/${userId}`);
+                this.renderMessages(data.messages || []);
+                
+                // If messages exist, we might have a conversationId now
+                if (data.messages && data.messages.length > 0) {
+                    this.activeConversationId = data.messages[0].conversation_id;
+                    if (this.activeConversationId) {
+                        this.socket.emit('join_room', this.activeConversationId);
+                    }
+                }
+            } catch (err) {
+                msgContainer.innerHTML = '<div class="chat-error">Failed to load history</div>';
+            }
+        }, 100);
     }
 
     escapeHtml(str) {

@@ -23,17 +23,11 @@ const initSocket = (server) => {
         socket.on('join', (userId) => {
             if (!userId) return;
             socket.userId = userId;
-            
-            // Register socket
-            if (userSockets.has(userId)) {
-                userSockets.get(userId).add(socket.id);
-            } else {
-                userSockets.set(userId, new Set([socket.id]));
-            }
+            socket.join(`user_${userId}`);
             
             // Broadcast online status
             io.emit('online_status', { userId, status: 'online' });
-            console.log(`👤 User ${userId} is online`);
+            console.log(`👤 User ${userId} joined room user_${userId}`);
         });
 
         socket.on('join_room', (convId) => {
@@ -42,20 +36,23 @@ const initSocket = (server) => {
         });
 
         socket.on('send_message', (data) => {
-            // Data should have: conversationId, senderId, text, receiverId
-            const { conversationId, senderId, text, receiverId } = data;
+            // Data should have: conversationId, senderId, message, receiverId
+            const { conversationId, senderId, message, receiverId } = data;
             
-            // Emit to room
-            io.to(`conv_${conversationId}`).emit('receive_message', { 
-                conversationId, senderId, text, created_at: new Date() 
-            });
+            const msgToEmit = { 
+                conversationId, 
+                sender_id: senderId, 
+                receiver_id: receiverId,
+                message, 
+                created_at: new Date() 
+            };
 
-            // Emit notification if receiver is not in room
-            if (userSockets.has(receiverId)) {
-                userSockets.get(receiverId).forEach(sid => {
-                    io.to(sid).emit('new_message_notification', { conversationId, senderId, text });
-                });
-            }
+            // Emit to conversation room (for users currently in the chat)
+            io.to(`conv_${conversationId}`).emit('receive_message', msgToEmit);
+
+            // Emit notification/message to receiver's user room
+            io.to(`user_${receiverId}`).emit('receive_message', msgToEmit);
+            io.to(`user_${receiverId}`).emit('new_message_notification', msgToEmit);
         });
 
         socket.on('typing', (data) => {
@@ -64,21 +61,14 @@ const initSocket = (server) => {
         });
 
         socket.on('seen', (data) => {
-            const { conversationId, messageId, userId } = data;
-            socket.to(`conv_${conversationId}`).emit('message_seen', { conversationId, messageId });
+            const { conversationId, userId } = data;
+            socket.to(`conv_${conversationId}`).emit('message_seen', { conversationId, userId });
         });
 
         socket.on('disconnect', () => {
             if (socket.userId) {
-                const sids = userSockets.get(socket.userId);
-                if (sids) {
-                    sids.delete(socket.id);
-                    if (sids.size === 0) {
-                        userSockets.delete(socket.userId);
-                        io.emit('online_status', { userId: socket.userId, status: 'offline' });
-                        console.log(`👤 User ${socket.userId} is offline`);
-                    }
-                }
+                io.emit('online_status', { userId: socket.userId, status: 'offline' });
+                console.log(`👤 User ${socket.userId} is offline`);
             }
             console.log('🔌 Socket disconnected:', socket.id);
         });

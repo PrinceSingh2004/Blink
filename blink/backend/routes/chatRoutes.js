@@ -12,4 +12,8 @@ router.get('/conversations', protect, getConversations);
 router.get('/messages/:convId', protect, getMessages);
 router.post('/messages', protect, sendMessage);
 
+// New User-based routes
+router.get('/:userId', protect, getMessages); // Overloaded or specific? Let's make it consistent
+router.post('/:userId', protect, sendMessage);
+
 module.exports = router;
