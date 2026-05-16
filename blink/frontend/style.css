@@ -1355,8 +1355,8 @@ img { display: block; max-width: 100%; }
 }
 
 @media (max-width: 768px) {
-    .sidebar { display: none; }
-    .bottom-nav { display: flex; }
+    .sidebar { display: none !important; }
+    .bottom-nav { display: flex !important; }
     .main-content { padding-bottom: 90px; }
     .auth-card { padding: 32px 24px; margin: 16px; }
     .auth-brand { font-size: 30px; }

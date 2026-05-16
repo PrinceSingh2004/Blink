@@ -87,7 +87,9 @@ class BlinkApp {
             const data = await res.json().catch(() => null);
 
             if (res.status === 401) {
-                this.forceLogout(true, "Session expired. Please login again.");
+                if (this.token) {
+                    this.forceLogout(true, "Session expired. Please login again.");
+                }
                 return null;
             }
             if (!res.ok) {
@@ -100,6 +102,29 @@ class BlinkApp {
             console.error(`API ${endpoint} failed:`, err.message, err);
             throw err;
         }
+    }
+
+    getAvatarUrl(user) {
+        const name = user?.name || user?.username || "User";
+        return (
+            user?.profile_photo || 
+            user?.profilePhoto || 
+            user?.avatar || 
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff&bold=true`
+        );
+    }
+
+    requireAuth() {
+        if (!this.token || !this.user) {
+            this.showLoginModal();
+            return false;
+        }
+        return true;
+    }
+
+    showLoginModal() {
+        document.getElementById('authOverlay').style.display = 'flex';
+        this.showToast("Please login to continue", "info");
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -239,16 +264,23 @@ class BlinkApp {
     checkAuth() {
         const overlay = document.getElementById('authOverlay');
         const shell = document.getElementById('appShell');
+        
+        // Show shell to everyone for public content
+        shell.style.display = 'flex';
+        
         if (this.token && this.user) {
             overlay.style.display = 'none';
-            shell.style.display = 'flex';
             this.updateSidebar();
             this.loadConversations();
-            this.navigateTo('feed');
         } else {
-            overlay.style.display = 'flex';
-            shell.style.display = 'none';
+            // Default to landing state if not logged in
+            // But let them see the feed
+            overlay.style.display = 'none'; 
+            this.updateSidebar();
         }
+        
+        const lastPage = localStorage.getItem('lastPage') || 'feed';
+        this.navigateTo(lastPage);
     }
 
     setAuth(token, user) {
@@ -298,15 +330,23 @@ class BlinkApp {
     }
 
     updateSidebar() {
-        if (!this.user) return;
         const name = document.getElementById('sidebarUsername');
         const avatar = document.getElementById('sidebarAvatar');
-        if (name) name.textContent = `@${this.user.username}`;
-        if (avatar) {
-            if (this.user.profile_photo) {
-                avatar.innerHTML = `<img src="${this.user.profile_photo}" alt="avatar">`;
-            } else {
-                avatar.textContent = (this.user.username || 'U')[0].toUpperCase();
+        const bottomLink = document.getElementById('bottomProfileLink');
+
+        if (this.token && this.user) {
+            const avatarUrl = this.getAvatarUrl(this.user);
+            if (name) name.textContent = `@${this.user.username}`;
+            if (avatar) avatar.innerHTML = `<img src="${avatarUrl}" alt="avatar" class="sidebar-avatar-img">`;
+            
+            if (bottomLink) {
+                bottomLink.innerHTML = `<img src="${avatarUrl}" class="bottom-avatar-img" alt="me"><span>Profile</span>`;
+            }
+        } else {
+            if (name) name.textContent = 'Guest';
+            if (avatar) avatar.innerHTML = `<i class="bi bi-person-circle"></i>`;
+            if (bottomLink) {
+                bottomLink.innerHTML = `<i class="bi bi-person-circle"></i><span>Profile</span>`;
             }
         }
     }
@@ -424,6 +464,24 @@ class BlinkApp {
                 return;
             }
 
+            if (data.data.length === 0 && !append) {
+                container.innerHTML = `
+                    <div class="feed-empty">
+                        <div class="empty-icon-wrap">
+                            <i class="bi bi-camera-reels"></i>
+                        </div>
+                        <h2>Nothing to see here</h2>
+                        <p>The feed is quiet. Be the pioneer of new content or explore creators!</p>
+                        <div class="empty-actions" style="display:flex; gap:12px; justify-content:center;">
+                            <button class="btn-primary" id="emptyUploadBtn" style="padding:10px 24px;">Upload Video</button>
+                            <button class="btn-outline" id="emptyExploreBtn" style="padding:10px 24px;">Explore</button>
+                        </div>
+                    </div>`;
+                document.getElementById('emptyUploadBtn')?.addEventListener('click', () => this.navigateTo('upload'));
+                document.getElementById('emptyExploreBtn')?.addEventListener('click', () => this.navigateTo('explore'));
+                return;
+            }
+
             const html = data.data.map(v => this.createReelCard(v)).join('');
             
             if (append) {
@@ -436,11 +494,13 @@ class BlinkApp {
             this.setupReelInteractions();
             this.setupAutoplay();
         } catch (err) {
-            this.feedLoaded = false; // allow retry
+            this.feedLoaded = false;
             if (!append) {
                 container.innerHTML = `
                     <div class="feed-empty">
-                        <i class="bi bi-wifi-off"></i>
+                        <div class="empty-icon-wrap">
+                            <i class="bi bi-wifi-off"></i>
+                        </div>
                         <h2>Connection Error</h2>
                         <p>${err.message || 'Failed to load feed'}</p>
                         <button id="retryFeedBtn" class="btn-primary" style="margin-top: 1.5rem; padding: 12px 32px;">
@@ -457,7 +517,7 @@ class BlinkApp {
 
     createReelCard(video) {
         const user = video.user || {};
-        const avatar = user.profilePhoto || `https://ui-avatars.com/api/?name=${user.username || 'U'}&background=6366f1&color=fff&size=80`;
+        const avatar = this.getAvatarUrl(user);
         const likedClass = video.isLiked ? 'liked' : '';
         const followBtn = video.isFollowing ? 
             `<button class="reel-follow-btn following" data-id="${user.id}">Following</button>` : 
@@ -470,31 +530,35 @@ class BlinkApp {
             
             <div class="reel-overlay">
                 <div class="reel-user" data-user-id="${user.id}">
-                    <img src="${avatar}" class="reel-avatar reel-author-avatar" alt="${user.username}" loading="lazy" onerror="this.src='https://ui-avatars.com/api/?name=${user.username || 'U'}&background=6366f1&color=fff&size=80'">
-                    <div class="reel-user-row">
-                        <span class="reel-username reel-author-name">@${user.username}</span>
-                        ${!isOwn ? followBtn : ''}
+                    <div class="reel-author" data-user-id="${user.id}">
+                        <img src="${avatar}" class="reel-author-avatar" alt="${user.username}">
+                        <div class="reel-user-row">
+                            <span class="reel-author-name">@${user.username || 'user'}</span>
+                            ${!isOwn ? followBtn : ''}
+                        </div>
                     </div>
                 </div>
                 ${video.caption ? `<p class="reel-caption">${this.escapeHtml(video.caption)}</p>` : ''}
-            </div>
-
-            <div class="reel-actions">
-                <button class="reel-action-btn like-btn ${likedClass}" data-id="${video.id}">
-                    <i class="bi bi-heart-fill"></i>
-                    <span style="font-size:12px; margin-top:2px;">${this.formatCount(video.likes_count || 0)}</span>
-                </button>
-                <button class="reel-action-btn comment-btn" data-id="${video.id}">
-                    <i class="bi bi-chat-dots-fill"></i>
-                    <span style="font-size:12px; margin-top:2px;">${this.formatCount(video.comments_count || 0)}</span>
-                </button>
-                <button class="reel-action-btn view-count-btn">
-                    <i class="bi bi-eye-fill"></i>
-                    <span style="font-size:12px; margin-top:2px;">${this.formatCount(video.views_count || 0)}</span>
-                </button>
-                <button class="reel-action-btn mute-btn" title="Toggle sound">
-                    <i class="bi bi-volume-mute-fill"></i>
-                </button>
+                <div class="reel-actions">
+                    <button class="reel-action-btn like-btn ${likedClass}" data-id="${video.id}">
+                        <i class="bi ${video.isLiked ? 'bi-heart-fill' : 'bi-heart'}"></i>
+                        <span>${this.formatCount(video.likes_count || 0)}</span>
+                    </button>
+                    <button class="reel-action-btn comment-btn" data-id="${video.id}">
+                        <i class="bi bi-chat-dots-fill"></i>
+                        <span>${this.formatCount(video.comments_count || 0)}</span>
+                    </button>
+                    <button class="reel-action-btn view-count-btn">
+                        <i class="bi bi-play-fill"></i>
+                        <span>${this.formatCount(video.views_count || 0)}</span>
+                    </button>
+                    <button class="reel-action-btn mute-btn">
+                        <i class="bi ${this.isMuted ? 'bi-volume-mute-fill' : 'bi-volume-up-fill'}"></i>
+                    </button>
+                    <button class="reel-action-btn share-btn">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
             </div>
             
             <div class="reel-play-indicator"><i class="bi bi-play-fill"></i></div>
@@ -525,7 +589,9 @@ class BlinkApp {
                 if (timeSince < 300 && timeSince > 0) {
                     // Double tap detected!
                     e.preventDefault();
-                    this.handleDoubleTapLike(card);
+                    if (this.requireAuth()) {
+                        this.handleDoubleTapLike(card);
+                    }
                 } else {
                     // Single tap — play/pause after a short delay
                     setTimeout(() => {
@@ -552,6 +618,7 @@ class BlinkApp {
         document.querySelectorAll('.like-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
+                if (!this.requireAuth()) return;
                 await this.toggleLike(btn);
             });
         });
@@ -638,6 +705,7 @@ class BlinkApp {
         document.querySelectorAll('.reel-follow-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
+                if (!this.requireAuth()) return;
                 await this.toggleFollow(btn);
             });
         });
@@ -793,6 +861,7 @@ class BlinkApp {
         // Submit
         form?.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!this.requireAuth()) return;
             const input = document.getElementById('commentInput');
             const text = input.value.trim();
             if (!text || !this.commentVideoId) return;
@@ -840,8 +909,11 @@ class BlinkApp {
             if (comments.length === 0) {
                 list.innerHTML = `
                     <div class="comments-empty">
-                        <i class="bi bi-chat-dots"></i>
-                        <p>No comments yet. Be the first!</p>
+                        <div class="empty-icon-wrap" style="width:60px; height:60px; font-size:24px;">
+                            <i class="bi bi-chat-dots"></i>
+                        </div>
+                        <p style="color:var(--text-primary); font-weight:600; margin-bottom:4px;">No comments yet</p>
+                        <p style="font-size:12px;">Be the first to share your thoughts!</p>
                     </div>`;
             } else {
                 list.innerHTML = comments.map(c => this.createCommentHTML(c)).join('');
@@ -860,7 +932,10 @@ class BlinkApp {
     }
 
     createCommentHTML(c) {
-        const avatar = c.profile_photo || `https://ui-avatars.com/api/?name=${c.username}&background=6366f1&color=fff&size=72`;
+        const avatar = this.getAvatarUrl({
+            profile_photo: c.profile_photo,
+            username: c.username
+        });
         const isOwn = this.user && c.user_id === this.user.id;
         return `
         <div class="comment-item" data-id="${c.id}">
@@ -998,7 +1073,7 @@ class BlinkApp {
                 if (data?.success) {
                     this.showToast('Profile updated!', 'success');
                     editProfileModal.style.display = 'none';
-                    this.loadProfile(); // reload self
+                    this.loadProfile();
                 }
             } catch (err) {
                 alert.textContent = err.message || 'Failed to update profile';
@@ -1059,7 +1134,10 @@ class BlinkApp {
     }
 
     async loadProfile() {
-        if (!this.user) return;
+        if (!this.requireAuth()) {
+            this.navigateTo('feed');
+            return;
+        }
 
         try {
             const data = await this.api('/users/me');
@@ -1074,8 +1152,7 @@ class BlinkApp {
                 document.getElementById('statLikes').textContent = this.formatCount(u.total_likes || 0);
                 document.getElementById('statViews').textContent = this.formatCount(u.total_views || 0);
 
-                const avatarUrl = u.profile_photo || `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
-                document.getElementById('profileAvatar').src = avatarUrl;
+                document.getElementById('profileAvatar').src = this.getAvatarUrl(u);
 
                 // Update sidebar too
                 this.user = { ...this.user, ...u };
@@ -1121,7 +1198,7 @@ class BlinkApp {
                 document.getElementById('userStatLikes').textContent = this.formatCount(u.total_likes || 0);
                 document.getElementById('userStatViews').textContent = this.formatCount(u.total_views || 0);
 
-                const avatarUrl = u.profile_photo || `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
+                const avatarUrl = this.getAvatarUrl(u);
                 document.getElementById('userProfileAvatar').src = avatarUrl;
                 
                 // Profile Actions
@@ -1138,8 +1215,12 @@ class BlinkApp {
                     `;
                     const fBtn = document.getElementById('followBtn');
                     fBtn.dataset.id = u.id; // required for toggleFollow
-                    fBtn.onclick = () => this.toggleFollow(fBtn);
-                    document.getElementById('profileMsgBtn').onclick = () => this.openChatWithUser(u.id, u.username, avatarUrl);
+                    fBtn.onclick = () => {
+                        if (this.requireAuth()) this.toggleFollow(fBtn);
+                    };
+                    document.getElementById('profileMsgBtn').onclick = () => {
+                        if (this.requireAuth()) this.openChatWithUser(u.id, u.username, avatarUrl);
+                    };
                 }
 
                 this.loadUserVideos(userId, 'userProfileVideos');
@@ -1330,10 +1411,12 @@ class BlinkApp {
         }
 
         grid.innerHTML = users.map(u => {
-            const avatar = u.profile_photo || `https://ui-avatars.com/api/?name=${u.username}&background=6366f1&color=fff&size=150`;
+            const avatar = this.getAvatarUrl(u);
             return `
             <div class="user-card" data-user-id="${u.id}">
-                <img src="${avatar}" class="user-card-avatar" alt="${u.username}">
+                <div class="user-card-avatar-wrap">
+                    <img src="${avatar}" class="user-card-avatar" alt="${u.username}">
+                </div>
                 <div class="user-card-name">@${u.username}</div>
                 <div class="user-card-bio">${this.escapeHtml(u.bio || 'Blink Creator')}</div>
             </div>`;
@@ -1397,6 +1480,7 @@ class BlinkApp {
         };
 
         uploadBtn?.addEventListener('click', async () => {
+            if (!this.requireAuth()) return;
             if (!selectedFile) return;
             
             const performUpload = async (retryCount = 0) => {
@@ -1646,7 +1730,10 @@ class BlinkApp {
         }
 
         list.innerHTML = this.conversations.map(c => {
-            const avatar = c.other_profile_photo || `https://ui-avatars.com/api/?name=${c.other_username}&background=6366f1&color=fff`;
+            const avatar = this.getAvatarUrl({
+                profile_photo: c.other_profile_photo,
+                username: c.other_username
+            });
             const activeClass = this.activeConversationId === c.id ? 'active' : '';
             const unread = c.unread_count > 0 ? `<span class="conv-unread">${c.unread_count}</span>` : '';
             
