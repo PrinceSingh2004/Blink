@@ -623,17 +623,22 @@ class BlinkApp {
     }
 
     async toggleFollow(btn) {
+        if (!this.user) { this.showToast('Please sign in to follow', 'error'); return; }
+        if (btn.disabled) return;
+        
+        btn.disabled = true;
         const userId = btn.dataset.id;
         const isFollowing = btn.classList.contains('following');
         
+        // Optimistic UI update
         btn.classList.toggle('following');
         btn.textContent = isFollowing ? 'Follow' : 'Following';
 
         try {
             const data = await this.api(`/users/follow/${userId}`, { method: 'POST' });
             if (data?.success) {
-                // Keep the state synced with the server response
-                document.querySelectorAll(`.reel-follow-btn[data-id="${userId}"], .profile-follow-btn[data-id="${userId}"]`).forEach(b => {
+                // Keep the state synced with the server response across all instances
+                document.querySelectorAll(`button[data-id="${userId}"].following, button[data-id="${userId}"].profile-follow-btn, button[data-id="${userId}"].btn-primary, button[data-id="${userId}"].reel-follow-btn`).forEach(b => {
                     b.classList.toggle('following', data.isFollowing);
                     b.textContent = data.isFollowing ? 'Following' : 'Follow';
                 });
@@ -643,11 +648,19 @@ class BlinkApp {
                 if (userStatFollowers && document.getElementById('page-user-profile').classList.contains('active')) {
                     userStatFollowers.textContent = this.formatCount(data.followersCount || 0);
                 }
+
+                // Show single success toast
+                if (data.message) {
+                    this.showToast(data.message, 'success');
+                }
             }
         } catch (err) {
+            // Revert optimistic update on failure
             btn.classList.toggle('following', isFollowing);
             btn.textContent = isFollowing ? 'Following' : 'Follow';
-            this.showToast('Failed to follow user', 'error');
+            this.showToast('Failed to toggle follow', 'error');
+        } finally {
+            btn.disabled = false;
         }
     }
 
@@ -1103,21 +1116,7 @@ class BlinkApp {
         }
     }
 
-    async toggleFollow(userId) {
-        const btn = document.getElementById('followBtn');
-        if (!this.user) { this.showToast('Please sign in to follow', 'error'); return; }
-        
-        try {
-            const data = await this.api(`/users/follow/${userId}`, { method: 'POST' });
-            if (data?.success) {
-                const isFollowing = btn.classList.toggle('following');
-                btn.textContent = isFollowing ? 'Following' : 'Follow';
-                this.showToast(isFollowing ? 'Followed!' : 'Unfollowed');
-            }
-        } catch (err) {
-            this.showToast('Failed to toggle follow', 'error');
-        }
-    }
+
 
     async loadUserVideos(userId, containerId) {
         const container = document.getElementById(containerId);

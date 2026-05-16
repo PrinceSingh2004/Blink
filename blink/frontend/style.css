@@ -755,17 +755,32 @@ img { display: block; max-width: 100%; }
 /* ══════════════════════════════════════════════════════════
    PROFILE PAGE (shared between self & other-user)
    ══════════════════════════════════════════════════════════ */
-.profile-container { max-width: 700px; margin: 0 auto; padding: 40px 24px; }
+.profile-container {
+  width: 100%;
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+}
+
 .profile-header {
-    display: flex; align-items: center; gap: 28px;
-    margin-bottom: 40px; padding: 32px;
-    background: var(--bg-surface); border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  background: linear-gradient(135deg, #111827, #1f2937);
+  border-radius: 24px;
+  padding: 24px;
+  color: white;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 30px;
 }
 .profile-avatar-wrap { position: relative; flex-shrink: 0; }
 .profile-avatar {
-    width: 100px; height: 100px; border-radius: 50%;
-    border: 3px solid var(--accent); object-fit: cover;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #6366f1;
 }
 .profile-avatar-edit {
     position: absolute; bottom: 2px; right: 2px;

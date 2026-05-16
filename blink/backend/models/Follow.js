@@ -13,6 +13,12 @@ const Follow = sequelize.define("Follow", {
 }, {
   tableName: "follows",
   timestamps: true,
+  indexes: [
+    {
+      unique: true,
+      fields: ['follower_id', 'following_id']
+    }
+  ]
 });
 
 module.exports = Follow;

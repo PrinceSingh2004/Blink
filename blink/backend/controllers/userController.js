@@ -140,14 +140,25 @@ exports.followUser = async (req, res) => {
         }
 
         const [followersResult] = await sequelize.query('SELECT COUNT(*) as count FROM follows WHERE following_id = ?', { replacements: [followingId] });
-        const followersCount = followersResult[0].count;
+        const followersCount = parseInt(followersResult[0].count, 10);
 
         const [followingResult] = await sequelize.query('SELECT COUNT(*) as count FROM follows WHERE follower_id = ?', { replacements: [followingId] });
-        const followingCount = followingResult[0].count;
+        const followingCount = parseInt(followingResult[0].count, 10);
 
-        res.json({ success: true, isFollowing, followersCount, followingCount });
-    } catch (err) {
-        res.status(500).json({ error: 'Follow failed' });
+        res.json({ 
+            success: true, 
+            isFollowing, 
+            followersCount, 
+            followingCount,
+            message: isFollowing ? "Followed successfully" : "Unfollowed successfully"
+        });
+    } catch (error) {
+        console.error("Follow toggle error:", error);
+        res.status(500).json({ 
+            success: false, 
+            message: "Failed to toggle follow", 
+            error: error.message 
+        });
     }
 };
 
